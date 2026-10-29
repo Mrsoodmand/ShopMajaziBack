@@ -1,13 +1,12 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { AlertTriangle, MousePointerClick, Scale, SearchX, X } from 'lucide-react';
 import { useQuery } from '../../lib/api';
 import { useBoot } from '../../lib/boot';
 import { toman, waited } from '../../lib/format';
 import { PayStatus } from '../../components/Status';
-import { ErrorState, FieldError, FilterTabs, Pager, SearchField, SkeletonRows } from '../../components/ui';
+import { ErrorState, FilterTabs, SkeletonRows } from '../../components/ui';
+import { FilterBar, ListPager, type FilterDef } from '../../components/DataList';
 import TransactionPanel from './TransactionPanel';
-import { jalali, matchPreset, normalizeJalali, presetRange, presets, type RangePreset } from './dates';
 import { gateName, type TransactionRow, type TransactionsPage as PageData, type View } from './types';
 
 const views: { id: View; label: string }[] = [
@@ -19,14 +18,21 @@ const views: { id: View; label: string }[] = [
 ];
 
 const gates = [
-    { id: '', label: 'همه روش‌ها' },
-    { id: 'Bank', label: 'درگاه بانک' },
-    { id: 'Wallet', label: 'کیف پول' },
-    { id: 'none', label: 'سیستمی (عودت، پورسانت)' },
+    { value: 'Bank', label: 'درگاه بانک' },
+    { value: 'Wallet', label: 'کیف پول' },
+    { value: 'none', label: 'سیستمی (عودت، پورسانت)' },
+];
+
+const sorts = [
+    { value: '', label: 'ترتیب پیش‌فرض' },
+    { value: 'newest', label: 'جدیدترین' },
+    { value: 'oldest', label: 'قدیمی‌ترین' },
+    { value: 'price_desc', label: 'بیشترین مبلغ' },
+    { value: 'price_asc', label: 'کمترین مبلغ' },
 ];
 
 /** Filters kept in the URL; `kind` is the payment type (`type` is taken by the sidebar's order links). */
-const FILTERS = ['q', 'kind', 'gate', 'from', 'to', 'user'] as const;
+const FILTERS = ['q', 'kind', 'gate', 'from', 'to', 'min', 'max', 'user'] as const;
 
 export default function TransactionsPage() {
     const { labels } = useBoot();
@@ -47,6 +53,10 @@ export default function TransactionsPage() {
         from: get('from'),
         to: get('to'),
         user: get('user'),
+        min: get('min'),
+        max: get('max'),
+        sort: get('sort'),
+        per: get('per'),
         page: String(page),
     })}`;
     const { data, error, loading, reload } = useQuery<PageData>(apiUrl);
@@ -65,6 +75,12 @@ export default function TransactionsPage() {
     const open = (txId: number) => navigate({ pathname: `/transactions/${txId}`, search });
     const close = () => navigate({ pathname: '/transactions', search });
     const filtered = FILTERS.some((k) => get(k));
+    const filterDefs: FilterDef[] = [
+        { type: 'select', key: 'kind', label: 'نوع تراکنش', any: 'همه انواع', options: Object.entries(labels.paymentType).map(([value, label]) => ({ value, label })) },
+        { type: 'select', key: 'gate', label: 'روش پرداخت', any: 'همه روش‌ها', options: gates },
+        { type: 'dates', label: 'تاریخ' },
+        { type: 'range', label: 'مبلغ', unit: 'تومان' },
+    ];
     const limited = data && data.scope !== 'all' ? data.scope : null;
 
     return (
@@ -84,17 +100,19 @@ export default function TransactionsPage() {
                     </p>
                 </header>
 
-                <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <FilterTabs label="فیلتر وضعیت" items={views} value={view} counts={data?.counts} attention="review" onChange={(v) => update({ view: v })} />
-                    <SearchField
-                        value={get('q')}
-                        onSearch={(q) => update({ q })}
-                        label="جستجو با شماره تراکنش، کد رهگیری، شماره سفارش یا موبایل"
-                        placeholder="شماره تراکنش، کد رهگیری یا موبایل"
-                    />
-                </div>
-
-                <Filters params={params} update={update} user={data?.user ?? null} onReset={() => setParams(new URLSearchParams(view === 'review' ? {} : { view }))} />
+                <FilterBar
+                    views={<FilterTabs label="فیلتر وضعیت" items={views} value={view} counts={data?.counts} attention="review" onChange={(v) => update({ view: v })} />}
+                    search={{ label: 'جستجو با شماره تراکنش، کد رهگیری، شماره سفارش یا موبایل', placeholder: 'شماره تراکنش، کد رهگیری یا موبایل' }}
+                    filters={filterDefs}
+                    sort={{ options: sorts }}
+                    values={Object.fromEntries([...FILTERS, 'sort'].map((k) => [k, get(k)]))}
+                    onChange={update}
+                    total={data?.total}
+                    noun="تراکنش"
+                    loading={loading}
+                    onRefresh={reload}
+                    actions={get('user') ? <UserChip id={get('user')} user={data?.user ?? null} onClear={() => update({ user: '' })} /> : undefined}
+                />
             </div>
 
             {/* The guide column only appears where the list still has room; an opened transaction always gets its column from lg. */}
@@ -166,12 +184,17 @@ export default function TransactionsPage() {
                 )}
             </div>
 
-            {data && !openId && (
-                <Pager page={data.page} lastPage={data.lastPage} total={data.total} noun="تراکنش" onPage={(p) => update({ page: String(p) })} />
-            )}
-            {data && openId && (
-                <div className="hidden lg:block">
-                    <Pager page={data.page} lastPage={data.lastPage} total={data.total} noun="تراکنش" onPage={(p) => update({ page: String(p) })} />
+            {data && (
+                <div className={openId ? 'hidden lg:block' : ''}>
+                    <ListPager
+                        page={data.page}
+                        lastPage={data.lastPage}
+                        total={data.total}
+                        perPage={data.perPage}
+                        noun="تراکنش"
+                        onPage={(p) => update({ page: String(p) })}
+                        onPer={(n) => update({ per: String(n) })}
+                    />
                 </div>
             )}
         </div>
@@ -194,18 +217,13 @@ function Row({
     onOpen: (id: number) => void;
 }) {
     return (
-        <tr
-            onClick={(e) => {
-                if ((e.target as HTMLElement).closest('a')) return;
-                onOpen(t.id);
-            }}
-            className={`cursor-pointer border-b border-stroke last:border-0 ${selected ? 'bg-indigo-soft' : 'hover:bg-surface-2'}`}
-        >
+        <tr className={`data-row border-b border-stroke last:border-0 ${selected ? 'bg-indigo-soft' : 'hover:bg-surface-2'}`}>
             <td className="py-3 ps-5 pe-3 whitespace-nowrap">
                 <Link
                     to={{ pathname: `/transactions/${t.id}`, search }}
                     aria-current={selected ? 'true' : undefined}
-                    className="num font-bold text-ink underline-offset-4 hover:underline"
+                    aria-label={`تراکنش ${t.id}`}
+                    className="row-link num font-bold text-ink underline-offset-4 hover:underline"
                 >
                     #{t.id}
                 </Link>
@@ -261,155 +279,15 @@ function When({ t, view, className }: { t: TransactionRow; view: View; className
     );
 }
 
-/** Payment type, gateway, date range and the user filter that "all transactions of this user" sets. */
-function Filters({
-    params,
-    update,
-    user,
-    onReset,
-}: {
-    params: URLSearchParams;
-    update: (next: Record<string, string>) => void;
-    user: { id: number; name: string | null; mobile: string | null } | null;
-    onReset: () => void;
-}) {
-    const { labels } = useBoot();
-    const kindId = useId();
-    const gateId = useId();
-    const rangeId = useId();
-    const from = params.get('from') ?? '';
-    const to = params.get('to') ?? '';
-    const [preset, setPreset] = useState<RangePreset>(() => matchPreset(from, to));
-    const userId = params.get('user');
-    const any = FILTERS.some((k) => params.get(k));
-
-    useEffect(() => {
-        if (from || to) setPreset((p) => (p === 'custom' ? p : matchPreset(from, to)));
-        else setPreset((p) => (p === 'custom' ? p : 'any'));
-    }, [from, to]);
-
-    function choosePreset(p: RangePreset) {
-        setPreset(p);
-        if (p !== 'custom') update(presetRange(p));
-    }
-
+/** "All transactions of this user" (set from a user's page) as a removable chip. */
+function UserChip({ id, user, onClear }: { id: string; user: { id: number; name: string | null; mobile: string | null } | null; onClear: () => void }) {
     return (
-        <div className="mb-4 grid grid-cols-3 items-start gap-2 sm:flex sm:flex-wrap">
-            <label htmlFor={kindId} className="sr-only">
-                نوع تراکنش
-            </label>
-            <select id={kindId} value={params.get('kind') ?? ''} onChange={(e) => update({ kind: e.target.value })} className="field min-w-0 sm:w-auto sm:min-w-[150px]">
-                <option value="">همه انواع</option>
-                {Object.entries(labels.paymentType).map(([id, label]) => (
-                    <option key={id} value={id}>
-                        {label}
-                    </option>
-                ))}
-            </select>
-            <label htmlFor={gateId} className="sr-only">
-                روش پرداخت
-            </label>
-            <select id={gateId} value={params.get('gate') ?? ''} onChange={(e) => update({ gate: e.target.value })} className="field min-w-0 sm:w-auto sm:min-w-[150px]">
-                {gates.map((g) => (
-                    <option key={g.id} value={g.id}>
-                        {g.label}
-                    </option>
-                ))}
-            </select>
-            <label htmlFor={rangeId} className="sr-only">
-                بازه زمانی
-            </label>
-            <select id={rangeId} value={preset} onChange={(e) => choosePreset(e.target.value as RangePreset)} className="field min-w-0 sm:w-auto sm:min-w-[140px]">
-                {presets.map((p) => (
-                    <option key={p.id} value={p.id}>
-                        {p.label}
-                    </option>
-                ))}
-            </select>
-            {preset === 'custom' && <CustomRange from={from} to={to} onApply={(r) => update(r)} />}
-
-            {userId && (
-                <span className="col-span-3 inline-flex h-[38px] items-center gap-1 justify-self-start rounded-[10px] bg-indigo-soft ps-3 pe-1 text-[14px] text-indigo">
-                    کاربر:{' '}
-                    <span className="font-medium">{user ? user.name || user.mobile || `#${user.id}` : `#${userId}`}</span>
-                    <button
-                        type="button"
-                        onClick={() => update({ user: '' })}
-                        className="grid size-7 place-items-center rounded-md hover:bg-indigo/10"
-                        aria-label="برداشتن فیلتر کاربر"
-                    >
-                        <X aria-hidden size={14} />
-                    </button>
-                </span>
-            )}
-            {any && (
-                <button type="button" className="btn btn-ghost col-span-3 justify-self-start text-[13px] font-medium" onClick={onReset}>
-                    پاک کردن فیلترها
-                </button>
-            )}
-        </div>
-    );
-}
-
-/** Jalali from/to boxes; applied together on submit so a half-typed date never reaches the server. */
-function CustomRange({ from, to, onApply }: { from: string; to: string; onApply: (r: { from: string; to: string }) => void }) {
-    const [draft, setDraft] = useState({ from, to });
-    const [error, setError] = useState<{ field: 'from' | 'to'; text: string } | null>(null);
-    const id = useId();
-    const today = jalali(new Date());
-
-    useEffect(() => setDraft({ from, to }), [from, to]);
-
-    function apply(e: FormEvent) {
-        e.preventDefault();
-        const out = { from: '', to: '' };
-        for (const k of ['from', 'to'] as const) {
-            if (!draft[k].trim()) continue;
-            const v = normalizeJalali(draft[k]);
-            if (!v) {
-                setError({ field: k, text: `تاریخ را به شکل ${today} بنویسید.` });
-                document.getElementById(`${id}-${k}`)?.focus();
-                return;
-            }
-            out[k] = v;
-        }
-        if (out.from && out.to && out.from > out.to) {
-            setError({ field: 'to', text: 'تاریخ پایان باید بعد از تاریخ شروع باشد.' });
-            return;
-        }
-        setError(null);
-        onApply(out);
-    }
-
-    return (
-        <form onSubmit={apply} noValidate className="col-span-3 flex flex-wrap items-start gap-2">
-            {(['from', 'to'] as const).map((k) => (
-                <div key={k} className="w-[132px]">
-                    <label htmlFor={`${id}-${k}`} className="sr-only">
-                        {k === 'from' ? 'از تاریخ' : 'تا تاریخ'}
-                    </label>
-                    <input
-                        id={`${id}-${k}`}
-                        value={draft[k]}
-                        onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
-                        placeholder={k === 'from' ? `از ${today.slice(0, 8)}01` : `تا ${today}`}
-                        inputMode="numeric"
-                        dir="ltr"
-                        className="field num text-end"
-                        aria-invalid={error?.field === k}
-                        aria-describedby={error?.field === k ? `${id}-error` : undefined}
-                    />
-                </div>
-            ))}
-            <button type="submit" className="btn btn-secondary">
-                اعمال
+        <span className="inline-flex h-[38px] items-center gap-1 rounded-[10px] bg-indigo-soft ps-3 pe-1 text-[14px] text-indigo">
+            کاربر: <span className="font-medium">{user ? user.name || user.mobile || `#${user.id}` : `#${id}`}</span>
+            <button type="button" onClick={onClear} className="grid size-7 place-items-center rounded-md hover:bg-indigo/10" aria-label="برداشتن فیلتر کاربر">
+                <X aria-hidden size={14} />
             </button>
-            {error && (
-                <div className="basis-full">
-                    <FieldError id={`${id}-error`}>{error.text}</FieldError>
-                </div>
-            )}
-        </form>
+        </span>
     );
 }
 

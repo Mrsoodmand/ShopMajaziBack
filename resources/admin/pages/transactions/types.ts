@@ -25,6 +25,7 @@ export type TransactionsPage = {
     page: number;
     lastPage: number;
     total: number;
+    perPage: number;
     /** 'all', or the parts a limited admin may see. */
     scope: 'all' | ('bank' | 'mismatch')[];
     user: Party | null;

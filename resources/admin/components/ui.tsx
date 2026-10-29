@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleCheck, Copy, RotateCw, Search, X } from 'lucide-react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { AlertTriangle, Check, CircleCheck, Copy, RotateCw, Search, X } from 'lucide-react';
 import type { ApiError } from '../lib/api';
 import { count } from '../lib/format';
 
@@ -88,75 +88,6 @@ export function ErrorState({ error, onRetry, boxed }: { error: ApiError; onRetry
     );
 }
 
-export type TabDef<T extends string> = { id: T; label: string; count?: number; highlight?: string };
-
-/** Accessible tabs inside a card (arrow keys follow RTL reading order). */
-export function TabbedPanel<T extends string>({
-    label,
-    tabs,
-    initial,
-    render,
-}: {
-    label: string;
-    tabs: TabDef<T>[];
-    initial?: T;
-    render: (tab: T) => ReactNode;
-}) {
-    const [tab, setTab] = useState<T>(initial ?? tabs[0].id);
-    const base = useId();
-    const refs = useRef<Partial<Record<T, HTMLButtonElement | null>>>({});
-
-    function onKeyDown(e: KeyboardEvent) {
-        const i = tabs.findIndex((t) => t.id === tab);
-        const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
-        if (!step) return;
-        e.preventDefault();
-        const next = tabs[(i + step + tabs.length) % tabs.length].id;
-        setTab(next);
-        refs.current[next]?.focus();
-    }
-
-    return (
-        <section className="rounded-2xl border border-stroke bg-surface">
-            <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-stroke px-3 pt-2" onKeyDown={onKeyDown}>
-                {tabs.map((t) => {
-                    const selected = t.id === tab;
-                    return (
-                        <button
-                            key={t.id}
-                            ref={(el) => {
-                                refs.current[t.id] = el;
-                            }}
-                            type="button"
-                            role="tab"
-                            id={`${base}-${t.id}`}
-                            aria-selected={selected}
-                            aria-controls={`${base}-${t.id}-panel`}
-                            tabIndex={selected ? 0 : -1}
-                            onClick={() => setTab(t.id)}
-                            className={`relative flex shrink-0 items-center gap-2 px-3 py-3 transition-colors ${
-                                selected ? 'font-bold text-ink' : 'text-muted hover:text-ink'
-                            }`}
-                        >
-                            {t.label}
-                            {!!t.count && (
-                                <span className={`num rounded-md px-1.5 text-[12px] ${t.highlight ? 'bg-indigo font-bold text-surface' : 'bg-surface-2 text-muted'}`}>
-                                    {t.count}
-                                    {t.highlight && <span className="sr-only"> {t.highlight}</span>}
-                                </span>
-                            )}
-                            {selected && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-ink" />}
-                        </button>
-                    );
-                })}
-            </div>
-            <div role="tabpanel" id={`${base}-${tab}-panel`} aria-labelledby={`${base}-${tab}`} className="p-5">
-                {render(tab)}
-            </div>
-        </section>
-    );
-}
-
 /** Filter buttons with counts above a list. */
 export function FilterTabs<T extends string>({
     label,
@@ -222,27 +153,6 @@ export function SearchField({ value, onSearch, label, placeholder }: { value: st
             <Search aria-hidden size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted" />
             <input id={id} type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} className="field ps-9" />
         </div>
-    );
-}
-
-export function Pager({ page, lastPage, total, noun, onPage }: { page: number; lastPage: number; total: number; noun: string; onPage: (p: number) => void }) {
-    if (lastPage <= 1) return null;
-    return (
-        <nav aria-label="صفحه‌بندی" className="mt-4 flex items-center justify-between gap-3">
-            <p className="num text-muted">
-                صفحه {page} از {lastPage} · {count(total)} {noun}
-            </p>
-            <div className="flex gap-2">
-                <button type="button" className="btn btn-secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-                    <ChevronRight aria-hidden size={16} />
-                    قبلی
-                </button>
-                <button type="button" className="btn btn-secondary" disabled={page >= lastPage} onClick={() => onPage(page + 1)}>
-                    بعدی
-                    <ChevronLeft aria-hidden size={16} />
-                </button>
-            </div>
-        </nav>
     );
 }
 

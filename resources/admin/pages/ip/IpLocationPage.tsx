@@ -7,7 +7,8 @@ import { useSave } from '../../lib/useSave';
 import { EditorLayout } from '../../components/EditorLayout';
 import { Field, ImageField, RowsEditor, Switch, slugify } from '../../components/form';
 import { Badge, type Tone } from '../../components/Status';
-import { CopyButton, ErrorState, FilterTabs, Notice, Pager, Panel, SearchField, SkeletonRows } from '../../components/ui';
+import { CopyButton, ErrorState, FilterTabs, Notice, Panel, SearchField, SkeletonRows } from '../../components/ui';
+import { ListPager } from '../../components/DataList';
 import { ConfirmButton, EditorSkeleton, EmptyState, problemsFrom, useListParams } from '../../components/list';
 import { useIpScope } from './scope';
 
@@ -66,7 +67,8 @@ export default function IpLocationPage() {
     const { id } = useParams();
     const isNew = id === 'new';
     const [params, setParams] = useSearchParams();
-    const tab = (params.get('tab') as Tab) || 'details';
+    const raw = params.get('tab');
+    const tab: Tab = raw === 'servers' || raw === 'clients' ? raw : 'details';
     const scope = useIpScope();
     const { data, error, reload } = useQuery<{ location: Location & { id: number }; servers: ServerRow[] }>(isNew ? null : `${scope.api}/locations/${id}`);
 
@@ -148,6 +150,7 @@ function LocationEditor({ existing, onSaved, nav }: { existing?: Location & { id
             saved={save.saved}
             problems={problemsFrom(save.errors, labels, save.failure)}
             nav={nav}
+            tabKey="part"
             side={<Switch label="فعال" hint="غیرفعال یعنی برای فروش عرضه نمی‌شود." checked={form.live} onChange={(live) => set({ live })} />}
         >
             <Panel title="مشخصات">
@@ -602,7 +605,7 @@ function Clients({ location, servers, nav }: { location: Location & { id: number
                     </div>
                 )}
             </section>
-            {data && <Pager page={data.page} lastPage={data.lastPage} total={data.total} noun="کلاینت" onPage={(p) => list.update({ page: String(p) })} />}
+            {data && <ListPager page={data.page} lastPage={data.lastPage} total={data.total} noun="کلاینت" onPage={(p) => list.update({ page: String(p) })} />}
         </div>
     );
 }

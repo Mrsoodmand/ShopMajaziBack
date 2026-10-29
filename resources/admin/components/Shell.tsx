@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router';
 import {
     AppWindow,
     ArrowLeftRight,
-    Bot,
+    CalendarDays,
     ChevronDown,
     FileText,
     Globe,
@@ -55,7 +55,6 @@ const icons: Record<string, LucideIcon> = {
     roles: ShieldCheck,
     admins: UserCog,
     partners: Handshake,
-    bot: Bot,
 };
 
 // One easing for the rail: quick to start, soft to land.
@@ -86,7 +85,7 @@ function MenuItem({ item }: { item: MenuLink }) {
             <li>
                 <button
                     type="button"
-                    className={rowClass}
+                    className={`${rowClass} aria-expanded:text-white`}
                     aria-expanded={open}
                     onClick={() => {
                         opened.current = !open;
@@ -97,7 +96,10 @@ function MenuItem({ item }: { item: MenuLink }) {
                     <span className="flex-1 text-start">{item.label}</span>
                     <ChevronDown aria-hidden size={16} className={`text-rail-muted transition-transform duration-300 ${EASE} ${open ? 'rotate-180' : ''}`} />
                 </button>
-                {/* Slides open: the row grows from 0fr to 1fr, so no height is measured or animated. */}
+                {/*
+                  * Slides open: the row grows from 0fr to 1fr, so no height is measured. The padding lives inside the
+                  * clipped box, so nothing jumps at the start or end; the links fade in just behind the slide.
+                  */}
                 <div
                     data-closed={open ? undefined : ''}
                     inert={!open}
@@ -108,11 +110,13 @@ function MenuItem({ item }: { item: MenuLink }) {
                         e.currentTarget.parentElement?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
                     }}
                 >
-                    <ul className={`min-h-0 space-y-0.5 overflow-hidden ps-9 transition-opacity duration-200 ${open ? 'pt-0.5 pb-1 opacity-100' : 'opacity-0'}`}>
-                        {item.children.map((child) => (
-                            <MenuItem key={child.label + (child.to ?? child.href)} item={child} />
-                        ))}
-                    </ul>
+                    <div className="min-h-0 overflow-hidden">
+                        <ul className={`space-y-0.5 ps-9 pt-0.5 pb-1 transition-opacity ${EASE} ${open ? 'opacity-100 delay-75 duration-300' : 'opacity-0 duration-150'}`}>
+                            {item.children.map((child) => (
+                                <MenuItem key={child.label + (child.to ?? child.href)} item={child} />
+                            ))}
+                        </ul>
+                    </div>
                 </div>
             </li>
         );
@@ -153,26 +157,35 @@ function isActive(to: string, pathname: string, search: string) {
     return linkType ? currentType === linkType : !currentType || pathname !== path;
 }
 
-type Pill = { x: number; y: number; w: number; h: number; shown: boolean; glide: boolean };
-
 /*
  * One highlight for the whole rail, placed under the active link. Navigating glides it to the new item; while a
- * group slides open or shut it follows the link exactly (no lag), and it fades out when its link is folded away.
+ * group slides open or shut it follows the link exactly, and it fades out when its link is folded away.
+ * It is moved by writing styles directly, so following a sliding group never re-renders the menu.
  */
-function useActivePill(content: RefObject<HTMLDivElement | null>) {
+function useActivePill(content: RefObject<HTMLDivElement | null>, pill: RefObject<HTMLSpanElement | null>) {
     const location = useLocation();
-    const [pill, setPill] = useState<Pill | null>(null);
+    const shown = useRef(false);
 
     const place = useCallback(
         (glide: boolean) => {
+            const box = pill.current;
             const el = content.current?.querySelector<HTMLElement>('[aria-current="page"]');
-            setPill((prev) => {
-                if (el && !el.offsetWidth) return prev; // this rail is hidden (phone drawer closed, or desktop rail on a phone)
-                if (!el || el.closest('[data-closed]')) return prev && { ...prev, shown: false, glide: true };
-                return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight, shown: true, glide: glide && !!prev?.shown };
-            });
+            if (!box) return;
+            if (el && !el.offsetWidth) return; // this rail is hidden (phone drawer closed, or desktop rail on a phone)
+            if (!el || el.closest('[data-closed]')) {
+                box.toggleAttribute('data-glide', true);
+                box.style.opacity = '0';
+                shown.current = false;
+                return;
+            }
+            box.toggleAttribute('data-glide', glide && shown.current);
+            box.style.translate = `${el.offsetLeft}px ${el.offsetTop}px`;
+            box.style.width = `${el.offsetWidth}px`;
+            box.style.height = `${el.offsetHeight}px`;
+            box.style.opacity = '1';
+            shown.current = true;
         },
-        [content],
+        [content, pill],
     );
 
     useLayoutEffect(() => place(true), [location.pathname, location.search, place]);
@@ -184,15 +197,36 @@ function useActivePill(content: RefObject<HTMLDivElement | null>) {
         follow.observe(el);
         return () => follow.disconnect();
     }, [content, place]);
+}
 
-    return pill;
+/** With the scrollbar hidden, the rail's edges fade while there is more menu above or below. */
+function useScrollFades(scroller: RefObject<HTMLDivElement | null>) {
+    useEffect(() => {
+        const box = scroller.current;
+        if (!box) return;
+        const update = () => {
+            box.toggleAttribute('data-more-above', box.scrollTop > 2);
+            box.toggleAttribute('data-more-below', box.scrollTop + box.clientHeight < box.scrollHeight - 2);
+        };
+        update();
+        box.addEventListener('scroll', update, { passive: true });
+        const watch = new ResizeObserver(update);
+        watch.observe(box);
+        if (box.firstElementChild) watch.observe(box.firstElementChild);
+        return () => {
+            box.removeEventListener('scroll', update);
+            watch.disconnect();
+        };
+    }, [scroller]);
 }
 
 function Sidebar() {
     const { menu } = useBoot();
     const scroller = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
-    const pill = useActivePill(content);
+    const pill = useRef<HTMLSpanElement>(null);
+    useActivePill(content, pill);
+    useScrollFades(scroller);
 
     // On load, bring the active item into the rail's view if the menu is long (only the rail scrolls).
     useLayoutEffect(() => {
@@ -211,13 +245,7 @@ function Sidebar() {
             </div>
             <div ref={scroller} className="rail-scroll flex-1 overflow-y-auto overscroll-contain px-3 pb-6">
                 <div ref={content} className="relative">
-                    {pill && (
-                        <span
-                            aria-hidden
-                            className={`pointer-events-none absolute top-0 left-0 rounded-lg bg-rail-active ${pill.glide ? `transition-[translate,width,height,opacity] duration-300 ${EASE}` : 'transition-opacity duration-200'} ${pill.shown ? 'opacity-100' : 'opacity-0'}`}
-                            style={{ translate: `${pill.x}px ${pill.y}px`, width: pill.w, height: pill.h }}
-                        />
-                    )}
+                    <span ref={pill} aria-hidden className="rail-pill pointer-events-none absolute top-0 left-0 rounded-lg bg-rail-active opacity-0" />
                     <div className="relative">
                         {menu.map((section, i) => (
                             <div key={section.title ?? i} className="mt-4 first:mt-1">
@@ -233,6 +261,60 @@ function Sidebar() {
                 </div>
             </div>
         </nav>
+    );
+}
+
+const TZ = 'Asia/Tehran';
+const dayParts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ });
+const shortDayFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', timeZone: TZ });
+const timeFormat = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TZ });
+const gregorianFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeZone: TZ });
+
+/** «پنجشنبه، ۷ آبان ۱۴۰۵»: built from parts, since browsers join them with a Latin comma. */
+function persianDay(date: Date) {
+    const parts = dayParts.formatToParts(date);
+    const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
+    return `${get('weekday')}، ${get('day')} ${get('month')} ${get('year')}`;
+}
+
+/** Today's Persian date and the time in Tehran; ticks over on each minute and when the tab comes back. */
+function HeaderClock() {
+    const [now, setNow] = useState(() => new Date());
+
+    useEffect(() => {
+        let timer = 0;
+        const schedule = () => {
+            timer = window.setTimeout(() => {
+                setNow(new Date());
+                schedule();
+            }, 60_000 - (Date.now() % 60_000) + 50);
+        };
+        const onShow = () => {
+            if (document.visibilityState !== 'visible') return;
+            window.clearTimeout(timer);
+            setNow(new Date());
+            schedule();
+        };
+        schedule();
+        document.addEventListener('visibilitychange', onShow);
+        return () => {
+            window.clearTimeout(timer);
+            document.removeEventListener('visibilitychange', onShow);
+        };
+    }, []);
+
+    return (
+        <time
+            dateTime={now.toISOString()}
+            title={`${gregorianFormat.format(now)} · به وقت تهران`}
+            className="flex items-center gap-2 text-[13px] whitespace-nowrap text-body"
+        >
+            <CalendarDays aria-hidden size={16} className="text-muted" />
+            <span className="hidden md:inline">{persianDay(now)}</span>
+            <span className="md:hidden">{shortDayFormat.format(now)}</span>
+            <span aria-hidden className="h-4 w-px bg-stroke" />
+            <span className="num font-bold text-ink">{timeFormat.format(now)}</span>
+        </time>
     );
 }
 
@@ -282,6 +364,7 @@ export default function Shell() {
                     >
                         <Menu aria-hidden size={20} />
                     </button>
+                    <HeaderClock />
                     <div className="flex-1" />
                     <a href={links.legacyHome} className="btn btn-ghost hidden text-[13px] font-medium sm:inline-flex">
                         پنل قدیمی

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Admin;
+use App\Http\Controllers\Admin\Concerns\AdminApi;
 use App\Http\Controllers\Controller;
 use App\lib\Jdf;
 use App\Models\History;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 class UserApiController extends Controller
 {
+    use AdminApi;
+
     const PER_PAGE = 30;
 
     public function index(Request $request)
@@ -38,6 +41,21 @@ class UserApiController extends Controller
             });
         }
 
+        $this->filterDays($base, $request);
+        $this->filterBetween($base, $request, 'wallet');
+        match ((string) $request->input('buyer', '')) {
+            'yes' => $base->has('Order'),
+            'no' => $base->doesntHave('Order'),
+            default => null,
+        };
+        match ((string) $request->input('block', '')) {
+            'login' => $base->where('status', 1),
+            'wallet' => $base->where('wallet_blocked', 1),
+            'bank' => $base->where('bank_blocked', 1),
+            'account' => $base->where('account_blocked', 1),
+            default => null,
+        };
+
         $blocked = fn ($q) => $q->where(fn ($w) => $w->where('status', 1)->orWhere('wallet_blocked', 1)
             ->orWhere('bank_blocked', 1)->orWhere('account_blocked', 1));
 
@@ -49,11 +67,17 @@ class UserApiController extends Controller
 
         $list = (clone $base)->withCount('Order');
         match ($filter) {
-            'balance' => $list->where('wallet', '>', 0)->orderByDesc('wallet'),
+            'balance' => $list->where('wallet', '>', 0),
             'blocked' => $blocked($list),
             default => null,
         };
-        $page = $list->orderByDesc('id')->paginate(self::PER_PAGE);
+        match ((string) $request->input('sort', '') ?: ($filter === 'balance' ? 'wallet_desc' : 'newest')) {
+            'oldest' => $list->orderBy('id'),
+            'wallet_desc' => $list->orderByDesc('wallet')->orderByDesc('id'),
+            'orders_desc' => $list->orderByDesc('order_count')->orderByDesc('id'),
+            default => $list->orderByDesc('id'),
+        };
+        $page = $list->paginate($this->perPage($request, self::PER_PAGE));
         $jdf = new Jdf();
 
         return response()->json([
@@ -61,6 +85,7 @@ class UserApiController extends Controller
             'page' => $page->currentPage(),
             'lastPage' => $page->lastPage(),
             'total' => $page->total(),
+            'perPage' => $page->perPage(),
             'users' => $page->getCollection()->map(fn (User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,

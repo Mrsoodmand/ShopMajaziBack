@@ -324,7 +324,7 @@ export default function CatalogEditor({ kind }: { kind: Kind }) {
                 </div>
             </Panel>
 
-            {!isNew && <OffersPanel kind={kind} offers={offers.data?.offers ?? null} error={offers.error} onRetry={offers.reload} />}
+            {!isNew && <OffersPanel tabLabel="پیشنهادهای فروش" kind={kind} offers={offers.data?.offers ?? null} error={offers.error} onRetry={offers.reload} />}
         </EditorLayout>
     );
 }

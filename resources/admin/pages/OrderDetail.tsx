@@ -5,7 +5,8 @@ import { postForm, useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman } from '../lib/format';
 import { OrderStatus, PayStatus } from '../components/Status';
-import { CopyButton, ErrorState, FieldError, Notice, Panel, Row, TabbedPanel, gateLabel } from '../components/ui';
+import { CopyButton, ErrorState, FieldError, Notice, Panel, Row, gateLabel } from '../components/ui';
+import { PageTabs, TabPanel, useUrlTab } from '../components/PageTabs';
 
 type Payment = {
     id: number;
@@ -20,7 +21,7 @@ type Payment = {
     at: string | null;
 };
 
-type Order = {
+export type Order = {
     id: number;
     type: string;
     service: string | null;
@@ -83,17 +84,11 @@ export default function OrderDetail() {
                         </a>
                     </header>
 
+                    <OrderFacts order={order} />
                     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-                        <div className="min-w-0 space-y-6">
-                            <Panel title="اقلام سفارش">
-                                <ItemsList order={order} />
-                            </Panel>
-                            <Activity order={order} onChanged={reload} />
-                        </div>
-
-                        <aside className="space-y-6 lg:sticky lg:top-20" aria-label="مشتری و اقدام‌ها">
+                        <OrderTabs order={order} onChanged={reload} />
+                        <aside className="space-y-6 lg:sticky lg:top-20" aria-label="اقدام‌ها">
                             <ActionsPanel order={order} onChanged={reload} />
-                            <CustomerPanel order={order} />
                         </aside>
                     </div>
                 </div>
@@ -158,22 +153,82 @@ function ItemsList({ order }: { order: Order }) {
     );
 }
 
-/* ---------- Activity: chat, history, payments ---------- */
+/* ---------- The order's parts, one tab each ---------- */
 
-function Activity({ order, onChanged }: { order: Order; onChanged: () => void }) {
+const TABS = ['items', 'customer', 'chat', 'history', 'payments'] as const;
+type Tab = (typeof TABS)[number];
+
+function OrderTabs({ order, onChanged }: { order: Order; onChanged: () => void }) {
+    const [tab, setTab] = useUrlTab(TABS, 'items');
     const unread = order.chats.filter((c) => c.unread).length;
+    const card = 'rounded-2xl border border-stroke bg-surface p-5';
     return (
-        <TabbedPanel
-            label="فعالیت سفارش"
-            tabs={[
-                { id: 'chat', label: 'گفتگو', count: unread || order.chats.length, highlight: unread ? 'پیام جدید' : undefined },
-                { id: 'history', label: 'تاریخچه وضعیت', count: order.history.length },
-                { id: 'payments', label: 'تراکنش‌ها', count: order.payments.length },
-            ]}
-            render={(tab) =>
-                tab === 'chat' ? <Chat order={order} onChanged={onChanged} /> : tab === 'history' ? <History order={order} /> : <Payments order={order} />
-            }
-        />
+        <div className="min-w-0">
+            <PageTabs<Tab>
+                id="order"
+                label="بخش‌های سفارش"
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                    { id: 'items', label: 'اقلام سفارش', count: order.items.length },
+                    { id: 'customer', label: 'مشتری و پرداخت' },
+                    { id: 'chat', label: 'گفتگو', count: unread || order.chats.length, tone: unread ? 'attention' : undefined, note: unread ? 'پیام جدید' : undefined },
+                    { id: 'history', label: 'تاریخچه وضعیت', count: order.history.length },
+                    { id: 'payments', label: 'تراکنش‌ها', count: order.payments.length },
+                ]}
+            />
+            <TabPanel id="order" tab={tab}>
+                {tab === 'items' ? (
+                    <Panel title="اقلام سفارش">
+                        <ItemsList order={order} />
+                    </Panel>
+                ) : tab === 'customer' ? (
+                    <CustomerPanel order={order} />
+                ) : tab === 'chat' ? (
+                    <section aria-label="گفتگو" className={card}>
+                        <Chat order={order} onChanged={onChanged} />
+                    </section>
+                ) : tab === 'history' ? (
+                    <section aria-label="تاریخچه وضعیت" className={card}>
+                        <History order={order} />
+                    </section>
+                ) : (
+                    <section aria-label="تراکنش‌ها" className={card}>
+                        <Payments order={order} />
+                    </section>
+                )}
+            </TabPanel>
+        </div>
+    );
+}
+
+/** The few facts support looks for first, above the tabs. */
+function OrderFacts({ order }: { order: Order }) {
+    const c = order.customer;
+    const facts = [
+        { label: 'مبلغ', value: <span className="num">{toman(order.price)}</span> },
+        { label: 'پرداخت', value: <PayStatus status={order.payStatus} /> },
+        {
+            label: 'مشتری',
+            value: c ? (
+                <Link to={`/users/${c.id}`} className="text-indigo underline-offset-4 hover:underline">
+                    {c.name || c.mobile || 'بدون نام'}
+                </Link>
+            ) : (
+                <span className="text-muted">مهمان</span>
+            ),
+        },
+        { label: 'موبایل', value: c?.mobile ? <span dir="ltr" className="num">{c.mobile}<CopyButton value={c.mobile} label="موبایل" /></span> : '—' },
+    ];
+    return (
+        <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-stroke bg-stroke sm:grid-cols-4">
+            {facts.map((f) => (
+                <div key={f.label} className="bg-surface px-4 py-3">
+                    <dt className="text-[12px] text-muted">{f.label}</dt>
+                    <dd className="m-0 mt-0.5 flex min-h-7 items-center font-bold">{f.value}</dd>
+                </div>
+            ))}
+        </dl>
     );
 }
 
@@ -205,7 +260,7 @@ function Chat({ order, onChanged }: { order: Order; onChanged: () => void }) {
             {order.chats.length === 0 ? (
                 <p className="pb-4 text-muted">گفتگویی برای این سفارش ثبت نشده است. پیامی که بفرستید در صفحه سفارش مشتری دیده می‌شود.</p>
             ) : (
-                <ol className="mb-5 max-h-[420px] space-y-3 overflow-y-auto">
+                <ol className="mb-5 max-h-[60vh] space-y-3 overflow-y-auto">
                     {order.chats.map((m) => {
                         const mine = m.from === 'admin';
                         return (

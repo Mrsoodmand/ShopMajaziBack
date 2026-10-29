@@ -38,13 +38,6 @@ import AdminsList from './pages/team/AdminsList';
 import AdminEditor from './pages/team/AdminEditor';
 import PartnersList from './pages/partners/PartnersList';
 import PartnerEditor from './pages/partners/PartnerEditor';
-import BotUsers from './pages/bot/BotUsers';
-import BotUserDetail from './pages/bot/BotUserDetail';
-import BotOrders from './pages/bot/BotOrders';
-import BotOrderDetail from './pages/bot/BotOrderDetail';
-import BotMessages from './pages/bot/BotMessages';
-import BotMessageEditor from './pages/bot/BotMessageEditor';
-import { BOT_IP, IpScopeContext } from './pages/ip/scope';
 import './styles.css';
 
 function NotFound() {
@@ -114,14 +107,6 @@ if (root) {
                     { path: 'admins/:id', element: <AdminEditor /> },
                     { path: 'partners', element: <PartnersList /> },
                     { path: 'partners/:id', element: <PartnerEditor /> },
-                    { path: 'bot/users', element: <BotUsers /> },
-                    { path: 'bot/users/:id', element: <BotUserDetail /> },
-                    { path: 'bot/orders', element: <BotOrders /> },
-                    { path: 'bot/orders/:id', element: <BotOrderDetail /> },
-                    { path: 'bot/messages', element: <BotMessages /> },
-                    { path: 'bot/messages/:id', element: <BotMessageEditor /> },
-                    { path: 'bot/ip', element: <IpScopeContext.Provider value={BOT_IP}><IpLocations key="bot" /></IpScopeContext.Provider> },
-                    { path: 'bot/ip/:id', element: <IpScopeContext.Provider value={BOT_IP}><IpLocationPage key="bot" /></IpScopeContext.Provider> },
                     { path: '*', element: <NotFound /> },
                 ],
             },

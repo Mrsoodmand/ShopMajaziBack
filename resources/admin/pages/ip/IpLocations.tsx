@@ -1,9 +1,11 @@
 import { Link } from 'react-router';
-import { Globe, Plus, Server, Settings2 } from 'lucide-react';
+import { Globe, Plus, Settings2 } from 'lucide-react';
 import { useQuery } from '../../lib/api';
 import { count, toman } from '../../lib/format';
-import { ErrorState } from '../../components/ui';
-import { AttentionBar, EmptyState, PageHeader } from '../../components/list';
+import { FilterTabs, Row } from '../../components/ui';
+import { AttentionBar, PageHeader, useListParams } from '../../components/list';
+import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, isFiltered, useClientList, type Column, type FilterDef } from '../../components/DataList';
+import { LiveBadge } from '../virtual-numbers/parts';
 import { useIpScope } from './scope';
 
 export type LocationRow = {
@@ -20,9 +22,79 @@ export type LocationRow = {
     active: number;
 };
 
+const views = [
+    { id: 'all', label: 'همه' },
+    { id: 'live', label: 'فعال' },
+    { id: 'off', label: 'غیرفعال' },
+    { id: 'empty', label: 'بدون کلاینت آزاد' },
+];
+
+const filters: FilterDef[] = [
+    { type: 'toggle', key: 'noplans', label: 'بدون پلن' },
+    { type: 'toggle', key: 'noservers', label: 'بدون سرور' },
+];
+
+const sorts = [
+    { value: '', label: 'ترتیب پیش‌فرض' },
+    { value: 'name', label: 'نام' },
+    { value: 'free', label: 'کمترین کلاینت آزاد' },
+    { value: 'active', label: 'بیشترین کلاینت فعال' },
+];
+
+function Flag({ src }: { src: string | null }) {
+    return (
+        <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-surface-2">
+            {src ? <img src={src} alt="" className="size-full object-cover" /> : <Globe aria-hidden size={18} className="text-muted" />}
+        </span>
+    );
+}
+
 export default function IpLocations() {
     const scope = useIpScope();
-    const { data, error, reload } = useQuery<{ waitingOrders: number; locations: LocationRow[] }>(`${scope.api}/locations`);
+    const list = useListParams({ view: 'all', q: '', sort: '', per: '', noplans: '', noservers: '' });
+    const v = list.values;
+    const { data, error, loading, reload } = useQuery<{ waitingOrders: number; locations: LocationRow[] }>(`${scope.api}/locations`);
+    const all = data?.locations;
+    const shown = useClientList(all, v, list.page, {
+        search: (l, q) => [l.name, l.enName, l.slug].some((s) => (s ?? '').toLowerCase().includes(q)),
+        filters: {
+            view: (l, val) => (val === 'live' ? l.live : val === 'off' ? !l.live : val === 'empty' ? l.free === 0 : true),
+            noplans: (l) => l.plans === 0,
+            noservers: (l) => l.servers === 0,
+        },
+        sorts: { name: (a, b) => a.name.localeCompare(b.name, 'fa'), free: (a, b) => a.free - b.free, active: (a, b) => b.active - a.active },
+    });
+    const counts = all
+        ? { all: all.length, live: all.filter((l) => l.live).length, off: all.filter((l) => !l.live).length, empty: all.filter((l) => l.free === 0).length }
+        : undefined;
+
+    const columns: Column<LocationRow>[] = [
+        {
+            key: 'name',
+            header: 'کشور',
+            primary: true,
+            cell: (l) => (
+                <span className="flex items-center gap-3">
+                    <Flag src={l.image} />
+                    <span className="min-w-0">
+                        <span className="block truncate font-bold">{l.name}</span>
+                        <span dir="ltr" className="latin block truncate text-end text-[12px] text-muted">
+                            {l.enName}
+                        </span>
+                    </span>
+                </span>
+            ),
+        },
+        {
+            key: 'plans',
+            header: 'پلن‌ها',
+            cell: (l) => (l.plans ? <span className="text-[13px]"><span className="num">{l.plans}</span> پلن · از <span className="num">{toman(l.fromPrice)}</span></span> : <span className="text-warn">بدون پلن</span>),
+        },
+        { key: 'servers', header: 'سرور', align: 'end', cell: (l) => <span className="num">{count(l.servers)}</span> },
+        { key: 'free', header: 'آزاد', align: 'end', cell: (l) => <span className={`num ${l.free === 0 ? 'font-bold text-warn' : ''}`}>{count(l.free)}</span> },
+        { key: 'active', header: 'فعال', align: 'end', cell: (l) => <span className="num">{count(l.active)}</span> },
+        { key: 'live', header: 'وضعیت', cell: (l) => <LiveBadge live={l.live} /> },
+    ];
 
     return (
         <div className="mx-auto max-w-[1280px]">
@@ -54,62 +126,94 @@ export default function IpLocations() {
                 </AttentionBar>
             )}
 
-            {error ? (
-                <ErrorState error={error} onRetry={reload} boxed />
-            ) : !data ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="در حال بارگذاری">
-                    {Array.from({ length: 6 }, (_, i) => (
-                        <div key={i} className="skeleton h-36 rounded-2xl" />
-                    ))}
-                </div>
-            ) : data.locations.length === 0 ? (
-                <div className="rounded-2xl border border-stroke bg-surface">
-                    <EmptyState action={<Link to={`${scope.base}/new`} className="btn btn-primary">کشور جدید</Link>}>هنوز کشوری ساخته نشده است.</EmptyState>
-                </div>
-            ) : (
-                <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {data.locations.map((l) => (
-                        <li key={l.id}>
-                            <Link to={`${scope.base}/${l.id}`} className="block h-full rounded-2xl border border-stroke bg-surface p-4 transition-colors hover:border-field">
-                                <div className="flex items-center gap-3">
-                                    <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-surface-2">
-                                        {l.image ? <img src={l.image} alt="" className="size-full object-cover" /> : <Globe aria-hidden size={20} className="text-muted" />}
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate font-bold">{l.name}</span>
-                                        <span className="block text-[13px] text-muted">
-                                            {l.plans ? <>از <span className="num">{toman(l.fromPrice)}</span> · <span className="num">{l.plans}</span> پلن</> : 'بدون پلن'}
-                                        </span>
-                                    </span>
-                                    {!l.live && <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[12px] text-muted">غیرفعال</span>}
-                                </div>
-                                <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-                                    <div className="rounded-xl bg-surface-2 py-2">
-                                        <dt className="text-[12px] text-muted">سرور</dt>
-                                        <dd className="num m-0 font-bold">
-                                            <Server aria-hidden size={13} className="me-1 inline text-muted" />
-                                            {l.servers}
-                                        </dd>
-                                    </div>
-                                    <div className={`rounded-xl py-2 ${l.free === 0 ? 'bg-warn-soft text-warn' : 'bg-surface-2'}`}>
-                                        <dt className={`text-[12px] ${l.free === 0 ? '' : 'text-muted'}`}>آزاد</dt>
-                                        <dd className="num m-0 font-bold">{l.free}</dd>
-                                    </div>
-                                    <div className="rounded-xl bg-surface-2 py-2">
-                                        <dt className="text-[12px] text-muted">فعال</dt>
-                                        <dd className="num m-0 font-bold">{l.active}</dd>
-                                    </div>
+            <FilterBar
+                views={<FilterTabs label="وضعیت کشورها" items={views} value={v.view} counts={counts} attention="empty" onChange={(view) => list.update({ view })} />}
+                search={{ label: 'جستجوی کشور', placeholder: 'نام یا نامک' }}
+                filters={filters}
+                sort={{ options: sorts }}
+                values={v}
+                onChange={list.update}
+                total={shown?.total}
+                noun="کشور"
+                loading={loading}
+                onRefresh={reload}
+            />
+
+            <DataTable
+                label="فهرست کشورها"
+                rows={shown?.rows}
+                loading={loading}
+                error={error}
+                onRetry={reload}
+                columns={columns}
+                rowKey={(l) => l.id}
+                href={(l) => `${scope.base}/${l.id}`}
+                linkState={{ list: list.here }}
+                rowLabel={(l) => `کشور ${l.name}`}
+                rowTone={(l) => (l.live && l.free === 0 ? 'warn' : l.live ? undefined : 'muted')}
+                skeleton={6}
+                quick={{
+                    title: (l) => l.name,
+                    subtitle: (l) => <LiveBadge live={l.live} />,
+                    body: (l) => (
+                        <>
+                            <QuickSection title="فروش">
+                                <dl className="m-0">
+                                    <Row label="پلن‌ها" num>
+                                        {l.plans}
+                                    </Row>
+                                    <Row label="ارزان‌ترین پلن" num>
+                                        {toman(l.fromPrice)}
+                                    </Row>
+                                    <Row label="نامک" ltr>
+                                        <span className="latin">{l.slug}</span>
+                                    </Row>
                                 </dl>
-                                {l.free === 0 && l.live && (
-                                    <p className="mt-2 flex items-center gap-1.5 text-[12px] text-warn">
-                                        {scope.webPage ? 'کلاینت آزادی نمانده؛ سفارش جدید منتظر می‌ماند.' : 'کلاینت آزادی نمانده؛ ربات چیزی برای فروش ندارد.'}
-                                    </p>
-                                )}
-                            </Link>
-                        </li>
-                    ))}
-                </ul>
-            )}
+                            </QuickSection>
+                            <QuickSection title="سرورها و کلاینت‌ها">
+                                <dl className="m-0">
+                                    <Row label="سرور" num>
+                                        {count(l.servers)}
+                                    </Row>
+                                    <Row label="کلاینت آزاد" num>
+                                        <span className={l.free === 0 ? 'text-warn' : ''}>{count(l.free)}</span>
+                                    </Row>
+                                    <Row label="کلاینت فعال" num>
+                                        {count(l.active)}
+                                    </Row>
+                                </dl>
+                                {l.free === 0 && l.live && <p className="pb-2 text-[13px] text-warn">کلاینت آزادی نمانده؛ سفارش جدید منتظر می‌ماند.</p>}
+                            </QuickSection>
+                            <div className="flex flex-wrap gap-2">
+                                <Link to={`${scope.base}/${l.id}?tab=servers`} className="btn btn-secondary min-h-9">
+                                    سرورها
+                                </Link>
+                                <Link to={`${scope.base}/${l.id}?tab=clients`} className="btn btn-secondary min-h-9">
+                                    کلاینت‌ها
+                                </Link>
+                            </div>
+                        </>
+                    ),
+                }}
+                mobile={(l) => (
+                    <span className="flex items-center gap-3">
+                        <Flag src={l.image} />
+                        <span className="min-w-0 flex-1">
+                            <span className="block truncate font-bold">{l.name}</span>
+                            <span className="num block text-[12px] text-muted">
+                                {l.servers} سرور · {l.free} آزاد · {l.active} فعال
+                            </span>
+                        </span>
+                        <LiveBadge live={l.live} />
+                    </span>
+                )}
+                empty={
+                    <ListEmpty filtered={isFiltered(v, ['view'])} onClear={() => list.update({ q: '', noplans: '', noservers: '' })} action={<Link to={`${scope.base}/new`} className="btn btn-primary">کشور جدید</Link>}>
+                        هنوز کشوری ساخته نشده است.
+                    </ListEmpty>
+                }
+            />
+            {shown && <ListPager page={shown.page} lastPage={shown.lastPage} total={shown.total} perPage={shown.perPage} noun="کشور" onPage={(p) => list.update({ page: String(p) })} onPer={(n) => list.update({ per: String(n) })} />}
         </div>
     );
 }

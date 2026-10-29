@@ -1,8 +1,13 @@
-import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Ban, SearchX } from 'lucide-react';
+import { Link } from 'react-router';
+import { Ban } from 'lucide-react';
 import { useQuery } from '../lib/api';
+import { useBoot } from '../lib/boot';
 import { toman } from '../lib/format';
-import { ErrorState, FilterTabs, Pager, SearchField, SkeletonRows } from '../components/ui';
+import { OrderStatus } from '../components/Status';
+import { CopyButton, FilterTabs, Row } from '../components/ui';
+import { PageHeader, useListParams } from '../components/list';
+import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, QuickSkeleton, filterDefaults, isFiltered, type Column, type FilterDef } from '../components/DataList';
+import type { User } from './UserDetail';
 
 export type UserFlags = { loginBlocked: boolean; walletBlocked: boolean; bankBlocked: boolean; accountBlocked: boolean };
 
@@ -20,12 +25,45 @@ type UserRow = {
 
 type Filter = 'all' | 'balance' | 'blocked';
 
-type UsersPage = { counts: Record<Filter, number>; page: number; lastPage: number; total: number; users: UserRow[] };
+type UsersPage = { counts: Record<Filter, number>; page: number; lastPage: number; total: number; perPage: number; users: UserRow[] };
 
-const filters: { id: Filter; label: string }[] = [
+const views: { id: Filter; label: string }[] = [
     { id: 'all', label: 'همه' },
     { id: 'balance', label: 'دارای موجودی' },
     { id: 'blocked', label: 'محدودشده' },
+];
+
+const filters: FilterDef[] = [
+    { type: 'dates', label: 'تاریخ ثبت‌نام' },
+    { type: 'range', label: 'موجودی کیف پول', unit: 'تومان' },
+    {
+        type: 'select',
+        key: 'buyer',
+        label: 'خرید',
+        options: [
+            { value: 'yes', label: 'سفارش ثبت کرده' },
+            { value: 'no', label: 'بدون سفارش' },
+        ],
+    },
+    {
+        type: 'select',
+        key: 'block',
+        label: 'محدودیت',
+        options: [
+            { value: 'login', label: 'ورود مسدود' },
+            { value: 'wallet', label: 'خرید با کیف پول مسدود' },
+            { value: 'bank', label: 'خرید با درگاه مسدود' },
+            { value: 'account', label: 'حساب مسدود' },
+        ],
+    },
+];
+
+const sorts = [
+    { value: '', label: 'ترتیب پیش‌فرض' },
+    { value: 'newest', label: 'جدیدترین ثبت‌نام' },
+    { value: 'oldest', label: 'قدیمی‌ترین ثبت‌نام' },
+    { value: 'wallet_desc', label: 'بیشترین موجودی' },
+    { value: 'orders_desc', label: 'بیشترین سفارش' },
 ];
 
 export function blockLabels(f: UserFlags): string[] {
@@ -49,132 +87,191 @@ export function BlockedPill({ flags }: { flags: UserFlags }) {
 }
 
 export default function UsersList() {
-    const [params, setParams] = useSearchParams();
-    const navigate = useNavigate();
-    const filter = (params.get('filter') as Filter) || 'all';
-    const q = params.get('q') ?? '';
-    const page = Number(params.get('page') ?? 1);
-    const { data, error, loading, reload } = useQuery<UsersPage>(`/admin/api/users?${new URLSearchParams({ filter, q, page: String(page) })}`);
-    const listHref = `?${params}`;
+    const list = useListParams({ filter: 'all', q: '', sort: '', per: '', ...filterDefaults(filters) });
+    const v = list.values;
+    const { data, error, loading, reload } = useQuery<UsersPage>(`/admin/api/users?${list.query}`);
 
-    function update(next: Record<string, string>) {
-        const merged = new URLSearchParams(params);
-        for (const [k, v] of Object.entries(next)) {
-            if (v) merged.set(k, v);
-            else merged.delete(k);
-        }
-        if (!('page' in next)) merged.delete('page');
-        setParams(merged);
-    }
+    const columns: Column<UserRow>[] = [
+        {
+            key: 'name',
+            header: 'کاربر',
+            primary: true,
+            cell: (u) => (
+                <span className="leading-snug">
+                    <span className="block max-w-[220px] truncate font-bold">{u.name || 'بدون نام'}</span>
+                    <span className="num block text-[12px] text-muted">کد {u.id}</span>
+                </span>
+            ),
+        },
+        { key: 'mobile', header: 'موبایل', cell: (u) => <span dir="ltr" className="num">{u.mobile}</span> },
+        { key: 'email', header: 'ایمیل', from: 'lg', cell: (u) => <span dir="ltr" className="latin block max-w-[220px] truncate text-end text-[13px] text-muted">{u.email || '—'}</span> },
+        { key: 'wallet', header: 'موجودی', align: 'end', cell: (u) => <span className={`num whitespace-nowrap ${u.wallet > 0 ? 'font-medium' : 'text-muted'}`}>{toman(u.wallet)}</span> },
+        {
+            key: 'orders',
+            header: 'سفارش',
+            align: 'end',
+            cell: (u) =>
+                u.orders ? (
+                    <Link to={`/orders?view=all&user=${u.id}`} className="num underline-offset-4 hover:underline" title="سفارش‌های این کاربر">
+                        {u.orders}
+                    </Link>
+                ) : (
+                    <span className="num text-muted">۰</span>
+                ),
+        },
+        { key: 'state', header: 'وضعیت', from: 'xl', cell: (u) => (blockLabels(u.flags).length ? <BlockedPill flags={u.flags} /> : <span className="text-muted">—</span>) },
+        { key: 'created', header: 'ثبت‌نام', cell: (u) => <span dir="ltr" className="num text-[13px] whitespace-nowrap text-muted">{u.createdAt}</span> },
+    ];
 
     return (
         <div className="mx-auto max-w-[1280px]">
-            <div className="mb-5">
-                <h1 className="text-[22px] leading-tight font-bold">کاربران</h1>
-                <p className="mt-1 text-muted">{filter === 'balance' ? 'بیشترین موجودی اول.' : 'جدیدترین ثبت‌نام‌ها اول.'}</p>
-            </div>
+            <PageHeader title="کاربران" subtitle={v.filter === 'balance' && !v.sort ? 'بیشترین موجودی اول.' : 'جدیدترین ثبت‌نام‌ها اول، مگر ترتیب دیگری انتخاب کنید.'} />
 
-            <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
-                <FilterTabs label="فیلتر کاربران" items={filters} value={filter} counts={data?.counts} onChange={(id) => update({ filter: id })} />
-                <div className="flex flex-1 gap-2 xl:justify-end">
-                    <SearchField value={q} onSearch={(v) => update({ q: v })} label="جستجو با موبایل، نام یا ایمیل" placeholder="موبایل، نام یا ایمیل" />
-                </div>
-            </div>
+            <FilterBar
+                views={<FilterTabs label="فیلتر کاربران" items={views} value={v.filter as Filter} counts={data?.counts} onChange={(filter) => list.update({ filter })} />}
+                search={{ label: 'جستجو با موبایل، نام، ایمیل یا کد کاربر', placeholder: 'موبایل، نام، ایمیل یا کد' }}
+                filters={filters}
+                sort={{ options: sorts }}
+                values={v}
+                onChange={list.update}
+                total={data?.total}
+                noun="کاربر"
+                loading={loading}
+                onRefresh={reload}
+            />
 
-            <section aria-label="لیست کاربران" aria-busy={loading} className="overflow-hidden rounded-2xl border border-stroke bg-surface">
-                {error ? (
-                    <ErrorState error={error} onRetry={reload} />
-                ) : !data ? (
-                    <SkeletonRows />
-                ) : data.users.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-                        <SearchX aria-hidden size={28} className="text-muted" />
-                        <p className="font-medium">{q ? `کاربری با «${q}» پیدا نشد.` : 'کاربری در این فهرست نیست.'}</p>
-                        {(q || filter !== 'all') && (
-                            <button type="button" className="btn btn-secondary mt-2" onClick={() => setParams(new URLSearchParams())}>
-                                پاک کردن جستجو و فیلتر
-                            </button>
+            <DataTable
+                label="لیست کاربران"
+                rows={data?.users}
+                loading={loading}
+                error={error}
+                onRetry={reload}
+                columns={columns}
+                rowKey={(u) => u.id}
+                href={(u) => `/users/${u.id}`}
+                linkState={{ list: list.here }}
+                rowLabel={(u) => `کاربر ${u.name || u.mobile || u.id}`}
+                quick={{
+                    title: (u) => u.name || 'بدون نام',
+                    subtitle: (u) => (
+                        <span className="flex flex-wrap items-center gap-2">
+                            <span dir="ltr" className="num">
+                                {u.mobile}
+                            </span>
+                            <BlockedPill flags={u.flags} />
+                        </span>
+                    ),
+                    body: (u) => <UserQuick id={u.id} />,
+                }}
+                mobile={(u) => (
+                    <>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-bold">{u.name || 'بدون نام'}</span>
+                            <span className="num shrink-0 font-medium">{toman(u.wallet)}</span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-[13px] text-muted">
+                            <span dir="ltr" className="num">
+                                {u.mobile}
+                            </span>
+                            <span className="num">{u.orders} سفارش</span>
+                        </div>
+                        {blockLabels(u.flags).length > 0 && (
+                            <div className="mt-1.5">
+                                <BlockedPill flags={u.flags} />
+                            </div>
                         )}
-                    </div>
-                ) : (
-                    <div className={`transition-opacity ${loading ? 'opacity-60' : ''}`}>
-                        <table className="hidden w-full md:table">
-                            <thead>
-                                <tr className="border-b border-stroke text-[13px] text-muted">
-                                    <th scope="col" className="py-3 ps-5 pe-3 text-start font-medium">کاربر</th>
-                                    <th scope="col" className="px-3 text-start font-medium">موبایل</th>
-                                    <th scope="col" className="hidden px-3 text-start font-medium lg:table-cell">ایمیل</th>
-                                    <th scope="col" className="px-3 text-end font-medium">موجودی</th>
-                                    <th scope="col" className="px-3 text-end font-medium">سفارش</th>
-                                    <th scope="col" className="py-3 ps-3 pe-5 text-start font-medium">ثبت‌نام</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.users.map((u) => (
-                                    <tr
-                                        key={u.id}
-                                        onClick={(e) => {
-                                            if ((e.target as HTMLElement).closest('a')) return;
-                                            navigate(`/users/${u.id}`, { state: { list: listHref } });
-                                        }}
-                                        className="cursor-pointer border-b border-stroke last:border-0 hover:bg-surface-2"
-                                    >
-                                        <td className="py-3 ps-5 pe-3">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Link
-                                                    to={`/users/${u.id}`}
-                                                    state={{ list: listHref }}
-                                                    className="max-w-[220px] truncate font-bold underline-offset-4 hover:underline"
-                                                >
-                                                    {u.name || 'بدون نام'}
-                                                </Link>
-                                                <BlockedPill flags={u.flags} />
-                                            </div>
-                                        </td>
-                                        <td dir="ltr" className="num px-3 text-end">
-                                            {u.mobile}
-                                        </td>
-                                        <td dir="ltr" className="latin hidden max-w-[220px] truncate px-3 text-end text-[13px] text-muted lg:table-cell">
-                                            {u.email || '—'}
-                                        </td>
-                                        <td className={`num px-3 text-end whitespace-nowrap ${u.wallet > 0 ? 'font-medium' : 'text-muted'}`}>{toman(u.wallet)}</td>
-                                        <td className="num px-3 text-end">{u.orders}</td>
-                                        <td dir="ltr" className="num py-3 ps-3 pe-5 text-end text-[13px] whitespace-nowrap text-muted">
-                                            {u.createdAt}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        <ul className="md:hidden">
-                            {data.users.map((u) => (
-                                <li key={u.id} className="border-b border-stroke last:border-0">
-                                    <Link to={`/users/${u.id}`} state={{ list: listHref }} className="block px-4 py-3 hover:bg-surface-2">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="truncate font-bold">{u.name || 'بدون نام'}</span>
-                                            <span className="num shrink-0 font-medium">{toman(u.wallet)}</span>
-                                        </div>
-                                        <div className="mt-1 flex items-center justify-between gap-2 text-[13px] text-muted">
-                                            <span dir="ltr" className="num">
-                                                {u.mobile}
-                                            </span>
-                                            <span className="num">{u.orders} سفارش</span>
-                                        </div>
-                                        {blockLabels(u.flags).length > 0 && (
-                                            <div className="mt-1.5">
-                                                <BlockedPill flags={u.flags} />
-                                            </div>
-                                        )}
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                    </>
                 )}
-            </section>
+                empty={
+                    <ListEmpty filtered={isFiltered(v, ['filter'])} onClear={() => list.update({ q: '', ...filterDefaults(filters) })}>
+                        کاربری در این فهرست نیست.
+                    </ListEmpty>
+                }
+            />
 
-            {data && <Pager page={data.page} lastPage={data.lastPage} total={data.total} noun="کاربر" onPage={(p) => update({ page: String(p) })} />}
+            {data && (
+                <ListPager
+                    page={data.page}
+                    lastPage={data.lastPage}
+                    total={data.total}
+                    perPage={data.perPage}
+                    noun="کاربر"
+                    onPage={(p) => list.update({ page: String(p) })}
+                    onPer={(n) => list.update({ per: String(n) })}
+                />
+            )}
         </div>
+    );
+}
+
+function UserQuick({ id }: { id: number }) {
+    const { labels } = useBoot();
+    const { data: user, error } = useQuery<User>(`/admin/api/users/${id}`);
+    if (error) return <p className="text-error">{error.message}</p>;
+    if (!user) return <QuickSkeleton />;
+    return (
+        <>
+            <QuickSection title="حساب">
+                <dl className="m-0">
+                    <Row label="موبایل" ltr>
+                        {user.mobile}
+                        {user.mobile && <CopyButton value={user.mobile} label="موبایل" />}
+                    </Row>
+                    {user.email && (
+                        <Row label="ایمیل" ltr>
+                            <span className="latin">{user.email}</span>
+                        </Row>
+                    )}
+                    <Row label="موجودی کیف پول" num>
+                        {toman(user.wallet)}
+                    </Row>
+                    <Row label="موجودی مسدود" num>
+                        {toman(user.blockedWallet)}
+                    </Row>
+                    <Row label="عضو از" ltr>
+                        {user.createdAt}
+                    </Row>
+                </dl>
+            </QuickSection>
+            <QuickSection title="خرید">
+                <dl className="m-0">
+                    <Row label="سفارش‌ها" num>
+                        {user.stats.orders}
+                    </Row>
+                    <Row label="تکمیل‌شده" num>
+                        {user.stats.completed}
+                    </Row>
+                    <Row label="مبلغ خرید تکمیل‌شده" num>
+                        {toman(user.stats.spent)}
+                    </Row>
+                </dl>
+            </QuickSection>
+            <QuickSection
+                title="آخرین سفارش‌ها"
+                action={
+                    user.stats.orders > 0 ? (
+                        <Link to={`/orders?view=all&user=${user.id}`} className="text-[13px] font-medium text-indigo underline-offset-4 hover:underline">
+                            همه
+                        </Link>
+                    ) : undefined
+                }
+            >
+                {user.orders.length === 0 ? (
+                    <p className="pb-2 text-muted">سفارشی ثبت نکرده است.</p>
+                ) : (
+                    <ul className="-mx-4 divide-y divide-stroke">
+                        {user.orders.slice(0, 5).map((o) => (
+                            <li key={o.id}>
+                                <Link to={`/orders/${o.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
+                                    <span className="num w-14 font-bold">#{o.id}</span>
+                                    <span className="min-w-0 flex-1 truncate text-[13px]">{o.service || labels.orderType[o.type]}</span>
+                                    <OrderStatus status={o.status} />
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </QuickSection>
+        </>
     );
 }

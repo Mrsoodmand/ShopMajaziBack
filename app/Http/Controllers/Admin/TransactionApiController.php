@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Admin;
+use App\Http\Controllers\Admin\Concerns\AdminApi;
 use App\Http\Controllers\Controller;
 use App\lib\Jdf;
 use App\Models\Card;
@@ -27,6 +28,8 @@ use Illuminate\Validation\ValidationException;
  */
 class TransactionApiController extends Controller
 {
+    use AdminApi;
+
     /** Statuses an admin has to look at; the list opens on these, oldest first. -3 = card mismatch, -2 = under review. */
     const REVIEW = ['-3', '-2'];
 
@@ -80,6 +83,7 @@ class TransactionApiController extends Controller
         if ($to) {
             $base->where('created_at', '<=', $to . ' 23:59:59');
         }
+        $this->filterBetween($base, $request, 'price');
 
         $counts = (clone $base)->select('status', DB::raw('count(*) as c'))->groupBy('status')->pluck('c', 'status')
             ->mapWithKeys(fn ($c, $s) => [strtolower((string) $s) => (int) $c]);
@@ -101,8 +105,14 @@ class TransactionApiController extends Controller
             default => null,
         };
         // The review queue is worked oldest first; every other view is newest first.
-        $view === 'review' ? $list->orderBy('created_at')->orderBy('id') : $list->orderByDesc('id');
-        $page = $list->paginate(self::PER_PAGE);
+        match ((string) $request->input('sort', '')) {
+            'newest' => $list->orderByDesc('id'),
+            'oldest' => $list->orderBy('id'),
+            'price_desc' => $list->orderByRaw('CAST(price AS DECIMAL(15,2)) DESC')->orderByDesc('id'),
+            'price_asc' => $list->orderByRaw('CAST(price AS DECIMAL(15,2)) ASC')->orderByDesc('id'),
+            default => $view === 'review' ? $list->orderBy('created_at')->orderBy('id') : $list->orderByDesc('id'),
+        };
+        $page = $list->paginate($this->perPage($request, self::PER_PAGE));
 
         $jdf = new Jdf();
         $user = $userId ? User::find($userId, ['id', 'name', 'mobile']) : null;
@@ -112,6 +122,7 @@ class TransactionApiController extends Controller
             'page' => $page->currentPage(),
             'lastPage' => $page->lastPage(),
             'total' => $page->total(),
+            'perPage' => $page->perPage(),
             'scope' => $this->visibleScope(),
             'user' => $user ? ['id' => $user->id, 'name' => $user->name, 'mobile' => $user->mobile] : null,
             'transactions' => $page->getCollection()->map(fn (Payment $p) => $this->row($jdf, $p))->values(),

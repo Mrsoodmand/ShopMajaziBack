@@ -42,12 +42,16 @@ class GoogleVoiceApiController extends Controller
             'sold' => (clone $base)->where('status', 1)->count(),
         ];
         $list = clone $base;
+        $this->filterDays($list, $request);
+        if ($userId = (int) $request->input('user')) {
+            $list->where('user_id', $userId);
+        }
         if ($filter === 'stock') {
             $list->where('status', 0);
         } elseif ($filter === 'sold') {
             $list->where('status', 1);
         }
-        $page = $list->orderByDesc('id')->paginate(self::PER_PAGE, ['id', 'number', 'order_id', 'user_id', 'status', 'created_at', 'updated_at']);
+        $page = ($request->input('sort') === 'oldest' ? $list->orderBy('id') : $list->orderByDesc('id'))->paginate($this->perPage($request, self::PER_PAGE), ['id', 'number', 'order_id', 'user_id', 'status', 'created_at', 'updated_at']);
         $users = User::whereIn('id', $page->getCollection()->pluck('user_id')->filter())->get(['id', 'name', 'mobile'])->keyBy('id');
 
         return response()->json($this->pageMeta($page) + [

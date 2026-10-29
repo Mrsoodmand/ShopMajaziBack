@@ -48,9 +48,6 @@ return [
 
     'telegram' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
-        'hegza_token' => env('TELEGRAM_HEGZA_BOT_TOKEN'),
-        'arayesh_token' => env('TELEGRAM_ARAYESH_BOT_TOKEN'),
-        'bot_two_token' => env('TELEGRAM_BOT_TWO_TOKEN'),
     ],
 
     'zarinpal' => [

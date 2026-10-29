@@ -35,6 +35,11 @@ class PostApiController extends Controller
         if ($search !== '') {
             $base->where(fn ($q) => $q->where('title', 'LIKE', "%$search%")->orWhere('slug', 'LIKE', "%$search%"));
         }
+        $this->filterDays($base, $request, 'created_at');
+        if ($request->boolean('image')) {
+            $base->whereNotNull('image')->where('image', '!=', '');
+        }
+
         $counts = ['all' => (clone $base)->count()];
         foreach (self::STATUS as $stored => $key) {
             $counts[$key] = (clone $base)->where('status', $stored)->count();
@@ -43,7 +48,13 @@ class PostApiController extends Controller
         if ($code = array_search($status, self::STATUS, true)) {
             $list->where('status', $code);
         }
-        $page = $list->orderByDesc('id')->paginate(self::PER_PAGE, ['id', 'title', 'slug', 'image', 'status', 'view', 'share_at', 'created_at', 'updated_at']);
+        match ((string) $request->input('sort', '')) {
+            'oldest' => $list->orderBy('id'),
+            'views' => $list->orderByDesc('view')->orderByDesc('id'),
+            'updated' => $list->orderByDesc('updated_at'),
+            default => $list->orderByDesc('id'),
+        };
+        $page = $list->paginate($this->perPage($request, self::PER_PAGE), ['id', 'title', 'slug', 'image', 'status', 'view', 'share_at', 'created_at', 'updated_at']);
         $comments = Comment::where('type', 'blog')->where('parent_id', 0)
             ->whereIn('post_id', $page->getCollection()->pluck('id'))->selectRaw('post_id, count(*) c')->groupBy('post_id')->pluck('c', 'post_id');
 

@@ -8,7 +8,7 @@ import { Field, ImageField, slugify } from '../../components/form';
 import { RichText } from '../../components/RichText';
 import { ErrorState, Panel } from '../../components/ui';
 import { ConfirmButton, EditorSkeleton, FaqEditor, problemsFrom, type FaqRow } from '../../components/list';
-import { jalali } from '../transactions/dates';
+import { jalali } from '../../lib/dates';
 import { KINDS, type PostKind, type PostStatus } from './PostsList';
 
 type Post = {

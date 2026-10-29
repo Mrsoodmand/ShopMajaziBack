@@ -3,8 +3,9 @@ import { Check, CircleCheck, CircleX, Clock, Link2, MessageSquareReply, Trash2, 
 import { ApiError, postJson, useQuery } from '../../lib/api';
 import { useBoot } from '../../lib/boot';
 import { Badge } from '../../components/Status';
-import { ErrorState, FieldError, FilterTabs, Notice, Pager, SearchField, SkeletonRows } from '../../components/ui';
-import { ConfirmButton, EmptyState, PageHeader, useListParams } from '../../components/list';
+import { ErrorState, FieldError, FilterTabs, Notice, SkeletonRows } from '../../components/ui';
+import { ConfirmButton, PageHeader, useListParams } from '../../components/list';
+import { FilterBar, ListEmpty, ListPager, isFiltered, type FilterDef } from '../../components/DataList';
 
 type Status = 'pending' | 'approved' | 'rejected';
 type Comment = {
@@ -20,7 +21,7 @@ type Comment = {
     createdAt: string | null;
     reply: { text: string; name: string; createdAt: string | null } | null;
 };
-type CommentsPage = { page: number; lastPage: number; total: number; counts: Record<string, number>; comments: Comment[] };
+type CommentsPage = { page: number; lastPage: number; total: number; perPage: number; counts: Record<string, number>; comments: Comment[] };
 
 const filters = [
     { id: 'pending', label: 'در انتظار بررسی' },
@@ -28,11 +29,25 @@ const filters = [
     { id: 'rejected', label: 'ردشده' },
     { id: 'all', label: 'همه' },
 ];
-const types = [
-    { id: '', label: 'همه بخش‌ها' },
-    { id: 'blog', label: 'بلاگ و اخبار' },
-    { id: 'page', label: 'صفحه‌های خدمات' },
-    { id: 'service', label: 'خدمات مجازی' },
+const filterDefs: FilterDef[] = [
+    {
+        type: 'select',
+        key: 'type',
+        label: 'بخش سایت',
+        any: 'همه بخش‌ها',
+        options: [
+            { value: 'blog', label: 'بلاگ و اخبار' },
+            { value: 'page', label: 'صفحه‌های خدمات' },
+            { value: 'service', label: 'خدمات مجازی' },
+        ],
+    },
+    { type: 'dates', label: 'تاریخ ثبت' },
+    { type: 'toggle', key: 'replied', label: 'پاسخ داده‌شده', hint: 'نظرهایی که فروشگاه به آن‌ها پاسخ داده' },
+];
+const sorts = [
+    { value: '', label: 'ترتیب پیش‌فرض' },
+    { value: 'newest', label: 'جدیدترین' },
+    { value: 'oldest', label: 'قدیمی‌ترین' },
 ];
 
 function StatusBadge({ status }: { status: Status }) {
@@ -43,7 +58,7 @@ function StatusBadge({ status }: { status: Status }) {
 
 export default function CommentsPage() {
     const { csrfToken } = useBoot();
-    const list = useListParams({ status: 'pending', type: '', q: '' });
+    const list = useListParams({ status: 'pending', type: '', q: '', sort: '', per: '', from: '', to: '', replied: '' });
     const { data, error, loading, reload } = useQuery<CommentsPage>(`/admin/api/comments?${list.query}`);
     const [selected, setSelected] = useState<Set<number>>(new Set());
     const [notice, setNotice] = useState<string | null>(null);
@@ -82,20 +97,18 @@ export default function CommentsPage() {
         <div className="mx-auto max-w-[1280px]">
             <PageHeader title="نظرها" subtitle="نظرهای تأییدشده در سایت دیده می‌شوند. صف بررسی از قدیمی‌ترین شروع می‌شود." />
 
-            <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
-                <FilterTabs label="وضعیت نظر" items={filters} value={list.values.status} counts={data?.counts} attention="pending" onChange={(status) => list.update({ status })} />
-                <div className="flex flex-1 flex-wrap gap-2 xl:justify-end">
-                    <label htmlFor="comment-type" className="sr-only">بخش سایت</label>
-                    <select id="comment-type" className="field w-auto" value={list.values.type} onChange={(e) => list.update({ type: e.target.value })}>
-                        {types.map((t) => (
-                            <option key={t.id} value={t.id}>
-                                {t.label}
-                            </option>
-                        ))}
-                    </select>
-                    <SearchField value={list.values.q} onSearch={(q) => list.update({ q })} label="جستجوی نظر" placeholder="نام، موبایل یا متن" />
-                </div>
-            </div>
+            <FilterBar
+                views={<FilterTabs label="وضعیت نظر" items={filters} value={list.values.status} counts={data?.counts} attention="pending" onChange={(status) => list.update({ status })} />}
+                search={{ label: 'جستجوی نظر', placeholder: 'نام، موبایل یا متن' }}
+                filters={filterDefs}
+                sort={{ options: sorts }}
+                values={list.values}
+                onChange={list.update}
+                total={data?.total}
+                noun="نظر"
+                loading={loading}
+                onRefresh={reload}
+            />
 
             {notice && (
                 <div className="mb-4">
@@ -147,7 +160,9 @@ export default function CommentsPage() {
                     </div>
                 ) : rows.length === 0 ? (
                     <div className="rounded-2xl border border-stroke bg-surface">
-                        <EmptyState>{list.values.status === 'pending' && !list.values.q ? 'نظری منتظر بررسی نیست.' : 'نظری در این فهرست نیست.'}</EmptyState>
+                        <ListEmpty filtered={isFiltered(list.values, ['status'])} onClear={() => list.update({ q: '', type: '', from: '', to: '', replied: '' })}>
+                            {list.values.status === 'pending' ? 'نظری منتظر بررسی نیست.' : 'نظری در این فهرست نیست.'}
+                        </ListEmpty>
                     </div>
                 ) : (
                     <ul className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -157,7 +172,17 @@ export default function CommentsPage() {
                     </ul>
                 )}
             </section>
-            {data && <Pager page={data.page} lastPage={data.lastPage} total={data.total} noun="نظر" onPage={(p) => list.update({ page: String(p) })} />}
+            {data && (
+                <ListPager
+                    page={data.page}
+                    lastPage={data.lastPage}
+                    total={data.total}
+                    perPage={data.perPage}
+                    noun="نظر"
+                    onPage={(p) => list.update({ page: String(p) })}
+                    onPer={(n) => list.update({ per: String(n) })}
+                />
+            )}
         </div>
     );
 }

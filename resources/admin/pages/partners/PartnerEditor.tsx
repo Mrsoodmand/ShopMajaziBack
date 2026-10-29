@@ -158,15 +158,18 @@ export default function PartnerEditor() {
                 </fieldset>
             </Panel>
 
-            {existing.data && <Earnings data={existing.data} onChanged={existing.reload} />}
+            {existing.data && <Earnings part="wallet" tabLabel="کیف پول همکار" data={existing.data} onChanged={existing.reload} />}
+            {existing.data && <Earnings part="profits" tabLabel="سهم از سفارش‌ها" data={existing.data} onChanged={existing.reload} />}
         </EditorLayout>
     );
 }
 
-function Earnings({ data, onChanged }: { data: Data; onChanged: () => void }) {
+/** One of the partner's money sections; each is its own tab in the editor. */
+function Earnings({ part, data, onChanged }: { part: 'wallet' | 'profits'; tabLabel: string; data: Data; onChanged: () => void }) {
     const { partner, profits, settlements } = data;
     return (
         <>
+            {part === 'wallet' && (
             <Panel title="کیف پول همکار">
                 <div className="grid gap-6 md:grid-cols-2">
                     <dl className="m-0">
@@ -200,7 +203,9 @@ function Earnings({ data, onChanged }: { data: Data; onChanged: () => void }) {
                     </div>
                 )}
             </Panel>
+            )}
 
+            {part === 'profits' && (
             <Panel title="سهم از سفارش‌ها">
                 {profits.length === 0 ? (
                     <p className="text-muted">هنوز سهمی ثبت نشده است.</p>
@@ -234,6 +239,7 @@ function Earnings({ data, onChanged }: { data: Data; onChanged: () => void }) {
                     </div>
                 )}
             </Panel>
+            )}
         </>
     );
 }

@@ -7,10 +7,10 @@ import { count } from '../lib/format';
 /** Reads and updates list filters kept in the address (?filter=…&q=…&page=…); changing a filter goes back to page 1. */
 export function useListParams<K extends string>(defaults: Record<K, string>) {
     const [params, setParams] = useSearchParams();
-    const values = Object.fromEntries(Object.entries(defaults).map(([k, d]) => [k, params.get(k) ?? (d as string)])) as Record<K, string>;
+    const values = Object.fromEntries(Object.entries(defaults).map(([k, d]) => [k, params.get(k) ?? (d as string)])) as Record<K, string> & Record<string, string>;
     const page = Number(params.get('page') ?? 1) || 1;
 
-    function update(next: Partial<Record<K | 'page', string>>) {
+    function update(next: Partial<Record<K | 'page', string>> | Record<string, string>) {
         const merged = new URLSearchParams(params);
         for (const [k, v] of Object.entries(next) as [string, string | undefined][]) {
             if (v && v !== (defaults as Record<string, string>)[k]) merged.set(k, v);
@@ -20,8 +20,10 @@ export function useListParams<K extends string>(defaults: Record<K, string>) {
         setParams(merged);
     }
 
-    /** Query string for the API: every filter plus the page. */
-    const query = new URLSearchParams({ ...values, page: String(page) }).toString();
+    /** Query string for the API: every filter that is set, plus the page. */
+    const query = new URLSearchParams(
+        Object.entries({ ...values, page: String(page) }).filter(([, v]) => v !== '') as [string, string][],
+    ).toString();
     return { values, page, update, query, reset: () => setParams(new URLSearchParams()), here: `?${params}` };
 }
 

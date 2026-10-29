@@ -249,10 +249,6 @@ Route::group(['prefix' => 'user'], function () {
 
 Route::get('GetPhotos', [\App\Http\Controllers\Site\SiteController::class, 'HaramEmamHosein']);
 Route::get('ChargeForMom', [\App\Http\Controllers\Site\ShopController::class, 'ChargeForMom']);
-Route::get('CheckJsonEncode', function () {
-    $DB = \Illuminate\Support\Facades\DB::table('telegram_bot_data')->find($_GET['id']);
-   return json_decode($DB->data);
-});
 
 Route::group(['prefix' => 'partner'], function () {
   Route::get('/login', 'PartnerAuth\LoginController@showLoginForm')->name('login');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Admin;
+use App\Http\Controllers\Admin\Concerns\AdminApi;
 use App\Http\Controllers\Controller;
 use App\lib\Jdf;
 use App\Models\History;
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderApiController extends Controller
 {
+    use AdminApi;
+
     /** Statuses an admin has to act on; the list opens on these. */
     const NEEDS_ACTION = ['pending', 'progressing', 'suspended'];
 
@@ -50,6 +53,20 @@ class OrderApiController extends Controller
         if ($type) {
             $base->where('type', $type);
         }
+        $pay = (string) $request->input('pay', '');
+        if ($pay === 'none') {
+            $base->where(fn ($q) => $q->whereNull('pay_status')->orWhere('pay_status', ''));
+        } elseif ($pay !== '') {
+            $base->where('pay_status', $pay);
+        }
+        if ($request->boolean('unread')) {
+            $base->whereIn('id', OrderChat::where('type', 'user')->where('new', true)->select('order_id'));
+        }
+        if ($userId = (int) $request->input('user')) {
+            $base->where('user_id', $userId);
+        }
+        $this->filterDays($base, $request);
+        $this->filterBetween($base, $request, 'price');
 
         $counts = (clone $base)->select('status', DB::raw('count(*) as c'))->groupBy('status')->pluck('c', 'status');
         $viewCounts = [
@@ -68,13 +85,15 @@ class OrderApiController extends Controller
             'failed' => $list->whereIn('status', ['failed', 'back money to wallet']),
             default => null,
         };
-        // The queue is worked oldest first; every other view is newest first.
-        if ($view === 'action') {
-            $list->orderBy('created_at')->orderBy('id');
-        } else {
-            $list->orderByDesc('id');
-        }
-        $page = $list->paginate(self::PER_PAGE);
+        // The queue is worked oldest first; every other view is newest first, unless the admin picked an order.
+        match ((string) $request->input('sort', '')) {
+            'newest' => $list->orderByDesc('id'),
+            'oldest' => $list->orderBy('id'),
+            'price_desc' => $list->orderByDesc('price')->orderByDesc('id'),
+            'price_asc' => $list->orderBy('price')->orderByDesc('id'),
+            default => $view === 'action' ? $list->orderBy('created_at')->orderBy('id') : $list->orderByDesc('id'),
+        };
+        $page = $list->paginate($this->perPage($request, self::PER_PAGE));
 
         $unread = OrderChat::whereIn('order_id', $page->pluck('id'))
             ->where('type', 'user')->where('new', true)
@@ -87,6 +106,7 @@ class OrderApiController extends Controller
             'page' => $page->currentPage(),
             'lastPage' => $page->lastPage(),
             'total' => $page->total(),
+            'perPage' => $page->perPage(),
             'orders' => $page->getCollection()->map(fn (Order $o) => [
                 'id' => $o->id,
                 'type' => (string) $o->type,

@@ -125,12 +125,6 @@ class ReactAppController extends Controller
                 $isSuper ? ['label' => 'نقش‌ها و دسترسی‌ها', 'icon' => 'roles', 'to' => '/roles'] : null,
                 $isSuper ? ['label' => 'مدیران', 'icon' => 'admins', 'to' => '/admins'] : null,
                 $can(['partner-list']) ? ['label' => 'همکاران', 'icon' => 'partners', 'to' => '/partners'] : null,
-                $isSuper ? ['label' => 'ربات تلگرام', 'icon' => 'bot', 'children' => [
-                    ['label' => 'کاربران ربات', 'to' => '/bot/users'],
-                    ['label' => 'سفارش‌های ربات', 'to' => '/bot/orders'],
-                    ['label' => 'آی‌پی‌های ربات', 'to' => '/bot/ip'],
-                    ['label' => 'اطلاعیه‌ها', 'to' => '/bot/messages'],
-                ]] : null,
             ])),
         ];
 

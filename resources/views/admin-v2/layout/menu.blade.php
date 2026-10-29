@@ -320,42 +320,7 @@
                                 </a>
                             </div>
                         @endcan
-                        @if($Admin->hasAnyRole(['super-admin']))
-                            <div data-kt-menu-trigger="click" class="menu-item menu-accordion">
-                            <span class="menu-link">
-                                <span class="menu-icon"><i class="fa-light fa-globe"></i></span>
-                                <span class="menu-title">ربات</span>
-                                <span class="menu-arrow"></span>
-                            </span>
-                                <div class="menu-sub menu-sub-accordion menu-active-bg">
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.bot-users')}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">لیست کاربران</span>
-                                        </a>
-                                    </div>
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.bot-orders')}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">لیست سفارشات</span>
-                                        </a>
-                                    </div>
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.hegza-ip-list',['type' =>'pu-ip-sabet'])}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">ای پی ها</span>
-                                        </a>
-                                    </div>
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.bot-messages')}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">ارسال پیام</span>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                        @endif
+                        
 
                         @can('tickets-list')
                             <div class="menu-item menu-accordion">
@@ -480,33 +445,7 @@
                                 </a>
                             </div>
 
-                            <div data-kt-menu-trigger="click" class="menu-item menu-accordion">
-                            <span class="menu-link">
-                                <span class="menu-icon"><i class="fa-light fa-globe"></i></span>
-                                <span class="menu-title">ربات</span>
-                                <span class="menu-arrow"></span>
-                            </span>
-                                <div class="menu-sub menu-sub-accordion menu-active-bg">
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.bot-users')}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">لیست کاربران</span>
-                                        </a>
-                                    </div>
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.bot-orders')}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">لیست سفارشات</span>
-                                        </a>
-                                    </div>
-                                    <div class="menu-item">
-                                        <a class="menu-link" href="{{route('admin.hegza-ip-list',['type' =>'pu-ip-sabet'])}}">
-                                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                            <span class="menu-title">ای پی ها</span>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+                            
 
 
                         @endif

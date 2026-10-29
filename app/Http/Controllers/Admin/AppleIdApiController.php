@@ -51,10 +51,14 @@ class AppleIdApiController extends Controller
             $counts[$key] = $scope(clone $base)->count();
         }
         $list = clone $base;
+        $this->filterDays($list, $request);
+        if ($userId = (int) $request->input('user')) {
+            $list->where('user_id', $userId);
+        }
         if (isset($scopes[$filter])) {
             $scopes[$filter]($list);
         }
-        $page = $list->orderByDesc('id')->paginate(self::PER_PAGE, ['id', 'apple_id', 'order_id', 'user_id', 'status', 'type', 'created_at', 'updated_at']);
+        $page = ($request->input('sort') === 'oldest' ? $list->orderBy('id') : $list->orderByDesc('id'))->paginate($this->perPage($request, self::PER_PAGE), ['id', 'apple_id', 'order_id', 'user_id', 'status', 'type', 'created_at', 'updated_at']);
         $users = User::whereIn('id', $page->getCollection()->pluck('user_id')->filter())->get(['id', 'name', 'mobile'])->keyBy('id');
 
         return response()->json($this->pageMeta($page) + [

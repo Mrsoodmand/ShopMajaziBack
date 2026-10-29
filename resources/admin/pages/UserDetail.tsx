@@ -5,10 +5,11 @@ import { postForm, useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { parseAmount, toman } from '../lib/format';
 import { OrderStatus, PayStatus } from '../components/Status';
-import { CopyButton, ErrorState, FieldError, Notice, Panel, Row, TabbedPanel, gateLabel } from '../components/ui';
+import { CopyButton, ErrorState, FieldError, Notice, Panel, Row, gateLabel } from '../components/ui';
+import { TabbedSections } from '../components/PageTabs';
 import { BlockedPill, type UserFlags } from './UsersList';
 
-type User = {
+export type User = {
     id: number;
     name: string | null;
     mobile: string | null;
@@ -101,7 +102,7 @@ export default function UserDetail() {
 
                     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
                         <div className="min-w-0">
-                            <Activity user={user} />
+                            <Activity user={user} onChanged={reload} />
                         </div>
                         <aside className="space-y-6 lg:sticky lg:top-20" aria-label="حساب و اقدام‌ها">
                             <Panel title="حساب">
@@ -128,12 +129,6 @@ export default function UserDetail() {
                                     )}
                                 </dl>
                             </Panel>
-                            <Panel title="کیف پول">
-                                <WalletForm user={user} onChanged={reload} />
-                            </Panel>
-                            <Panel title="تنظیمات حساب">
-                                <SettingsForm user={user} onChanged={reload} />
-                            </Panel>
                         </aside>
                     </div>
                 </div>
@@ -142,20 +137,39 @@ export default function UserDetail() {
     );
 }
 
-function Activity({ user }: { user: User }) {
+function Activity({ user, onChanged }: { user: User; onChanged: () => void }) {
     const { labels } = useBoot();
     const unreadTickets = user.tickets.filter((t) => t.unread).length;
     return (
-        <TabbedPanel
-            label="فعالیت کاربر"
+        <TabbedSections
+            id="user"
+            label="بخش‌های کاربر"
             tabs={[
                 { id: 'orders', label: 'سفارش‌ها', count: user.stats.orders },
                 { id: 'payments', label: 'تراکنش‌ها', count: user.payments.length },
-                { id: 'tickets', label: 'تیکت‌ها', count: unreadTickets || user.tickets.length, highlight: unreadTickets ? 'تیکت جدید' : undefined },
+                { id: 'tickets', label: 'تیکت‌ها', count: unreadTickets || user.tickets.length, tone: unreadTickets ? 'attention' : undefined, note: unreadTickets ? 'تیکت جدید' : undefined },
+                { id: 'wallet', label: 'کیف پول' },
+                { id: 'settings', label: 'تنظیمات حساب' },
                 { id: 'referrals', label: 'معرفی‌شده‌ها', count: user.referrals.length },
                 { id: 'history', label: 'تغییرات حساب', count: user.history.length },
             ]}
             render={(tab) => {
+                if (tab === 'wallet') {
+                    return (
+                        <div className="max-w-[520px]">
+                            <h2 className="mb-3 text-[16px] font-bold">شارژ، برداشت و مسدودی کیف پول</h2>
+                            <WalletForm user={user} onChanged={onChanged} />
+                        </div>
+                    );
+                }
+                if (tab === 'settings') {
+                    return (
+                        <div className="max-w-[520px]">
+                            <h2 className="mb-3 text-[16px] font-bold">نام و محدودیت‌های حساب</h2>
+                            <SettingsForm user={user} onChanged={onChanged} />
+                        </div>
+                    );
+                }
                 if (tab === 'orders') {
                     if (!user.orders.length) return <p className="text-muted">این کاربر هنوز سفارشی ثبت نکرده است.</p>;
                     return (
@@ -179,7 +193,7 @@ function Activity({ user }: { user: User }) {
                                 ))}
                             </ul>
                             {user.stats.orders > user.orders.length && (
-                                <Link to={`/orders?view=all&q=${user.mobile ?? ''}`} className="mt-3 inline-block font-medium text-indigo underline-offset-4 hover:underline">
+                                <Link to={`/orders?view=all&user=${user.id}`} className="mt-3 inline-block font-medium text-indigo underline-offset-4 hover:underline">
                                     همه {user.stats.orders} سفارش این کاربر
                                 </Link>
                             )}

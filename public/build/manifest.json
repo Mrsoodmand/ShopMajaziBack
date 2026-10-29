@@ -1,31 +1,31 @@
 {
-  "_styles-BARDAOYS.css": {
-    "file": "assets/styles-BARDAOYS.css",
-    "src": "_styles-BARDAOYS.css"
+  "_styles-BMGWNBT4.css": {
+    "file": "assets/styles-BMGWNBT4.css",
+    "src": "_styles-BMGWNBT4.css"
   },
-  "_styles-DDLCiI3k.js": {
-    "file": "assets/styles-DDLCiI3k.js",
+  "_styles-DmLGPrpw.js": {
+    "file": "assets/styles-DmLGPrpw.js",
     "name": "styles",
     "css": [
-      "assets/styles-BARDAOYS.css"
+      "assets/styles-BMGWNBT4.css"
     ]
   },
   "resources/admin/login.tsx": {
-    "file": "assets/login-D8fUDsI-.js",
+    "file": "assets/login-Dx083hsx.js",
     "name": "login",
     "src": "resources/admin/login.tsx",
     "isEntry": true,
     "imports": [
-      "_styles-DDLCiI3k.js"
+      "_styles-DmLGPrpw.js"
     ]
   },
   "resources/admin/main.tsx": {
-    "file": "assets/main-NCOmHtWo.js",
+    "file": "assets/main-Bd_srwRu.js",
     "name": "main",
     "src": "resources/admin/main.tsx",
     "isEntry": true,
     "imports": [
-      "_styles-DDLCiI3k.js"
+      "_styles-DmLGPrpw.js"
     ]
   }
 }

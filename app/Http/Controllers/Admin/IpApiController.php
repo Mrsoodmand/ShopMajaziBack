@@ -35,14 +35,14 @@ class IpApiController extends Controller
     const CLIENT_STATUS = ['0' => 'free', '1' => 'active', '-1' => 'expired', '-2' => 'ended'];
     const SERVER_STATUS = ['1' => 'active', '0' => 'off', '2' => 'full', '-1' => 'removed'];
 
-    /** The tables this screen works on. The Telegram bot's static IPs (BotIpApiController) swap in its own hegza_* tables. */
+    /** The tables this screen works on. */
     protected string $locations = Category::class;
     protected string $plans = Product::class;
     protected string $ips = Ip::class;
     protected array $clientStatus = self::CLIENT_STATUS;
     /** Paid shop orders of this type get a free client when clients are added; null where another system hands clients out. */
     protected ?int $orderType = 5;
-    /** Locations shown on the website need a flag image and SEO text; the bot's are only seen in Telegram. */
+    /** Locations shown on the website need a flag image and SEO text. */
     protected bool $webPage = true;
 
     public function __construct(private IpServerPanel $panel)

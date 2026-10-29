@@ -6,135 +6,6 @@
  */
 
 
-/* ادمین */
-Route::group(['prefix' => 'bot'],function (){
-    Route::get('/','Bot\HomeController@index')->name('bot-index');
-
-    Route::group(['prefix' => 'settings'], function () {
-
-        Route::get('/','Bot\SettingController@index')->name('bot-settings');
-        Route::get('/single','Bot\SettingController@edit')->name('bot-settings-edit');
-        Route::post('/update','Bot\SettingController@update')->name('bot-settings-update');
-
-    });
-
-    Route::group(['prefix' => 'user'],function (){
-        Route::get('/','Bot\UserController@index')->name('bot-user-list');
-        Route::post('/change-user-wallet','Bot\UserController@SubmitUserChange')->name('bot-user-charge');
-        Route::get('/{id}','Bot\UserController@single')->name('bot-user-single');
-    });
-
-    Route::group(['prefix' => 'order'],function (){
-        Route::get('/','Bot\OrderController@index')->name('bot-order-list');
-        Route::post('/change-status','Bot\OrderController@changeOrderStatus')->name('bot-order-change-status');
-        Route::post('/change-ip-status','Bot\OrderController@changeIpStatus')->name('bot-order-change-ip');
-        Route::post('/change-server','Bot\OrderController@changeServer')->name('bot-server-ip');
-        Route::get('/{id}','Bot\OrderController@single')->name('bot-order-single');
-    });
-
-    Route::group(['prefix' => 'payment'], function () {
-        Route::get('/', 'Bot\PaymentController@Transactions')->name('bot-payment-index');
-        Route::get('single', 'Bot\PaymentController@single')->name('bot-payment-single');
-    });
-
-    Route::group(['prefix' => 'server'], function () {
-        Route::get('/', 'Bot\ServerController@index')->name('bot-server-index');
-        Route::get('create', 'Bot\ServerController@create')->name('bot-server-create');
-        Route::post('store', 'Bot\ServerController@store')->name('bot-server-store');
-        Route::get('edit/{id}', 'Bot\ServerController@edit')->name('bot-server-edit');
-        Route::post('update', 'Bot\ServerController@update')->name('bot-server-update');
-    });
-
-    Route::group(['prefix' => 'message'], function () {
-        Route::get('/','Bot\MessageController@index')->name('bot-message');
-        Route::get('/create','Bot\MessageController@create')->name('bot-message-order');
-        Route::post('/store','Bot\MessageController@store')->name('bot-message-store');
-    });
-
-});
-
-
-/* Disabled: app/Http/Controllers/Arayesh/*Controller.php are empty files, so none of these routes can run.
-Route::group(['prefix' => 'arayeshghar'],function (){
-
-    Route::group(['prefix' => 'service'],function (){
-       Route::get('/','Arayesh\ServiceController@index');
-       Route::post('/store','Arayesh\ServiceController@store');
-       Route::get('/edit','Arayesh\ServiceController@edit');
-       Route::post('/update','Arayesh\ServiceController@update');
-       Route::get('/delete','Arayesh\ServiceController@delete');
-    });
-
-    
-    Route::group(['prefix' => 'artist'],function (){
-    Route::get('/','Arayesh/ArtistController@index');
-    Route::post('/store','Arayesh/ArtistController@store');
-    Route::get('/edit','Arayesh/ArtistController@edit');
-    Route::post('/update','Arayesh/ArtistController@update');
-    Route::get('/delete','Arayesh/ArtistController@delete');
-    });
-
-    
-    Route::group(['prefix' => 'time'],function (){
-    Route::get('/','Arayesh/TimeController@index');
-    Route::post('/store','Arayesh/TimeController@store');
-    Route::get('/edit','Arayesh/TimeController@edit');
-    Route::post('/update','Arayesh/TimeController@update');
-    Route::get('/delete','Arayesh/TimeController@delete');
-    });
-
-
-});
-*/
-
-
-/* آی پی ثابت ها*/
-// The bot's old screens: super-admins only, like the menu that links to them.
-Route::group(['prefix' => 'hegza', 'middleware' => 'role:super-admin,admin'], function () {
-
-    Route::group(['prefix' => 'setting'], function () {
-
-        Route::get('/','Admin\BotSettingController@index')->name('bot-setting');
-        Route::post('/update','Admin\BotSettingController@update')->name('bot-setting-update');
-        Route::get('/{id}','Admin\BotSettingController@edit')->name('bot-setting-edit');
-
-    });
-
-
-    Route::group(['prefix' => 'ip'], function () {
-        Route::get('/{type}', 'Admin\BotIpController@index')->name('hegza-ip-list')->middleware('role_or_permission:super-admin|ip-sabet-list');
-        Route::get('/create/{type}', 'Admin\BotIpController@create')->name('hegza-ip-create')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-        Route::post('/store/{type}/form', 'Admin\BotIpController@store')->name('hegza-ip-store')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-        Route::get('/edit/{id}', 'Admin\BotIpController@edit')->name('hegza-ip-edit')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-        Route::post('/update/ip-sabet/update', 'Admin\BotIpController@update')->name('hegza-ip-update')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-    });
-
-    Route::group(['prefix' => 'user'], function () {
-
-        Route::get('/','Admin\BotUserController@index')->name('bot-users');
-        Route::get('/{id}','Admin\BotUserController@singleUser')->name('bot-single-user');
-        Route::get('edit/{id}','Admin\BotUserController@editUser')->name('bot-edit-user');
-        Route::post('edit/submit','Admin\BotUserController@SubmitUserChange')->name('bot-submit-user');
-
-    });
-
-    Route::group(['prefix' => 'order'], function () {
-
-        Route::get('/','Admin\BotOrderController@index')->name('bot-orders');
-        Route::post('/changeOrderStatus','Admin\BotOrderController@changeOrderStatus')->name('bot-orders-change-status');
-        Route::get('/{id}','Admin\BotOrderController@single')->name('bot-orders-single');
-
-    });
-
-    Route::group(['prefix' => 'message'], function () {
-        Route::get('/','Admin\BotMessageController@index')->name('bot-messages');
-        Route::get('/create','Admin\BotMessageController@create')->name('bot-messages-order');
-        Route::post('/store','Admin\BotMessageController@store')->name('bot-messages-store');
-        Route::get('/edit/{id}','Admin\BotMessageController@edit')->name('bot-messages-edit');
-        Route::post('/update','Admin\BotMessageController@update')->name('bot-messages-update');
-    });
-});
-
 Route::get('/home', 'Admin\PanelController@index')->name('home');
 
 /* همکاران */
@@ -513,7 +384,7 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         });
     });
 
-    /* Management: roles, admins and the Telegram bot are for super-admins only; partners follow partner-list. */
+    /* Management: roles and admins are for super-admins only; partners follow partner-list. */
     Route::middleware('role:super-admin,admin')->group(function () {
         Route::get('roles', 'Admin\RoleApiController@index')->name('roles');
         Route::get('roles/{id}', 'Admin\RoleApiController@show')->whereNumber('id');
@@ -528,35 +399,6 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('admins', 'Admin\AdminUserApiController@save');
         Route::post('admins/{id}', 'Admin\AdminUserApiController@save')->whereNumber('id');
         Route::post('admins/{id}/delete', 'Admin\AdminUserApiController@delete')->whereNumber('id');
-
-        Route::group(['prefix' => 'bot', 'as' => 'bot.'], function () {
-            Route::get('users', 'Admin\BotUserApiController@index')->name('users');
-            Route::get('users/{id}', 'Admin\BotUserApiController@show')->whereNumber('id');
-            Route::post('users/{id}/wallet', 'Admin\BotUserApiController@wallet')->whereNumber('id');
-
-            Route::get('orders', 'Admin\BotOrderApiController@index')->name('orders');
-            Route::get('orders/{id}', 'Admin\BotOrderApiController@show')->whereNumber('id');
-            Route::post('orders/{id}/status', 'Admin\BotOrderApiController@setStatus')->whereNumber('id');
-
-            Route::get('messages', 'Admin\BotMessageApiController@index')->name('messages');
-            Route::get('messages/{id}', 'Admin\BotMessageApiController@show')->whereNumber('id');
-            Route::post('messages', 'Admin\BotMessageApiController@save');
-            Route::post('messages/{id}', 'Admin\BotMessageApiController@save')->whereNumber('id');
-            Route::post('messages/{id}/delete', 'Admin\BotMessageApiController@delete')->whereNumber('id');
-
-            Route::group(['prefix' => 'ip', 'as' => 'ip.'], function () {
-                Route::get('locations', 'Admin\BotIpApiController@index')->name('locations');
-                Route::get('locations/{id}', 'Admin\BotIpApiController@show')->whereNumber('id');
-                Route::get('locations/{id}/clients', 'Admin\BotIpApiController@clients')->whereNumber('id');
-                Route::post('locations', 'Admin\BotIpApiController@save');
-                Route::post('locations/{id}', 'Admin\BotIpApiController@save')->whereNumber('id');
-                Route::post('locations/{locationId}/servers', 'Admin\BotIpApiController@saveServer')->whereNumber('locationId');
-                Route::post('locations/{locationId}/servers/{id}', 'Admin\BotIpApiController@saveServer')->whereNumber(['locationId', 'id']);
-                Route::post('servers/{id}/clients', 'Admin\BotIpApiController@addClients')->whereNumber('id');
-                Route::post('clients/{id}/delete', 'Admin\BotIpApiController@deleteClient')->whereNumber('id');
-                Route::post('uploads/image', 'Admin\BotIpApiController@upload');
-            });
-        });
     });
 
     Route::middleware('role_or_permission:super-admin|partner-list')->group(function () {

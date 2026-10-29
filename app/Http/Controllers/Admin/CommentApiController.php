@@ -36,6 +36,11 @@ class CommentApiController extends Controller
         if ($search !== '') {
             $base->where(fn ($q) => $q->where('name', 'LIKE', "%$search%")->orWhere('mobile', 'LIKE', "%$search%")->orWhere('text', 'LIKE', "%$search%"));
         }
+        $this->filterDays($base, $request);
+        if ($request->boolean('replied')) {
+            $base->whereIn('id', Comment::where('parent_id', '>', 0)->select('parent_id'));
+        }
+
         $counts = [
             'pending' => $this->status(clone $base, 'pending')->count(),
             'approved' => $this->status(clone $base, 'approved')->count(),
@@ -44,7 +49,8 @@ class CommentApiController extends Controller
         ];
         $list = $status === 'all' ? clone $base : $this->status(clone $base, $status);
         // Waiting comments oldest first (a queue); the others newest first.
-        $page = ($status === 'pending' ? $list->orderBy('id') : $list->orderByDesc('id'))->paginate(self::PER_PAGE);
+        $sort = (string) $request->input('sort', '') ?: ($status === 'pending' ? 'oldest' : 'newest');
+        $page = ($sort === 'oldest' ? $list->orderBy('id') : $list->orderByDesc('id'))->paginate($this->perPage($request, self::PER_PAGE));
         $rows = $page->getCollection();
         $replies = Comment::whereIn('parent_id', $rows->pluck('id'))->orderBy('id')->get()->keyBy('parent_id');
         $titles = $this->titles($rows);

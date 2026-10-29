@@ -37,8 +37,6 @@ Route::group(['prefix' => 'v1/storefront'], function () {
 
 Route::get('generateZoomMetting', 'ApiController@generateZoomMetting');
 Route::get('get-dollar-price', 'ApiController@getDollarPrice');
-Route::get('new-services', 'TelegramTools\IndexController@checkType');
-Route::get('new-services/ziba-call-back','TelegramTools\IndexController@zibalCallback')->name('new-service-zibal-callback');
 
 
 Route::get('check-failed-numbers', [\App\Http\Controllers\ApiController::class, 'CheckNumbers']);
@@ -69,67 +67,6 @@ Route::group(['prefix' => 'ipsabet'], function () {
     Route::get('checkFailed', 'Api\IpSabetController@checkFailed');
     Route::get('sendSms', 'Api\IpSabetController@sendSms');
 
-});
-
-Route::group(['prefix' => 'hegza'], function () {
-    Route::post('testTelegram', 'Api\BotController@testTelegram');
-    Route::get('buy-ip', 'Api\BotController@buyIp');
-    Route::get('get-service', 'Api\BotController@getService');
-    Route::get('get-bandwidth', 'Api\BotController@getBandwidth');
-    Route::get('submit-order', 'Api\BotController@submitOrder');
-    Route::get('zarinpal-callback', 'Api\BotController@zarinPalCallback');
-    Route::post('zarinpal-callback', 'Api\BotController@zarinPalCallback');
-
-    Route::get('order-list', 'Api\BotController@ordersList');
-    Route::get('show-order', 'Api\BotController@showOrder');
-    Route::get('get-bandwidth-for-order', 'Api\BotController@getBandwidthForOrder');
-    Route::get('buy-bandwidth', 'Api\BotController@buyBandwidth');
-    Route::get('get-renew-items', 'Api\BotController@getRenewItems');
-    Route::get('buy-renew-order', 'Api\BotController@buyRenewIp');
-    Route::get('buy-volume-wallet', 'Api\BotController@buyVolumeWallet');
-    Route::get('buy-renew-wallet', 'Api\BotController@buyRenewWithWallet');
-    Route::get('cart-be-cart', 'Api\BotController@cartBeCart');
-    Route::get('send-document-cart-be-cart', 'Api\BotController@sentDocumentForCartBeCart');
-    Route::get('confirm-cart-be-cart', 'Api\BotController@confirmCartBeCart');
-
-    Route::get('search-by-code-step-one', 'Api\BotController@searchByCodeStepOne');
-    Route::get('search-by-code-step-two', 'Api\BotController@searchByCodeStepTwo');
-
-    Route::get('show-profile', 'Api\BotController@showProfile');
-    Route::get('charge-wallet', 'Api\BotController@chargeWallet');
-
-    Route::get('test-server-list', 'Api\BotController@testServersList');
-    Route::get('get-server-list', 'Api\BotController@getServersList');
-
-    Route::get('buy-order-wallet','Api\BotController@buyOrderWithWalletV2');
-
-    Route::get('referral', 'Api\BotController@referral');
-
-    Route::get('telegramSendMessage', 'Api\BotController@telegramSendMessage');
-    Route::get('report', 'Api\BotController@report');
-
-    Route::get('home', 'Api\BotController@Home');
-    Route::get('rules', 'Api\BotController@rules');
-
-    Route::get('showPage', 'Api\BotController@showPage');
-    Route::get('/product-detail', 'Api\BotController@IpSabetProductDetailJson')->name('ip-sabet-product-detail');
-    Route::post('/submit-order', 'Api\BotController@SubmitOrderFromSite')->name('ip-sabet-submit-order');
-
-    Route::get('sync-order', 'Api\BotController@syncOrder');
-    Route::get('show-detail/{id}', 'Api\BotController@showDetail')->name('bot-show-order');
-
-    Route::get('checkSuspendedOrders','Api\BotController@checkSuspendedOrders');
-    Route::get('checkFailedOrders','Api\BotController@checkFailedOrders');
-
-    Route::get('charge-crypto','Api\BotController@cryptoCharge');
-
-});
-
-
-Route::group(['prefix' => 'bot'], function () {
-    Route::get('checkNumber', 'Api\ArayeshController@checkNumber');
-    Route::get('setNumber', 'Api\ArayeshController@setNumber');
-    Route::get('checkCode', 'Api\ArayeshController@checkCode');
 });
 
 Route::group(['prefix' => 'bank-api'],function (){

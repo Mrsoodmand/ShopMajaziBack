@@ -1,10 +1,11 @@
 import { Link } from 'react-router';
-import { CircleCheck, Clock, Lock, MessageCircleReply } from 'lucide-react';
+import { CircleCheck, Clock, FileText, Lock, MessageCircleReply } from 'lucide-react';
 import { useQuery } from '../../lib/api';
 import { waited } from '../../lib/format';
 import { Badge } from '../../components/Status';
-import { ErrorState, FilterTabs, Pager, SearchField, SkeletonRows } from '../../components/ui';
-import { EmptyState, PageHeader, useListParams } from '../../components/list';
+import { FilterTabs, Row } from '../../components/ui';
+import { PageHeader, useListParams } from '../../components/list';
+import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, QuickSkeleton, isFiltered, type Column, type FilterDef } from '../../components/DataList';
 
 export type TicketStatus = 'waiting' | 'answered' | 'closed';
 
@@ -23,13 +24,34 @@ export type TicketSummary = {
     updatedTs: number | null;
 };
 
-type TicketsPage = { page: number; lastPage: number; total: number; counts: Record<string, number>; tickets: (TicketSummary & { preview: string })[] };
+type TicketRow = TicketSummary & { preview: string };
+type TicketsPage = {
+    page: number;
+    lastPage: number;
+    total: number;
+    perPage: number;
+    counts: Record<string, number>;
+    departments: { value: string; label: string }[];
+    tickets: TicketRow[];
+};
+type Detail = {
+    ticket: TicketSummary & { user: { id: number; name: string | null; mobile: string | null; email: string | null } | null };
+    messages: { id: number; from: 'user' | 'admin'; operator: string | null; text: string; file: string | null; createdAt: string | null }[];
+};
 
-const filters = [
+const views = [
     { id: 'waiting', label: 'منتظر پاسخ' },
     { id: 'answered', label: 'پاسخ داده‌شده' },
     { id: 'closed', label: 'بسته' },
     { id: 'all', label: 'همه' },
+];
+
+const sorts = [
+    { value: '', label: 'ترتیب پیش‌فرض' },
+    { value: 'updated_desc', label: 'آخرین به‌روزرسانی' },
+    { value: 'updated_asc', label: 'بیشترین انتظار' },
+    { value: 'newest', label: 'جدیدترین تیکت' },
+    { value: 'oldest', label: 'قدیمی‌ترین تیکت' },
 ];
 
 export function TicketBadge({ status, label }: { status: TicketStatus; label: string }) {
@@ -38,70 +60,201 @@ export function TicketBadge({ status, label }: { status: TicketStatus; label: st
     return <Badge tone="neutral" icon={Lock} label={label} />;
 }
 
+function Waiting({ t }: { t: TicketRow }) {
+    const wait = t.status === 'waiting' ? waited(t.updatedTs) : null;
+    if (!wait) return <span dir="ltr" className="num text-[13px] text-muted">{t.updatedAt}</span>;
+    return (
+        <span className={`inline-flex items-center gap-1 text-[13px] whitespace-nowrap ${wait.late ? 'font-bold text-error' : 'text-body'}`}>
+            <MessageCircleReply aria-hidden size={14} />
+            {wait.text} انتظار
+        </span>
+    );
+}
+
 export default function TicketsPage() {
-    const list = useListParams({ filter: 'waiting', q: '' });
+    const list = useListParams({ filter: 'waiting', q: '', sort: '', per: '', department: '', unread: '', order: '', from: '', to: '' });
+    const v = list.values;
     const { data, error, loading, reload } = useQuery<TicketsPage>(`/admin/api/tickets?${list.query}`);
+    const filters: FilterDef[] = [
+        { type: 'select', key: 'department', label: 'بخش', any: 'همه بخش‌ها', options: data?.departments ?? [] },
+        { type: 'dates', label: 'تاریخ ثبت' },
+        { type: 'toggle', key: 'unread', label: 'خوانده‌نشده', hint: 'پیام تازه‌ای که هنوز باز نشده' },
+        { type: 'toggle', key: 'order', label: 'مربوط به سفارش', hint: 'تیکت‌هایی که شماره سفارش دارند' },
+    ];
+
+    const columns: Column<TicketRow>[] = [
+        {
+            key: 'subject',
+            header: 'موضوع',
+            primary: true,
+            cell: (t) => (
+                <span className="flex min-w-0 items-start gap-2.5">
+                    <span aria-hidden className={`mt-2 size-2 shrink-0 rounded-full ${t.unread ? 'bg-indigo' : 'bg-transparent'}`} />
+                    <span className="min-w-0">
+                        <span className={`block max-w-[380px] truncate ${t.unread ? 'font-bold' : 'font-medium'}`}>
+                            {t.subject || 'بدون موضوع'}
+                            {t.unread && <span className="sr-only"> (خوانده‌نشده)</span>}
+                        </span>
+                        <span className="block max-w-[380px] truncate text-[13px] text-muted">{t.preview || '—'}</span>
+                    </span>
+                </span>
+            ),
+        },
+        {
+            key: 'user',
+            header: 'کاربر',
+            cell: (t) => (
+                <span className="leading-snug">
+                    <span className="block max-w-[160px] truncate">{t.userName || '—'}</span>
+                    <span dir="ltr" className="num block text-end text-[12px] text-muted">
+                        {t.userMobile}
+                    </span>
+                </span>
+            ),
+        },
+        { key: 'department', header: 'بخش', from: 'lg', cell: (t) => <span className="text-[13px]">{t.department ?? '—'}</span> },
+        {
+            key: 'order',
+            header: 'سفارش',
+            from: 'xl',
+            cell: (t) =>
+                t.orderId ? (
+                    <Link to={`/orders/${t.orderId}`} className="num underline-offset-4 hover:underline">
+                        #{t.orderId}
+                    </Link>
+                ) : (
+                    <span className="text-muted">—</span>
+                ),
+        },
+        { key: 'status', header: 'وضعیت', cell: (t) => <TicketBadge status={t.status} label={t.statusLabel} /> },
+        { key: 'time', header: 'آخرین پیام', cell: (t) => <Waiting t={t} /> },
+    ];
 
     return (
         <div className="mx-auto max-w-[1280px]">
-            <PageHeader title="تیکت‌ها" subtitle={list.values.filter === 'waiting' ? 'بیشترین انتظار اول.' : 'آخرین به‌روزرسانی اول.'} />
-            <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
-                <FilterTabs label="فیلتر تیکت‌ها" items={filters} value={list.values.filter} counts={data?.counts} attention="waiting" onChange={(filter) => list.update({ filter })} />
-                <div className="flex flex-1 xl:justify-end">
-                    <SearchField value={list.values.q} onSearch={(q) => list.update({ q })} label="جستجوی تیکت" placeholder="موضوع، نام، موبایل یا شماره" />
-                </div>
-            </div>
-            <section aria-label="فهرست تیکت‌ها" aria-busy={loading} className="overflow-hidden rounded-2xl border border-stroke bg-surface">
-                {error ? (
-                    <ErrorState error={error} onRetry={reload} />
-                ) : !data ? (
-                    <SkeletonRows />
-                ) : data.tickets.length === 0 ? (
-                    <EmptyState>{list.values.filter === 'waiting' && !list.values.q ? 'تیکتی منتظر پاسخ نیست.' : 'تیکتی در این فهرست نیست.'}</EmptyState>
-                ) : (
-                    <ul className={`divide-y divide-stroke transition-opacity ${loading ? 'opacity-60' : ''}`}>
-                        {data.tickets.map((t) => {
-                            const wait = t.status === 'waiting' ? waited(t.updatedTs) : null;
-                            return (
-                                <li key={t.id}>
-                                    <Link
-                                        to={`/tickets/${t.id}`}
-                                        state={{ list: list.here }}
-                                        className="flex gap-4 px-5 py-3.5 hover:bg-surface-2"
-                                    >
-                                        <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{ background: t.unread ? 'var(--indigo)' : 'transparent' }} aria-hidden />
-                                        <span className="min-w-0 flex-1">
-                                            <span className="flex flex-wrap items-center gap-2">
-                                                <span className={`truncate ${t.unread ? 'font-bold' : 'font-medium'}`}>{t.subject || 'بدون موضوع'}</span>
-                                                {t.unread && <span className="sr-only">(خوانده‌نشده)</span>}
-                                                <span className="num text-[12px] text-muted">#{t.id}</span>
-                                            </span>
-                                            <span className="mt-0.5 block truncate text-[13px] text-muted">{t.preview || '—'}</span>
-                                            <span className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-muted">
-                                                <span>{t.userName || <span dir="ltr" className="num">{t.userMobile}</span>}</span>
-                                                {t.department && <span>{t.department}</span>}
-                                                {t.orderId && <span className="num">سفارش #{t.orderId}</span>}
-                                            </span>
-                                        </span>
-                                        <span className="flex shrink-0 flex-col items-end gap-1.5">
-                                            <TicketBadge status={t.status} label={t.statusLabel} />
-                                            {wait ? (
-                                                <span className={`flex items-center gap-1 text-[12px] ${wait.late ? 'font-bold text-error' : 'text-muted'}`}>
-                                                    <MessageCircleReply aria-hidden size={13} />
-                                                    {wait.text} انتظار
-                                                </span>
-                                            ) : (
-                                                <span dir="ltr" className="num text-[12px] text-muted">{t.updatedAt}</span>
-                                            )}
-                                        </span>
-                                    </Link>
-                                </li>
-                            );
-                        })}
-                    </ul>
+            <PageHeader title="تیکت‌ها" subtitle={v.filter === 'waiting' && !v.sort ? 'بیشترین انتظار اول.' : 'آخرین به‌روزرسانی اول، مگر ترتیب دیگری انتخاب کنید.'} />
+            <FilterBar
+                views={<FilterTabs label="فیلتر تیکت‌ها" items={views} value={v.filter} counts={data?.counts} attention="waiting" onChange={(filter) => list.update({ filter })} />}
+                search={{ label: 'جستجوی تیکت', placeholder: 'موضوع، نام، موبایل یا شماره' }}
+                filters={filters}
+                sort={{ options: sorts }}
+                values={v}
+                onChange={list.update}
+                total={data?.total}
+                noun="تیکت"
+                loading={loading}
+                onRefresh={reload}
+            />
+            <DataTable
+                label="فهرست تیکت‌ها"
+                rows={data?.tickets}
+                loading={loading}
+                error={error}
+                onRetry={reload}
+                columns={columns}
+                rowKey={(t) => t.id}
+                href={(t) => `/tickets/${t.id}`}
+                linkState={{ list: list.here }}
+                rowLabel={(t) => `تیکت ${t.id}`}
+                quick={{
+                    title: (t) => t.subject || 'بدون موضوع',
+                    subtitle: (t) => (
+                        <span className="flex flex-wrap items-center gap-2">
+                            <TicketBadge status={t.status} label={t.statusLabel} />
+                            <span className="num text-muted">#{t.id}</span>
+                            {t.department && <span>{t.department}</span>}
+                        </span>
+                    ),
+                    body: (t) => <TicketQuick id={t.id} />,
+                }}
+                mobile={(t) => (
+                    <>
+                        <div className="flex items-start justify-between gap-2">
+                            <span className={`min-w-0 truncate ${t.unread ? 'font-bold' : 'font-medium'}`}>{t.subject || 'بدون موضوع'}</span>
+                            <TicketBadge status={t.status} label={t.statusLabel} />
+                        </div>
+                        <p className="mt-0.5 truncate text-[13px] text-muted">{t.preview || '—'}</p>
+                        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
+                            <span>{t.userName || t.userMobile}</span>
+                            <Waiting t={t} />
+                        </div>
+                    </>
                 )}
-            </section>
-            {data && <Pager page={data.page} lastPage={data.lastPage} total={data.total} noun="تیکت" onPage={(p) => list.update({ page: String(p) })} />}
+                empty={
+                    <ListEmpty filtered={isFiltered(v, ['filter'])} onClear={() => list.update({ q: '', department: '', unread: '', order: '', from: '', to: '' })}>
+                        {v.filter === 'waiting' ? 'تیکتی منتظر پاسخ نیست.' : 'تیکتی در این فهرست نیست.'}
+                    </ListEmpty>
+                }
+            />
+            {data && (
+                <ListPager
+                    page={data.page}
+                    lastPage={data.lastPage}
+                    total={data.total}
+                    perPage={data.perPage}
+                    noun="تیکت"
+                    onPage={(p) => list.update({ page: String(p) })}
+                    onPer={(n) => list.update({ per: String(n) })}
+                />
+            )}
         </div>
+    );
+}
+
+function TicketQuick({ id }: { id: number }) {
+    const { data, error } = useQuery<Detail>(`/admin/api/tickets/${id}`);
+    if (error) return <p className="text-error">{error.message}</p>;
+    if (!data) return <QuickSkeleton />;
+    const { ticket, messages } = data;
+    return (
+        <>
+            <QuickSection title="کاربر">
+                {ticket.user ? (
+                    <dl className="m-0">
+                        <Row label="نام">
+                            <Link to={`/users/${ticket.user.id}`} className="text-indigo underline-offset-4 hover:underline">
+                                {ticket.user.name || 'بدون نام'}
+                            </Link>
+                        </Row>
+                        <Row label="موبایل" ltr>
+                            {ticket.user.mobile}
+                        </Row>
+                        {ticket.orderId && (
+                            <Row label="سفارش">
+                                <Link to={`/orders/${ticket.orderId}`} className="num text-indigo underline-offset-4 hover:underline">
+                                    #{ticket.orderId}
+                                </Link>
+                            </Row>
+                        )}
+                    </dl>
+                ) : (
+                    <p className="pb-2 text-muted">کاربر این تیکت پیدا نشد.</p>
+                )}
+            </QuickSection>
+            <QuickSection title={`گفتگو (${messages.length})`}>
+                <ol className="space-y-2.5 pb-2">
+                    {messages.slice(-6).map((m) => (
+                        <li key={m.id} className={`rounded-xl px-3 py-2 ${m.from === 'admin' ? 'bg-indigo-soft' : 'bg-surface-2'}`}>
+                            <span className="mb-0.5 flex justify-between gap-2 text-[12px] text-muted">
+                                <span className="font-bold text-body">{m.from === 'admin' ? m.operator : ticket.user?.name || 'کاربر'}</span>
+                                <span dir="ltr" className="num">
+                                    {m.createdAt}
+                                </span>
+                            </span>
+                            <p className="line-clamp-4 break-words whitespace-pre-wrap" dir="auto">
+                                {m.text}
+                            </p>
+                            {m.file && (
+                                <a href={m.file} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium underline">
+                                    <FileText aria-hidden size={13} />
+                                    پیوست
+                                </a>
+                            )}
+                        </li>
+                    ))}
+                </ol>
+                {messages.length > 6 && <p className="pb-2 text-[12px] text-muted">پیام‌های قبلی در صفحه کامل تیکت است.</p>}
+            </QuickSection>
+        </>
     );
 }

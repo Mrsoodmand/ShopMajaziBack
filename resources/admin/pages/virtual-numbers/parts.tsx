@@ -49,7 +49,7 @@ export function Code({ value }: { value: string }) {
 /** The four provider-code inputs. `compact` is the list's inline editor (no hints). */
 export function CodeFields({ codes, onChange, errors, compact }: { codes: Codes; onChange: (codes: Codes) => void; errors: Record<string, string>; compact?: boolean }) {
     return (
-        <div className={`grid gap-4 ${compact ? 'grid-cols-2 sm:grid-cols-4' : 'sm:grid-cols-2'}`}>
+        <div className={`grid gap-4 ${compact ? 'grid-cols-2' : 'sm:grid-cols-2'}`}>
             {PROVIDERS.map((p) => (
                 <Field
                     key={p.key}
@@ -91,7 +91,8 @@ function providerPrice(o: Offer) {
  * The offers built from a service's or a country's codes, one row per country (or service) and one column per
  * server, so the servers' prices sit side by side. Read only: prices come from the scheduled price checks.
  */
-export function OffersPanel({ kind, offers, error, onRetry }: { kind: Kind; offers: Offer[] | null; error: ApiError | null; onRetry: () => void }) {
+/** `tabLabel` names its tab when an editor shows it as one. */
+export function OffersPanel({ kind, offers, error, onRetry }: { kind: Kind; offers: Offer[] | null; error: ApiError | null; onRetry: () => void; tabLabel?: string }) {
     const servers = PROVIDERS.filter((p) => p.server);
     const rows = useMemo(() => {
         const groups = new Map<string, { name: string; image: string | null; cells: Partial<Record<string, Offer>> }>();

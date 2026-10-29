@@ -37,6 +37,17 @@ class TicketApiController extends Controller
                 }
             });
         }
+        if ($department = (string) $request->input('department', '')) {
+            $base->where('service', $department);
+        }
+        if ($request->boolean('unread')) {
+            $base->where('new_for_admin', 1);
+        }
+        if ($request->boolean('order')) {
+            $base->whereNotNull('order_id')->where('order_id', '>', 0);
+        }
+        $this->filterDays($base, $request);
+
         $counts = [
             'waiting' => (clone $base)->whereIn('status', self::WAITING)->count(),
             'answered' => (clone $base)->where('status', 'Admin-answer')->count(),
@@ -45,17 +56,25 @@ class TicketApiController extends Controller
         ];
         $list = (clone $base)->with('User:id,name,mobile');
         match ($filter) {
-            'waiting' => $list->whereIn('status', self::WAITING)->orderBy('updated_at'), // longest wait first
-            'answered' => $list->where('status', 'Admin-answer')->orderByDesc('updated_at'),
-            'closed' => $list->where('status', 'close')->orderByDesc('updated_at'),
-            default => $list->orderByDesc('updated_at'),
+            'waiting' => $list->whereIn('status', self::WAITING),
+            'answered' => $list->where('status', 'Admin-answer'),
+            'closed' => $list->where('status', 'close'),
+            default => null,
         };
-        $page = $list->paginate(self::PER_PAGE);
+        match ((string) $request->input('sort', '')) {
+            'updated_desc' => $list->orderByDesc('updated_at'),
+            'updated_asc' => $list->orderBy('updated_at'),
+            'newest' => $list->orderByDesc('id'),
+            'oldest' => $list->orderBy('id'),
+            default => $filter === 'waiting' ? $list->orderBy('updated_at') : $list->orderByDesc('updated_at'), // waiting: longest wait first
+        };
+        $page = $list->paginate($this->perPage($request, self::PER_PAGE));
         $last = Ticket_Detail::whereIn('id', Ticket_Detail::whereIn('ticket_id', $page->getCollection()->pluck('id'))
             ->selectRaw('max(id)')->groupBy('ticket_id'))->get()->keyBy('ticket_id');
 
         return response()->json($this->pageMeta($page) + [
             'counts' => $counts,
+            'departments' => collect(__('all.Ticket-Type'))->map(fn ($label, $id) => ['value' => (string) $id, 'label' => (string) $label])->values(),
             'tickets' => $page->getCollection()->map(fn (Ticket $t) => $this->summary($t) + [
                 'preview' => Str::limit(trim(strip_tags((string) ($last[$t->id]->detail ?? ''))), 120),
             ])->values(),
