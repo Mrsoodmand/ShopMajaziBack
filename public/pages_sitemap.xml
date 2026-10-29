@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://shopmajazi.com</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9 </priority>
+    </url>
+    <url>
+        <loc>https://shopmajazi.com/virtual-numbers</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://shopmajazi.com/google-voice</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://shopmajazi.com/apple-id</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://shopmajazi.com/static-ip</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://shopmajazi.com/faq</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://shopmajazi.com/contact-us</loc>
+        <lastmod> 2021-11-16T20:06:12Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+</urlset>

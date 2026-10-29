@@ -1,0 +1,31 @@
+{
+  "_styles-BARDAOYS.css": {
+    "file": "assets/styles-BARDAOYS.css",
+    "src": "_styles-BARDAOYS.css"
+  },
+  "_styles-DDLCiI3k.js": {
+    "file": "assets/styles-DDLCiI3k.js",
+    "name": "styles",
+    "css": [
+      "assets/styles-BARDAOYS.css"
+    ]
+  },
+  "resources/admin/login.tsx": {
+    "file": "assets/login-D8fUDsI-.js",
+    "name": "login",
+    "src": "resources/admin/login.tsx",
+    "isEntry": true,
+    "imports": [
+      "_styles-DDLCiI3k.js"
+    ]
+  },
+  "resources/admin/main.tsx": {
+    "file": "assets/main-NCOmHtWo.js",
+    "name": "main",
+    "src": "resources/admin/main.tsx",
+    "isEntry": true,
+    "imports": [
+      "_styles-DDLCiI3k.js"
+    ]
+  }
+}

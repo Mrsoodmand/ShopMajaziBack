@@ -1,0 +1,44 @@
+.product-type {
+    background-color: red !important;
+}
+
+.center-items {
+    align-items: center !important;
+    display: inline-flex !important;
+}
+
+.shop-items {
+    margin-left: 25px;
+    margin-right: 19px;
+    display: none;
+}
+
+.brand-item:hover .center-items {
+    color: red !important;
+}
+
+.mr-12 {
+    margin-right: 12px;
+}
+
+.Login {
+    color: #f05454;
+    display: inline-block;
+    font-weight: 600;
+    border-bottom: 1px solid #f05454;
+}
+
+.shop-link {
+    margin-right: -12px;
+}
+
+@media screen and (max-width: 768px) {
+    .price-area {
+        margin-right: 30px;
+
+    }
+
+    .shop-link {
+        margin-right: -10px;
+    }
+}

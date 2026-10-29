@@ -1,0 +1,65 @@
+.padding-0 {
+    padding-top: 0px !important;
+}
+
+.shop-items {
+    margin-left: 25px;
+    margin-right: 19px;
+    display: none;
+}
+
+.brand-item:hover .center-items {
+    color: red !important;
+}
+
+.mr-12 {
+    margin-right: 12px;
+}
+
+.display-off {
+    display: none
+}
+
+.Login {
+    color: #f05454;
+    display: inline-block;
+    font-weight: 600;
+    border-bottom: 1px solid #f05454;
+}
+
+.shop-link {
+    margin-right: -12px;
+}
+
+.Service-item-1 {
+    display: none !important;
+}
+
+.number-row {
+    padding-top: 12px !important;
+    padding-bottom: 10px !important;
+}
+
+.padding-30 {
+    padding-top: 30px
+}
+
+.center-items {
+    align-items: center !important;
+    display: inline-flex !important;
+}
+
+.width-23 {
+    width: 20% !important;
+}
+
+@media screen and (max-width: 768px) {
+    .price-area {
+        margin-right: 30px;
+
+    }
+
+    .shop-link {
+        margin-right: -10px;
+    }
+}
