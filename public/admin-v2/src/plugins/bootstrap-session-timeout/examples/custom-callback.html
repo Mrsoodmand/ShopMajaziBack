@@ -1,0 +1,72 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Bootstrap-session-timeout - Countdown زمانr</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../bower_کامپوننت ها/bootstrap/dist/css/bootstrap.min.rtl.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Bootstrap-session-timeout</h1>
+        <h2>سفارشی Callback</h2>
+        <hr>
+        <p>مشاهدهs an example of using custom callback functions for warning و redirect.</p>
+        <div class="jumbotron" style="background: #398439;">
+            <h3>Session وضعیت:</h3>
+            <p class="hidden" id="fine">Session is fine.</p>
+            <p class="hidden" id="warn">هشدار: session will expire in less than 17 seconds.</p>
+        </div>
+
+
+        <pre>
+            $.sessionزمانout({
+                keepAliveUrl: 'keep-alive.html',
+                logoutUrl: 'login.html',
+                warnAfter: 3000,
+                redirAfter: 20000,
+                onشروع: function () {
+                    $('.jumbotron').css('background', '#398439').find('p').addClass('hidden');
+                    $('#fine').removeClass('hidden')
+                },
+                onWarn: function () {
+                    $('.jumbotron').css('background', '#b92c28').find('p').addClass('hidden');
+                    $('#warn').removeClass('hidden')
+                },
+                onRedir: function (opt) {
+                    window.location = opt.logoutUrl;
+                }
+            });
+        </pre>
+
+        <a class="btn btn-primary" href="../index.html" role="button">برگشت to دمو Index</a>
+
+    </div>
+    <script src="../bower_کامپوننت ها/jquery/dist/jquery.min.js"></script>
+    <script src="../bower_کامپوننت ها/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="../dist/bootstrap-session-timeout.js"></script>
+
+    <script>
+    $.sessionزمانout({
+        keepAliveUrl: 'keep-alive.html',
+        logoutUrl: 'login.html',
+        warnAfter: 3000,
+        redirAfter: 20000,
+        onشروع: function () {
+            $('.jumbotron').css('background', '#398439').find('p').addClass('hidden');
+            $('#fine').removeClass('hidden');
+        },
+        onWarn: function () {
+            $('.jumbotron').css('background', '#b92c28').find('p').addClass('hidden');
+            $('#warn').removeClass('hidden');
+        },
+        onRedir: function (opt) {
+            window.location = opt.logoutUrl;
+        }
+    });
+    </script>
+</body>
+
+</html>تومان
+ تومان

@@ -1,0 +1,173 @@
+.home-header{
+    background-color: #59c879;position: relative;height: 10rem;margin-bottom: 100px;
+}
+.m-style-2{
+    max-width: 1226px;
+}
+.m-style-3{
+    max-width: 490px;
+}
+.m-style-4{
+    width: 90%;position: absolute;top: 100px;left: 17px;
+}
+.m-style-5{
+    padding: 10px
+}
+.m-style-6{
+    padding-top: 0px!important;
+}
+.m-style-7{
+    max-width: 35rem;
+}
+.m-style-8{
+    font-size: 1.2rem!important;
+}
+
+.m-s-8{
+    border-radius: 10px;margin: auto;display: block
+}
+.m-s-9{
+    border-radius: 10px
+}
+
+.m-s-10{
+    margin: auto;display: block
+}
+
+.detail-date {
+    position: absolute;
+    left: 10px;
+}
+
+.detail-area {
+    position: relative;
+}
+
+.fav-btn {
+    position: absolute;
+    left: 12px;
+    top: 19px;
+    padding: 5px 10px 5px 10px !important;
+}
+
+.swiper-slide {
+    width: 88%;
+}
+
+.buy-btn {
+    position: absolute;
+    left: 18px;
+    top: 19px;
+    padding: 5px 10px 5px 10px !important;
+}
+
+.service-fav-btn {
+    position: absolute;
+    left: 12px;
+    top: 1px;
+    padding: 5px 10px 5px 10px !important;
+}
+
+.service-buy-btn {
+    position: absolute;
+    left: 11px;
+    top: 38px;
+    padding: 5px 10px 5px 10px !important;
+}
+
+.country-item:hover {
+    background: beige !important;
+    cursor: pointer;
+}
+
+.m-height-product {
+    height: auto !important;
+    min-height: 10%;
+}
+
+.product-area {
+    height: 600px;
+    overflow: auto
+}
+
+.country-image {
+    width: 40px;
+    position: absolute;
+    right: 20px;
+    top: 14px;
+    border-radius: 10px;
+}
+
+.service-image {
+    width: 40px;
+    position: absolute;
+    right: 20px;
+    top: 14px
+}
+
+.number-text {
+    width: 80%;
+    text-align: start;
+    margin-right: 50px;
+}
+
+.text-muted {
+    text-align: justify;
+}
+
+@media screen and (max-width: 425px) {
+    .m-height-product {
+        height: auto !important;
+        min-height: 10%;
+    }
+
+    .m--1 {
+        margin-top: -5px;
+    }
+
+    .product-area {
+        height: 600px;
+        overflow: auto
+    }
+
+    .fav-btn {
+        top: 10px;
+        left: 5px;
+    }
+
+    .buy-btn {
+        top: 10px;
+        left: 25px;
+    }
+
+    .service-fav-btn {
+        top: 10px;
+        left: 5px;
+    }
+
+    .service-buy-btn {
+        top: 10px;
+        left: 25px;
+    }
+
+    .country-image {
+        width: 40px;
+        position: absolute;
+        right: 20px;
+        top: 9px;
+        border-radius: 10px;
+    }
+
+    .service-image {
+        width: 40px;
+        position: absolute;
+        right: 20px;
+        top: 9px;
+    }
+
+    .number-text {
+        width: 70%;
+        text-align: start;
+        margin-right: 50px;
+    }
+}

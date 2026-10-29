@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Bootstrap-session-timeout - پایه Usage</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../bower_کامپوننت ها/bootstrap/dist/css/bootstrap.min.rtl.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Bootstrap-session-timeout</h1>
+        <h2>پایه Usage</h2>
+        <hr>
+        <p>مشاهدهs the warning dialog after 3 seconds. If user takes no action (interacts with the page in any way), browser is redirected to redirUrl. On any user action (mouse, keyboard or touch) the timeout timer is reset. </p>
+
+        <pre>
+            $.sessionزمانout({
+                keepAliveUrl: 'keep-alive.html',
+                logoutUrl: 'login.html',
+                redirUrl: 'locked.html',
+                warnAfter: 3000,
+                redirAfter: 10000
+            });
+        </pre>
+
+        <a class="btn btn-primary" href="../index.html" role="button">برگشت to دمو Index</a>
+
+    </div>
+    <script src="../bower_کامپوننت ها/jquery/dist/jquery.min.js"></script>
+    <script src="../bower_کامپوننت ها/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="../dist/bootstrap-session-timeout.js"></script>
+
+    <script>
+    $.sessionزمانout({
+        keepAliveUrl: 'keep-alive.html',
+        logoutUrl: 'login.html',
+        redirUrl: 'locked.html',
+        warnAfter: 3000,
+        redirAfter: 10000
+    });
+    </script>
+</body>
+
+</html>تومان
+ تومان
