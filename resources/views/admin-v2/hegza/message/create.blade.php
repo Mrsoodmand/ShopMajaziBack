@@ -1,0 +1,198 @@
+@extends('admin-v2.layout.master')
+@section('content')
+    <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
+        <div class="post d-flex flex-column-fluid" id="kt_post">
+            <div id="kt_content_container" class="container-xxl">
+                <form id="CurrentForm" class="form d-flex flex-column flex-lg-row"
+                      action="{{isset($edit) ? route('admin.bot-messages-update') : route('admin.bot-messages-store')}}" method="post">
+                    @csrf
+                    <div class="row">
+                        <div class="col-3 d-flex flex-column flex-row-fluid gap-7 gap-lg-10">
+                            <aside style="position: sticky;top: 6rem">
+                                <div class="card card-flush py-4">
+                                    <div class="card-header">
+                                        <div class="card-title">
+                                            <h2>تصویر شاخص</h2>
+                                            <div style="left: 15px;position: absolute">
+                                                <button type="button" data-ckfinder-field="gallery_image_input_1"
+                                                        class="btn btn-sm btn-primary">افزودن تصویر
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body text-center pt-0">
+                                        <input type="text" name="cover" id="gallery_image_input_1"
+                                               class="form-control mb-2"
+                                               placeholder="لینک تصویر"
+                                               value="{{isset($edit) ? $edit->cover : ''}}">
+                                        <img alt="image" id="preview_image" width="150" height="150"
+                                             style="margin-top:20px;margin-bottom: 20px"
+                                             src="{{isset($edit) ? $edit->cover : '' }}">
+                                        <div class="text-muted fs-7">تصویر بندانگشتی محصول را تنظیم کنید. فقط فایل های
+                                            تصویری
+                                            *.png، *.jpg و *.jpeg پذیرفته می شوند
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card card-flush py-4">
+                                    <div class="card-header">
+                                        <div class="card-title">
+                                            <h2>وضعیت</h2>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <select class="form-select mb-2" data-control="select2" name="status" data-hide-search="true" data-placeholder="انتخاب " id="kt_ecommerce_add_product_status_select" tabindex="0" aria-hidden="false">
+                                            <option {{isset($edit) && $edit->status == 0 ? 'selected' : '' }} value="0">درانتظار انتشار</option>
+                                            <option {{isset($edit) && $edit->status == 1 ? 'selected' : '' }} value="1">منتشر شده</option>
+                                            <option {{isset($edit) && $edit->status == -1 ? 'selected' : '' }} value="-1">غیرفعال</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="card card-flush py-4">
+                                    <div class="card-header">
+                                        <div class="card-title">
+                                            <h2>نوع ارسال</h2>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <select class="form-select mb-2" data-control="select2" name="type" data-hide-search="true" data-placeholder="انتخاب " id="kt_ecommerce_add_product_status_select" tabindex="0" aria-hidden="false">
+                                            <option {{isset($edit) && $edit->short_detail == 'all' ? 'selected' : '' }} value="all">همه</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end mt-3">
+                                    <button type="button"
+                                            id="submit_btn"
+                                            class="btn w-100 btn-primary">
+                                        <span class="indicator-label">ذخیره تغییرات</span>
+                                        <span class="indicator-progress">لطفا صبر کنید...
+                                    <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                                </span>
+                                    </button>
+                                    <!--end::Button-->
+                                </div>
+                            </aside>
+                        </div>
+                        <div class="col-9 d-flex flex-column flex-row-fluid gap-7 gap-lg-10">
+                            <ul class="nav nav-custom nav-tabs nav-line-tabs nav-line-tabs-2x border-0 fs-4 fw-bold mb-n2">
+                                <li class="nav-item">
+                                    <a class="nav-link text-active-primary pb-4 active" data-bs-toggle="tab" href="#all">عمومی</a>
+                                </li>
+                            </ul>
+                            <div class="tab-content">
+                                <div class="tab-pane show active" id="all" role="tab-panel">
+                                    <div class="d-flex flex-column gap-7 gap-lg-10">
+                                        <div class="card card-flush py-4">
+                                            <div class="card-header">
+                                                <div class="card-title">
+                                                    <h2>عمومی</h2>
+                                                </div>
+                                            </div>
+                                            <div class="card-body pt-0">
+                                                <div class="d-flex flex-wrap gap-5">
+                                                    <div class="fv-row w-100 flex-md-root fv-plugins-icon-container">
+                                                        <label class="required form-label">عنوان</label>
+                                                        <input type="text" name="title" class="form-control mb-2"
+                                                               placeholder="نام به فارسی" value="{{isset($edit) ? $edit->title : ''}}"/>
+                                                    </div>
+                                                </div>
+                                                @if(isset($edit))
+                                                    <input type="hidden" name="id" value="{{$edit->id}}" id="">
+                                                @endif
+                                                <div class="mt-3">
+                                                    <div class="fv-row w-100 flex-md-root fv-plugins-icon-container">
+                                                        <label class="form-label">توضحیات کوتاه</label>
+                                                        <textarea class="form-control" name="long_detail" cols="30" style="width: 100%"
+                                                                  rows="10">{!! isset($edit) ? $edit->long_detail : '' !!}</textarea>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+@endsection
+@section('header')
+    <link href="{{URL::asset('admin/js/all.css')}}" rel="stylesheet" type="text/css">
+
+@endsection
+@section('footer')
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>--}}
+    <!--end::Page Vendors Javascript-->
+    <!--begin::Page سفارشی Javascript(used by this page)-->
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/apps/ecommerce/catalog/save-product.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/widgets.bundle.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/widgets.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/apps/chat/chat.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/utilities/modals/upgrade-plan.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/utilities/modals/create-app.js"></script>--}}
+    {{--    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/utilities/modals/users-search.js"></script>--}}
+
+    @include('admin.layout.submit-form')
+    <script src="{{asset('plugins/ckeditor/ckeditor.js')}}"></script>
+    <script src="{{secure_url('admin/js/all.js')}}" type="text/javascript"></script>
+
+    <script>
+        $(document).on('click', '.AddProduct', function () {
+            $('#product-area').after('<div class="col-6"><div class="border-bottom mt-5"><div class="d-flex flex-wrap gap-5"><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><label class="required form-label">اپل آیدی</label><input required type="text" name="appleid[]" class="form-control mb-2" placeholder="اپل آیدی"> <input required type="hidden" value="0" name="id[]"></div><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><label class="required form-label">کلمه عبور</label><input required type="text" name="password[]" class="form-control mb-2" placeholder="کلمه عبور"></div><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><label class="required form-label">تاریخ تولد</label><input required type="text" name="brithday[]" class="form-control mb-2" placeholder="تاریخ تولد"></div></div><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><label class="required form-label">سوالات امنیتی 1</label><input required type="text" style="direction:ltr" value="What is the First name of your best friend in high school? " name="q1[]" placeholder="سوالات امنیتی 1" class="form-control mb-2"></div><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><label class="required form-label">سوالات امنیتی 2</label><input required type="text" style="direction:ltr" name="q2[]" value="what is your dream job? " placeholder="سوالات امنیتی 2" class="form-control mb-2"></div><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><label class="required form-label">سوالات امنیتی 3</label><input required type="text" style="direction:ltr" name="q3[]" placeholder="سوالات امنیتی 3" value="in what city did your parents meet? " class="form-control mb-2"></div><div class="fv-row w-100 flex-md-root fv-plugins-icon-container"><button type="button" onclick="$(this).parent().parent().parent().remove()" class="btn btn-danger mt-8 w-100 btn-block"><span class="indicator-label">حذف</span></button></div></div></div>')
+        });
+        var id = 1001;
+        $(document).on('click', '.AddNote', function () {
+            id++;
+            $('#note-area').append('' + '<div class="row">' + '<div class="col-6 col-lg-5">' + '<label class="required form-label">عنوان</label>' + '<input type="text" name="Notekey[]" class="form-control mb-2" placeholder="عنوان" />' + '</div>' + '<div class="col-6 col-lg-5">' + '<label class="required form-label">Col</label>' + '<input type="text" name="notes[]" class="form-control mb-2" placeholder="اندازه"/>' + '</div>' + '<div class="col-6 col-lg-2">' + '<button type="button" onclick="$(this).parent().parent().remove()" class="btn btn-danger mt-9">' + '<span class="indicator-label">حذف</span>' + '</button>' + '</div>' + '</div>');
+        });
+
+        $(document).on('change', '.filed_type', function () {
+            var val = $(this).val();
+            var logId = $(this).data('id');
+            if (val === 'select_box') {
+                $('#filed-area-' + logId).show()
+            } else {
+                $('#filed-area-' + logId).hide()
+            }
+        });
+
+
+        var editor = CKEDITOR.replace('short_detail_content', {
+            height: 500,
+            contentsLangDirection: 'rtl',
+            filebrowserBrowseUrl: '/admin/ckfinder/browser',
+            filebrowserUploadUrl: '/admin/ckfinder/connector?command=QuickUpload&type=Images',
+            filebrowserImageBrowseUrl: '/admin/ckfinder/browser?type=Images'
+        });
+        editor.on('change', function (evt) {
+
+            $('#short_detail_changed').val(evt.editor.getData());
+
+        });
+
+        editor = CKEDITOR.replace('detail', {
+            height: 800,
+            contentsLangDirection: 'rtl',
+            filebrowserBrowseUrl: '/admin/ckfinder/browser',
+            filebrowserUploadUrl: '/admin/ckfinder/connector?command=QuickUpload&type=Images',
+            filebrowserImageBrowseUrl: '/admin/ckfinder/browser?type=Images'
+        });
+        editor.on('change', function (evt)/* evt yek moteghaier ast ke har esmi ke dos dari mishe gozasht */ {
+            $('#changed').val(evt.editor.getData());
+        });
+
+
+        $("#gallery_image_input_1").on("input", function () {
+            $('#preview_image').attr('src', $(this).val())
+        });
+
+
+    </script>
+@endsection

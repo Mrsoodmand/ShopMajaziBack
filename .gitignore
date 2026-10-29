@@ -1,0 +1,30 @@
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.phpunit.result.cache
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+.idea/
+/.vscode
+.env.testing
+
+# Mac and tool junk
+__MACOSX/
+.DS_Store
+.impeccable/hook.cache.json
+.impeccable/live/
+
+# Server PHP error logs and generated caches
+error_log
+*.cache.php
+
+# Large downloadable installers and archives (kept on the server, not in git)
+public/newBot/app/
+public/panel.shopmajazi.com/assets/assets.zip

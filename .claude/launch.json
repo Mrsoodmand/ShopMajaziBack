@@ -1,0 +1,84 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "php",
+      "runtimeArgs": [
+        "artisan",
+        "serve",
+        "--host=127.0.0.1",
+        "--port=8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3000"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "vn-previews",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4178",
+        "--directory",
+        "/private/tmp/claude-501/-Users-mahdisoodamnd-PhpstormProjects-Shopmajazi/d746e9bb-43f5-4f8e-b7b8-49319d978055/scratchpad"
+      ],
+      "port": 4178
+    },
+    {
+      "name": "frontend-attach",
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "frontend-3100",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3100"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "home-previews",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4179",
+        "--directory",
+        "/private/tmp/claude-501/-Users-mahdisoodamnd-PhpstormProjects-Shopmajazi/5b54ca84-bcc9-41ad-9fe8-cc88411c024f/scratchpad/home5"
+      ],
+      "port": 4179
+    },
+    {
+      "name": "craft-previews",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4180",
+        "--directory",
+        "/private/tmp/claude-501/-Users-mahdisoodamnd-PhpstormProjects-Shopmajazi/5b54ca84-bcc9-41ad-9fe8-cc88411c024f/scratchpad/craft5"
+      ],
+      "port": 4180
+    }
+  ]
+}

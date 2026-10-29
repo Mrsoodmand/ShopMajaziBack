@@ -1,0 +1,169 @@
+@import 'tailwindcss' source('./');
+
+@font-face { font-family: 'IRANSans'; src: url('/admin-v2/assets/fonts/IRANSansWeb.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'IRANSans'; src: url('/admin-v2/assets/fonts/IRANSansWeb_Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'IRANSans'; src: url('/admin-v2/assets/fonts/IRANSansWeb_Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+/* Storefront tokens (DESIGN.md): light by default, dark from the system setting. */
+:root {
+    --page: #f5f6fb;
+    --surface: #ffffff;
+    --surface-2: #f1f4f9;
+    --ink: #0f172a;
+    --ink-body: #334155;
+    --ink-muted: #475569;
+    --stroke: #e2e8f0;
+    --stroke-field: #cbd5e1;
+    --primary: #047857;
+    --primary-hover: #065f46;
+    --primary-ink: #ffffff;
+    --ring: #059669;
+    --indigo: #4f46e5;
+    --indigo-soft: #eef2ff;
+    --error: #b91c1c;
+    --error-soft: #fef2f2;
+    --warn: #b45309;
+    --warn-soft: #fffbeb;
+    --rail: #0b1020;
+    --rail-ink: #dbe2ec;
+    --rail-muted: #8d9ab0;
+    --rail-hover: rgb(255 255 255 / 0.06);
+    --rail-active: rgb(129 140 248 / 0.22);
+    color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --page: #070b14;
+        --surface: #0e1424;
+        --surface-2: #151d31;
+        --ink: #f1f5f9;
+        --ink-body: #cbd5e1;
+        --ink-muted: #9aa8bd;
+        --stroke: rgb(255 255 255 / 0.1);
+        --stroke-field: rgb(255 255 255 / 0.2);
+        --primary: #10b981;
+        --primary-hover: #34d399;
+        --primary-ink: #022c22;
+        --ring: #34d399;
+        --indigo: #a5b4fc;
+        --indigo-soft: rgb(129 140 248 / 0.16);
+        --error: #f87171;
+        --error-soft: rgb(248 113 113 / 0.1);
+        --warn: #fbbf24;
+        --warn-soft: rgb(251 191 36 / 0.1);
+        --rail: #0e1424;
+        color-scheme: dark;
+    }
+}
+
+@theme inline {
+    --font-sans: 'IRANSans', ui-sans-serif, system-ui, sans-serif;
+    --color-page: var(--page);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-ink: var(--ink);
+    --color-body: var(--ink-body);
+    --color-muted: var(--ink-muted);
+    --color-stroke: var(--stroke);
+    --color-field: var(--stroke-field);
+    --color-primary: var(--primary);
+    --color-primary-hover: var(--primary-hover);
+    --color-primary-ink: var(--primary-ink);
+    --color-ring: var(--ring);
+    --color-indigo: var(--indigo);
+    --color-indigo-soft: var(--indigo-soft);
+    --color-error: var(--error);
+    --color-error-soft: var(--error-soft);
+    --color-warn: var(--warn);
+    --color-warn-soft: var(--warn-soft);
+    --color-rail: var(--rail);
+    --color-rail-ink: var(--rail-ink);
+    --color-rail-muted: var(--rail-muted);
+    --color-rail-hover: var(--rail-hover);
+    --color-rail-active: var(--rail-active);
+}
+
+@layer base {
+    html { font-size: 14px; }
+    body {
+        margin: 0;
+        background: var(--page);
+        color: var(--ink);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+    ::selection { background: color-mix(in srgb, var(--primary) 28%, transparent); color: var(--ink); }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    input, select, textarea, button { font: inherit; color: inherit; }
+    input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: 1; }
+    * { scrollbar-width: thin; scrollbar-color: var(--stroke-field) transparent; }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+}
+
+@layer components {
+    .num { font-variant-numeric: tabular-nums; }
+    /* IRANSans draws 0-9 as Persian digits; emails, links and usernames must show what the customer typed. */
+    .latin { font-family: ui-sans-serif, system-ui, 'Segoe UI', sans-serif; }
+    .field {
+        width: 100%;
+        border: 1px solid var(--stroke-field);
+        background: var(--surface);
+        border-radius: 10px;
+        padding: 7px 12px;
+        min-height: 38px;
+        transition: border-color 150ms;
+    }
+    .field:hover { border-color: var(--ink-muted); }
+    .field[aria-invalid='true'] { border-color: var(--error); }
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        min-height: 38px; padding: 0 16px; border-radius: 10px;
+        font-weight: 700; white-space: nowrap; cursor: pointer;
+        transition: background-color 150ms, border-color 150ms, color 150ms;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: var(--primary-ink); }
+    .btn-primary:not(:disabled):hover { background: var(--primary-hover); }
+    .btn-secondary { border: 1px solid var(--stroke-field); background: transparent; color: var(--ink); }
+    .btn-secondary:not(:disabled):hover { background: var(--surface-2); }
+    .btn-ghost { color: var(--ink-muted); padding: 0 10px; }
+    .btn-danger { background: var(--error); color: var(--surface); }
+    .btn-danger:not(:disabled):hover { filter: brightness(1.1); }
+    .btn-ghost:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
+    /* Sidebar: a scrollbar in the rail's own colours. */
+    .rail-scroll { scrollbar-color: rgb(255 255 255 / 0.16) transparent; }
+
+    /*
+     * Phone menu (<dialog>): slides in from the start side and settles, slides out a little faster; the backdrop
+     * fades with it. Browsers without @starting-style just show and hide it. The page behind doesn't scroll.
+     */
+    .rail-drawer {
+        --drawer-off: -100%;
+        translate: var(--drawer-off) 0;
+        transition: translate 200ms cubic-bezier(0.4, 0, 1, 1), overlay 200ms allow-discrete, display 200ms allow-discrete;
+    }
+    [dir='rtl'] .rail-drawer { --drawer-off: 100%; }
+    .rail-drawer[open] {
+        translate: 0 0;
+        transition-duration: 320ms;
+        transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @starting-style {
+        .rail-drawer[open] { translate: var(--drawer-off) 0; }
+    }
+    .rail-drawer::backdrop {
+        background: rgb(0 0 0 / 0);
+        transition: background-color 200ms, overlay 200ms allow-discrete, display 200ms allow-discrete;
+    }
+    .rail-drawer[open]::backdrop { background: rgb(0 0 0 / 0.5); transition-duration: 320ms; }
+    @starting-style {
+        .rail-drawer[open]::backdrop { background: rgb(0 0 0 / 0); }
+    }
+    html:has(.rail-drawer[open]) { overflow: hidden; }
+
+    .skeleton { background: var(--surface-2); border-radius: 6px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+    @keyframes skeleton-pulse { 50% { opacity: 0.5; } }
+}
