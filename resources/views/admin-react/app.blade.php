@@ -7,6 +7,7 @@
     <title>مدیریت شاپ مجازی</title>
     @viteReactRefresh
     @vite('resources/admin/main.tsx')
+    <script src="/js/persian-digits.js?v=1"></script>
 </head>
 <body>
     <div id="admin-root" data-boot='@json($boot)'></div>

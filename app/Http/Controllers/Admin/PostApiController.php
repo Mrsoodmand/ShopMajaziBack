@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Concerns\AdminApi;
 use App\Http\Controllers\Controller;
 use App\Models\Blog;
 use App\Models\Comment;
+use App\Services\BlogTopics;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -99,6 +100,8 @@ class PostApiController extends Controller
             'time' => $this->jdate($when, 'H:i') ?? '',
             'faq' => $this->faqFromStore($b->faq),
             'views' => (int) $b->view,
+            'topic' => isset(BlogTopics::LABELS[$b->topic]) ? $b->topic : '',
+            'topicGuess' => BlogTopics::guess((string) $b->slug, (string) $b->title),
         ]]);
     }
 
@@ -110,10 +113,13 @@ class PostApiController extends Controller
         if (!$post) {
             return $this->missing('این نوشته پیدا نشد.');
         }
+        // Some old posts have capitals in their slug; they can be saved as they are, new slugs are lowercase.
+        $slugFormat = $post->exists && $request->input('slug') === $post->slug ? [] : ['regex:/^[a-z0-9]+(-[a-z0-9]+)*$/'];
         $data = $request->validate([
             'title' => 'required|string|max:255',
-            'slug' => ['required', 'string', 'max:190', 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/',
+            'slug' => ['required', 'string', 'max:190', ...$slugFormat,
                 Rule::unique('blogs', 'slug')->where('type', $type)->ignore($post->id)],
+            'topic' => ['nullable', Rule::in(BlogTopics::ids())],
             'status' => ['required', Rule::in(array_values(self::STATUS))],
             'short' => 'required|string',
             'content' => 'required|string',
@@ -154,6 +160,8 @@ class PostApiController extends Controller
         if ($type === 'blog') {
             $faq = $this->faqToStore($data['faq'] ?? []);
             $post->faq = $faq ? json_encode($faq, JSON_UNESCAPED_UNICODE) : null;
+            // Empty = guessed from the slug and title on the site (BlogTopics). News is always "news".
+            $post->topic = ($data['topic'] ?? '') ?: null;
         }
         $post->save();
 

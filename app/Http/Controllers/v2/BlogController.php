@@ -79,7 +79,7 @@ class BlogController extends Controller
         $TopBlogs = Blog::where('id', '!=', $Blog->id)->orderby('view', 'DESC')->select('created_at', 'short_detail', 'title', 'slug', 'image')->take(4)->where('type', 'blog')->where('status', 2)->get();
         $News = Blog::where('id', '!=', $Blog->id)->orderby('id', 'DESC')->select('created_at', 'short_detail', 'title', 'slug', 'image')->take(6)->where('type', 'news')->where('status', 2)->get();
         $Related = Blog::where('id', '!=', $Blog->id)->orderby('id', 'DESC')->select('created_at', 'short_detail', 'title', 'slug', 'image_big')->where('type', $Type)->where('status', 2)->take(12)->get();
-        Blog::where('id', $Blog->id)->increment('view'); // don't touch updated_at on every view
+        Blog::where('id', $Blog->id)->toBase()->increment('view'); // toBase: don't touch updated_at on every view
 
         $Comment = Comment::where('type', 'blog')->where('post_id', $Blog->id)->where('status', 1)->orderby('id', 'DESC')->select('parent_id', 'name', 'text', 'created_at', 'id')->get();
 

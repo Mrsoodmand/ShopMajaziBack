@@ -57,6 +57,9 @@ export function EditorLayout({
     const [tab, setTab] = useUrlTab(ids, ids[0] ?? '', tabKey);
     const [invalid, setInvalid] = useState<Record<string, number>>({});
     const problemCount = problems?.length ?? 0;
+    // Editors rebuild `problems` on every render, so the effect below keys on its content: otherwise each keystroke
+    // after a failed save would pull focus to the error summary (and back to the first invalid tab).
+    const problemsKey = problems?.length ? JSON.stringify(problems) : '';
 
     // Count invalid fields per tab after each render (fields mark themselves aria-invalid).
     useLayoutEffect(() => {
@@ -76,7 +79,7 @@ export function EditorLayout({
         const firstBad = [...body.current.querySelectorAll<HTMLElement>('[data-part]')].find((el) => el.querySelector('[aria-invalid="true"]'));
         if (firstBad && firstBad.dataset.part !== tab) setTab(firstBad.dataset.part!);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [problems]);
+    }, [problemsKey]);
 
     function submit(e: FormEvent) {
         e.preventDefault();

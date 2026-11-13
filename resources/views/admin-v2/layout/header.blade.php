@@ -30,4 +30,5 @@
     <link rel="stylesheet" media="screen" href="{{URL::asset('fontawesome/web/css/all.css?v=1')}}">
     <!--end::Global Stylesheets Bundle-->
     @yield('header')
+    <script src="/js/persian-digits.js?v=1"></script>
 </head>

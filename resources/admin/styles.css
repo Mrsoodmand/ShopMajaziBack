@@ -1,8 +1,10 @@
 @import 'tailwindcss' source('./');
 
-@font-face { font-family: 'IRANSans'; src: url('/admin-v2/assets/fonts/IRANSansWeb.woff2') format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'IRANSans'; src: url('/admin-v2/assets/fonts/IRANSansWeb_Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
-@font-face { font-family: 'IRANSans'; src: url('/admin-v2/assets/fonts/IRANSansWeb_Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+/* Estedad FD (Persian digits), bundled by Vite into public/build. */
+@font-face { font-family: 'Estedad'; src: url('./fonts/Estedad-FD-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Estedad'; src: url('./fonts/Estedad-FD-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Estedad'; src: url('./fonts/Estedad-FD-SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Estedad'; src: url('./fonts/Estedad-FD-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 
 /* Storefront tokens (DESIGN.md): light by default, dark from the system setting. */
 :root {
@@ -61,7 +63,7 @@
 @property --fade-below { syntax: '<length>'; inherits: false; initial-value: 0px; }
 
 @theme inline {
-    --font-sans: 'IRANSans', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Estedad', ui-sans-serif, system-ui, sans-serif;
     --color-page: var(--page);
     --color-surface: var(--surface);
     --color-surface-2: var(--surface-2);
@@ -109,7 +111,7 @@
 
 @layer components {
     .num { font-variant-numeric: tabular-nums; }
-    /* IRANSans draws 0-9 as Persian digits; emails, links and usernames must show what the customer typed. */
+    /* Estedad FD draws 0-9 as Persian digits; emails, links and usernames must show what the customer typed. */
     .latin { font-family: ui-sans-serif, system-ui, 'Segoe UI', sans-serif; }
     .field {
         width: 100%;

@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Virtual_Products;
+use App\Services\AccountOrders;
 use App\Services\AppleIds;
 use App\Services\GoogleVoiceNumbers;
 use App\Services\VirtualServiceOrders;
@@ -590,13 +591,55 @@ class StorefrontAccountController extends Controller
      */
     public function servicesBuy(Request $request, VirtualServiceOrders $Services): JsonResponse
     {
+        return $this->buyWithWallet($request, $Services, 'سفارش ثبت شد و به زودی شروع می شود.');
+    }
+
+    /* Pay by card: the same body plus `return`. The bank callback sends the buyer back with ?pay=…&order=…. */
+    public function servicesPayCard(Request $request, VirtualServiceOrders $Services): JsonResponse
+    {
+        return $this->payByBank($request, $Services, '/virtual-service');
+    }
+
+    /* One of my service orders and where it stands (support moves it along in admin › orders). */
+    public function servicesOrder($id, VirtualServiceOrders $Services): JsonResponse
+    {
+        return $this->queuedOrder($id, VirtualServiceOrders::TYPE, $Services);
+    }
+
+    /* ---------- Subscriptions / foreign accounts (AccountOrders, order type 7) ---------- */
+
+    /* Buy with the wallet: {product_id, plan_id, fields: {name: value}, price}. Support then activates it. */
+    public function subscriptionsBuy(Request $request, AccountOrders $Accounts): JsonResponse
+    {
+        return $this->buyWithWallet($request, $Accounts, 'سفارش ثبت شد و به زودی فعال می شود.');
+    }
+
+    /* Pay by card: the same body plus `return`. The bank callback sends the buyer back with ?pay=…&order=…. */
+    public function subscriptionsPayCard(Request $request, AccountOrders $Accounts): JsonResponse
+    {
+        return $this->payByBank($request, $Accounts, '/accounts');
+    }
+
+    public function subscriptionsOrder($id, AccountOrders $Accounts): JsonResponse
+    {
+        return $this->queuedOrder($id, AccountOrders::TYPE, $Accounts);
+    }
+
+    /* ---------- Orders support delivers by hand (services, subscriptions) ---------- */
+
+    /*
+     * $Orders: VirtualServiceOrders or AccountOrders (spec, createOrder, data). The wallet pays them through
+     * WalletController's order branch (type 2), which marks the order pending and charges the wallet.
+     */
+    private function buyWithWallet(Request $request, $Orders, string $Done): JsonResponse
+    {
         if (!$User = $this->user()) {
             return $this->signInFirst();
         }
         if ($User->wallet_blocked != 0) {
             return $this->fail('شما مجاز به پرداخت این سفارش با کیف پول نیستید، لطفا با پشتیبانی تماس بگیرید', 'wallet_blocked', 403);
         }
-        [$Spec, $Error] = $Services->spec($request->all());
+        [$Spec, $Error] = $Orders->spec($request->all());
         if ($Error) {
             return $this->fail(...$Error);
         }
@@ -604,7 +647,7 @@ class StorefrontAccountController extends Controller
             return $this->fail('موجودی کیف پول شما کافی نیست.', 'balance', 400, ['wallet' => $this->wallet($User), 'price' => $Spec['price']]);
         }
 
-        [$Order] = $Services->createOrder($User, $Spec);
+        [$Order] = $Orders->createOrder($User, $Spec);
         $Response = app(WalletController::class)->PayWithWallet(VirtualServiceOrders::TYPE, $Order->id, $request);
         if ($Response->getStatusCode() !== 200) {
             $Order->status = $Order->pay_status = 'failed'; // nothing was charged; don't leave it waiting
@@ -617,11 +660,10 @@ class StorefrontAccountController extends Controller
             };
             return $this->fail($Message, $Code, $Code === 'busy' ? 429 : 400, $Code === 'balance' ? ['wallet' => $this->wallet($User->fresh()), 'price' => $Spec['price']] : []);
         }
-        return $this->ok(['order' => $Services->data($Order->fresh()), 'wallet' => $this->wallet($User->fresh())], 'سفارش ثبت شد و به زودی شروع می شود.');
+        return $this->ok(['order' => $Orders->data($Order->fresh()), 'wallet' => $this->wallet($User->fresh())], $Done);
     }
 
-    /* Pay by card: the same body plus `return`. The bank callback sends the buyer back with ?pay=…&order=…. */
-    public function servicesPayCard(Request $request, VirtualServiceOrders $Services): JsonResponse
+    private function payByBank(Request $request, $Orders, string $Fallback): JsonResponse
     {
         if (!$User = $this->user()) {
             return $this->signInFirst();
@@ -629,14 +671,14 @@ class StorefrontAccountController extends Controller
         if ($User->bank_blocked != 0) {
             return $this->fail('امکان پرداخت با درگاه بانک برای حساب شما وجود ندارد، لطفا با پشتیبانی تماس بگیرید.', 'bank_blocked', 403);
         }
-        [$Spec, $Error] = $Services->spec($request->all());
+        [$Spec, $Error] = $Orders->spec($request->all());
         if ($Error) {
             return $this->fail(...$Error);
         }
         $Return = (string)$request->input('return');
-        $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : '/virtual-service';
+        $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : $Fallback;
 
-        [$Order, $Payment] = $Services->createOrder($User, $Spec);
+        [$Order, $Payment] = $Orders->createOrder($User, $Spec);
         $Url = app(BankController::class)->zarinPalStartUrl($Payment, $Order, StorefrontUrl(route('user.service-bank-callback', [], false)));
         if (!$Url) {
             $Order->status = $Order->pay_status = 'failed';
@@ -647,17 +689,16 @@ class StorefrontAccountController extends Controller
         return $this->ok(['url' => $Url, 'order_id' => $Order->id]);
     }
 
-    /* One of my service orders and where it stands (support moves it along in admin › orders). */
-    public function servicesOrder($id, VirtualServiceOrders $Services): JsonResponse
+    private function queuedOrder($id, int $Type, $Orders): JsonResponse
     {
         if (!$User = $this->user()) {
             return $this->signInFirst();
         }
-        $Order = Order::where('id', intval($id))->where('type', VirtualServiceOrders::TYPE)->where('user_id', $User->id)->first();
+        $Order = Order::where('id', intval($id))->where('type', $Type)->where('user_id', $User->id)->first();
         if (is_null($Order)) {
             return $this->fail('سفارش یافت نشد.', 'not_found', 404);
         }
-        return $this->ok(['order' => $Services->data($Order), 'wallet' => $this->wallet($User->fresh())]);
+        return $this->ok(['order' => $Orders->data($Order), 'wallet' => $this->wallet($User->fresh())]);
     }
 
     /* ---------- Helpers ---------- */

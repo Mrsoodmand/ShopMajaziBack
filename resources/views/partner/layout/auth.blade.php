@@ -19,6 +19,7 @@
             'csrfToken' => csrf_token(),
         ]); ?>
     </script>
+    <script src="/js/persian-digits.js?v=1"></script>
 </head>
 <body>
     <nav class="navbar navbar-default navbar-static-top">

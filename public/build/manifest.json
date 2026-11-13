@@ -1,31 +1,53 @@
 {
-  "_styles-BMGWNBT4.css": {
-    "file": "assets/styles-BMGWNBT4.css",
-    "src": "_styles-BMGWNBT4.css"
-  },
-  "_styles-DmLGPrpw.js": {
-    "file": "assets/styles-DmLGPrpw.js",
+  "_styles-BvM4lKY1.js": {
+    "file": "assets/styles-BvM4lKY1.js",
     "name": "styles",
     "css": [
-      "assets/styles-BMGWNBT4.css"
+      "assets/styles-D__W70-X.css"
+    ],
+    "assets": [
+      "assets/Estedad-FD-Regular-WBK81_Q2.woff2",
+      "assets/Estedad-FD-Medium-BC0HbyNr.woff2",
+      "assets/Estedad-FD-SemiBold-D60cNTZk.woff2",
+      "assets/Estedad-FD-Bold-CrLpJ6Of.woff2"
     ]
   },
+  "_styles-D__W70-X.css": {
+    "file": "assets/styles-D__W70-X.css",
+    "src": "_styles-D__W70-X.css"
+  },
+  "resources/admin/fonts/Estedad-FD-Bold.woff2": {
+    "file": "assets/Estedad-FD-Bold-CrLpJ6Of.woff2",
+    "src": "resources/admin/fonts/Estedad-FD-Bold.woff2"
+  },
+  "resources/admin/fonts/Estedad-FD-Medium.woff2": {
+    "file": "assets/Estedad-FD-Medium-BC0HbyNr.woff2",
+    "src": "resources/admin/fonts/Estedad-FD-Medium.woff2"
+  },
+  "resources/admin/fonts/Estedad-FD-Regular.woff2": {
+    "file": "assets/Estedad-FD-Regular-WBK81_Q2.woff2",
+    "src": "resources/admin/fonts/Estedad-FD-Regular.woff2"
+  },
+  "resources/admin/fonts/Estedad-FD-SemiBold.woff2": {
+    "file": "assets/Estedad-FD-SemiBold-D60cNTZk.woff2",
+    "src": "resources/admin/fonts/Estedad-FD-SemiBold.woff2"
+  },
   "resources/admin/login.tsx": {
-    "file": "assets/login-Dx083hsx.js",
+    "file": "assets/login-Cod1cryl.js",
     "name": "login",
     "src": "resources/admin/login.tsx",
     "isEntry": true,
     "imports": [
-      "_styles-DmLGPrpw.js"
+      "_styles-BvM4lKY1.js"
     ]
   },
   "resources/admin/main.tsx": {
-    "file": "assets/main-Bd_srwRu.js",
+    "file": "assets/main-C-vxngP4.js",
     "name": "main",
     "src": "resources/admin/main.tsx",
     "isEntry": true,
     "imports": [
-      "_styles-DmLGPrpw.js"
+      "_styles-BvM4lKY1.js"
     ]
   }
 }

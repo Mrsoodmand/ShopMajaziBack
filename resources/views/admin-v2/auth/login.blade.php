@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700" />
     <link href="{{url('/')}}/admin-v2/assets/plugins/global/plugins.bundle.rtl.css" rel="stylesheet" type="text/css" />
     <link href="{{url('/')}}/admin-v2/assets/css/style.bundle.rtl.css" rel="stylesheet" type="text/css" />
+    <script src="/js/persian-digits.js?v=1"></script>
 </head>
 <body id="kt_body" class="bg-body">
 <div class="d-flex flex-column flex-root">

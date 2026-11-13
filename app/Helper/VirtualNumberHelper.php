@@ -175,6 +175,15 @@ function DevFakeProviders(): bool
     return filter_var(env('DEV_FAKE_PROVIDERS', false), FILTER_VALIDATE_BOOLEAN);
 }
 
+/*
+ * Local development only, on top of DEV_FAKE_PROVIDERS: Google Voice shows Numberland's real numbers and prices
+ * (the read-only spnumberslist call), while buying and the balance check stay fake, so nothing is bought.
+ */
+function DevRealNumberLandList(): bool
+{
+    return DevFakeProviders() && filter_var(env('DEV_REAL_NUMBERLAND_LIST', false), FILTER_VALIDATE_BOOLEAN);
+}
+
 function DevFakeNumber($Type)
 {
     $Id = random_int(100000, 999999);
@@ -253,6 +262,11 @@ function DevFakeNumberLandSpecial($Params)
     if ($Params['method'] === 'getspnumber') {
         $Id = (int)$Params['id'];
         $Found = current(array_filter($List, fn($n) => $n[0] === $Id));
+        if (!$Found && DevRealNumberLandList()) {
+            // A number from Numberland's real list (DEV_REAL_NUMBERLAND_LIST): "deliver" a made-up login, buy nothing.
+            $Real = current(array_filter(\Illuminate\Support\Facades\Cache::get('gv-numberland-costs', []), fn($n) => $n['id'] === $Id));
+            $Found = $Real ? [$Id, $Real['number'], $Real['cost'], $Real['round']] : false;
+        }
         if (!$Found || in_array($Id, $Sold) || $Id === 90009) {
             return ['RESULT' => -990, 'DESCRIPTION' => 'number id invalid'];
         }

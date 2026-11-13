@@ -89,7 +89,7 @@
                             </div>
                         @endif
 
-                        @if($Admin->hasAnyPermission(['virtual-service','virtual-service-orders','create-edit-virtual-service']))
+                        @if($Admin->hasAnyPermission(['virtual-service','virtual-service-orders','create-edit-virtual-service','virtual-service-setting']))
                             <!-- خدمات مجازی -->
                             <div data-kt-menu-trigger="click" class="menu-item menu-accordion">
                             <span class="menu-link">

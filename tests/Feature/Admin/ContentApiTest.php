@@ -61,6 +61,33 @@ class ContentApiTest extends AdminTestCase
         $this->assertNull(DB::table('blogs')->find($id));
     }
 
+    public function test_blog_topic_is_saved_or_left_to_the_guess(): void
+    {
+        $this->actingAsAdmin();
+        $id = $this->postJson('/admin/api/posts/blog', $this->postData(['title' => 'چند نکته', 'slug' => 'telegram-tips-' . uniqid(), 'topic' => 'apple']))->assertOk()->json('id');
+        $this->assertSame('apple', DB::table('blogs')->where('id', $id)->value('topic'));
+
+        $post = $this->getJson("/admin/api/posts/blog/$id")->assertOk()->json('post');
+        $this->assertSame('apple', $post['topic']);
+        $this->assertSame('telegram', $post['topicGuess']);
+
+        $this->postJson("/admin/api/posts/blog/$id", $this->postData(['slug' => $post['slug'], 'topic' => '']))->assertOk();
+        $this->assertNull(DB::table('blogs')->where('id', $id)->value('topic'), 'empty = guessed on the site');
+        $this->postJson("/admin/api/posts/blog/$id", $this->postData(['slug' => $post['slug'], 'topic' => 'cooking']))
+            ->assertStatus(422)->assertJsonValidationErrors('topic');
+    }
+
+    public function test_old_slug_with_capitals_can_be_saved_unchanged(): void
+    {
+        $this->actingAsAdmin();
+        $slug = 'Where-is-Telegram-' . uniqid();
+        $id = DB::table('blogs')->insertGetId(['title' => 'قدیمی', 'slug' => $slug, 'type' => 'blog', 'status' => 2]);
+
+        $this->postJson("/admin/api/posts/blog/$id", $this->postData(['slug' => $slug]))->assertOk();
+        $this->postJson("/admin/api/posts/blog/$id", $this->postData(['slug' => 'New-Capitals']))->assertStatus(422)->assertJsonValidationErrors('slug');
+        $this->postJson('/admin/api/posts/blog', $this->postData(['slug' => 'Fresh-Capitals']))->assertStatus(422)->assertJsonValidationErrors('slug');
+    }
+
     public function test_slug_is_unique_per_type(): void
     {
         $this->actingAsAdmin();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import {
     AppWindow,
@@ -66,18 +66,24 @@ const iconClass = 'shrink-0 text-rail-muted transition-colors duration-150 group
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+// Which sidebar group is open (by label). Only one at a time: opening a group closes the one that was open.
+const OpenGroup = createContext<{ open: string | null; setOpen: (label: string | null) => void }>({ open: null, setOpen: () => {} });
+
 function MenuItem({ item }: { item: MenuLink }) {
     const location = useLocation();
     const Icon = item.icon ? icons[item.icon] : undefined;
     const childActive = !!item.children?.some((c) => c.to && isActive(c.to, location.pathname, location.search));
     const active = !!item.to && isActive(item.to, location.pathname, location.search);
     const icon = Icon ? <Icon aria-hidden size={18} strokeWidth={1.75} className={`${iconClass} ${active ? '!text-white' : ''}`} /> : null;
-    const [open, setOpen] = useState(childActive);
+    const group = useContext(OpenGroup);
+    const open = group.open === item.label;
+    const setOpen = (on: boolean) => group.setOpen(on ? item.label : null);
     const opened = useRef(false); // opened by a click (not by navigating), so reveal it once it has slid open
 
-    // Arriving on one of its pages from elsewhere (a link in a page, back/forward) opens the group.
+    // Arriving on one of its pages (on load, from a link in a page, back/forward) opens the group, closing the others.
     useEffect(() => {
-        if (childActive) setOpen(true);
+        if (childActive) group.setOpen(item.label);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [childActive]);
 
     if (item.children) {
@@ -222,6 +228,11 @@ function useScrollFades(scroller: RefObject<HTMLDivElement | null>) {
 
 function Sidebar() {
     const { menu } = useBoot();
+    const location = useLocation();
+    // Start with the current page's group already open, so it doesn't slide open on load.
+    const [openGroup, setOpenGroup] = useState<string | null>(
+        () => menu.flatMap((s) => s.items).find((it) => it.children?.some((c) => c.to && isActive(c.to, location.pathname, location.search)))?.label ?? null,
+    );
     const scroller = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
     const pill = useRef<HTMLSpanElement>(null);
@@ -246,6 +257,7 @@ function Sidebar() {
             <div ref={scroller} className="rail-scroll flex-1 overflow-y-auto overscroll-contain px-3 pb-6">
                 <div ref={content} className="relative">
                     <span ref={pill} aria-hidden className="rail-pill pointer-events-none absolute top-0 left-0 rounded-lg bg-rail-active opacity-0" />
+                    <OpenGroup.Provider value={{ open: openGroup, setOpen: setOpenGroup }}>
                     <div className="relative">
                         {menu.map((section, i) => (
                             <div key={section.title ?? i} className="mt-4 first:mt-1">
@@ -258,6 +270,7 @@ function Sidebar() {
                             </div>
                         ))}
                     </div>
+                    </OpenGroup.Provider>
                 </div>
             </div>
         </nav>

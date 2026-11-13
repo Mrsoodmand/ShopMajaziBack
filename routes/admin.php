@@ -167,8 +167,8 @@ Route::group(['prefix' => 'virtual-service'], function () {
     Route::post('/update', 'Admin\ServiceController@update')->name('service-update')->middleware('role_or_permission:super-admin|');
 
     /* Setting */
-    Route::get('/setting', 'Admin\SettingController@VirtualService')->name('virtualService-setting-page')->middleware('role_or_permission:super-admin|');
-    Route::post('/setting', 'Admin\SettingController@VirtualServiceSubmit')->name('virtual-service-setting-submit')->middleware('role_or_permission:super-admin|');
+    Route::get('/setting', 'Admin\SettingController@VirtualService')->name('virtualService-setting-page')->middleware('role_or_permission:super-admin|virtual-service-setting');
+    Route::post('/setting', 'Admin\SettingController@VirtualServiceSubmit')->name('virtual-service-setting-submit')->middleware('role_or_permission:super-admin|virtual-service-setting');
 });
 
 /* اپل آیدی */

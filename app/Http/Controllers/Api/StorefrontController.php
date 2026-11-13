@@ -8,7 +8,11 @@ use App\Models\Blog;
 use App\Models\Category;
 use App\Models\Comment;
 use App\Models\GoogleVoice;
+use App\Services\AccountOrders;
 use App\Services\AppleIds;
+use App\Services\BlogHtml;
+use App\Services\BlogTopics;
+use Carbon\Carbon;
 use App\Services\GoogleVoiceNumbers;
 use App\Services\PageSeo;
 use App\Services\VirtualServiceOrders;
@@ -68,6 +72,34 @@ class StorefrontController extends Controller
             ],
             'categories' => $this->serviceCategories(true),
         ]);
+    }
+
+    /*
+     * Subscriptions (/accounts): every live product of type "accounts" that has a live plan, with its plans in
+     * toman, the fields the buyer fills in and the notes beside the order (App\Services\AccountOrders).
+     */
+    public function accounts(AccountOrders $Accounts): JsonResponse
+    {
+        $Products = Product::where('type', 'accounts')->where('status', 1)
+            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        $Plans = $Accounts->plansFor($Products);
+        $Rate = $Accounts->rate();
+
+        return $this->success([
+            'accounts' => $Products->map(fn($Product) => $Accounts->product($Product, $Plans->get($Product->id, collect()), $Rate))
+                ->filter()->values(),
+        ]);
+    }
+
+    /* One subscription's own page (/accounts/{slug}): the same plus its text and SEO. */
+    public function account($slug, AccountOrders $Accounts): JsonResponse
+    {
+        $Product = Product::where('type', 'accounts')->where('status', 1)->where('slug', (string)$slug)->first();
+        $Data = $Product ? $Accounts->product($Product, $Accounts->plansFor(collect([$Product]))->get($Product->id, collect()), $Accounts->rate(), true) : null;
+        if (is_null($Data)) {
+            return $this->error('اشتراک مورد نظر یافت نشد.', 404);
+        }
+        return $this->success(['account' => $Data]);
     }
 
     /* لندینگ شماره مجازی: سرویس ها و کشورها به همراه تعداد و کمترین قیمت */
@@ -146,37 +178,29 @@ class StorefrontController extends Controller
         return $this->success(['offers' => $Offers]);
     }
 
-    /* لیست مقالات وبلاگ یا اخبار: ?type=blog|news&page=&q= */
+    /*
+     * همه مقالات و اخبار منتشر شده، جدیدترین اول (?type=blog|news فقط یکی از آن دو، ?q= جستجو در عنوان).
+     * فهرست کوچک است، پس سایت فیلتر موضوع، جستجو و صفحه بندی را خودش انجام می دهد.
+     */
     public function blog(Request $request): JsonResponse
     {
-        $Type = $request->input('type') == 'news' ? 'news' : 'blog';
-        $query = Blog::where('status', 2)->where('type', $Type);
+        $query = $this->publishedPosts();
+        if (in_array($request->input('type'), ['blog', 'news'], true)) {
+            $query->where('type', $request->input('type'));
+        }
         if ($request->filled('q')) {
             $query->where('title', 'like', '%' . str_replace(['%', '_'], ['\\%', '\\_'], mb_substr(trim($request->input('q')), 0, 60)) . '%');
         }
-        $Posts = $query->orderby('id', 'DESC')
-            ->select('id', 'title', 'slug', 'type', 'short_detail', 'image', 'image_big', 'view', 'created_at')
-            ->selectRaw('CHAR_LENGTH(detail) as detail_length')
-            ->paginate(18);
 
         return $this->success([
-            'type' => $Type,
-            'posts' => collect($Posts->items())->map(fn($post) => $this->postSummary($post))->values(),
-            'pagination' => [
-                'page' => $Posts->currentPage(),
-                'pages' => $Posts->lastPage(),
-                'total' => $Posts->total(),
-            ],
-            'popular' => $this->popularPosts($Type, 5),
-            'news' => Blog::where('status', 2)->where('type', 'news')->orderby('id', 'DESC')->take(8)->get(['title', 'slug'])
-                ->map(fn($post) => ['title' => $post->title, 'slug' => $post->slug]),
+            'posts' => $query->get()->map(fn($post) => $this->postSummary($post))->values(),
         ]);
     }
 
-    /* جزئیات یک مقاله یا خبر */
+    /* جزئیات یک مقاله یا خبر: متن تمیز شده با فهرست سرفصل ها، مطالب هم موضوع و مطلب بعدی */
     public function blogPost($slug): JsonResponse
     {
-        $Blog = Blog::where('status', 2)->where('slug', $slug)->first();
+        $Blog = Blog::where('status', 2)->where('slug', $slug)->orderby('id')->first();
         if (is_null($Blog)) {
             return $this->error('مطلب مورد نظر یافت نشد.', 404);
         }
@@ -184,10 +208,22 @@ class StorefrontController extends Controller
         $Comments = Comment::where('type', 'blog')->where('post_id', $Blog->id)->where('status', 1)
             ->orderby('id', 'DESC')->take(50)->get(['id', 'parent_id', 'name', 'text', 'created_at']);
 
+        $Body = BlogHtml::clean($Blog->detail);
+        $Topic = BlogTopics::of($Blog);
+        // Newest first, like the list; "next" is the one after this post there (the newest after the oldest).
+        $All = $this->publishedPosts()->get();
+        $Others = $All->where('id', '!=', $Blog->id)->values();
+        $Related = $Others->filter(fn($post) => BlogTopics::of($post) === $Topic)->take(3);
+        $Related = $Related->concat($Others->whereNotIn('id', $Related->pluck('id'))->take(3 - $Related->count()));
+        $At = $All->search(fn($post) => $post->id === $Blog->id);
+        $Next = $Others->isEmpty() ? null : ($All->get($At + 1) ?? $All->first());
+
         return $this->success([
-            'post' => $this->postSummary($Blog) + [
+            // The summary from the list query, so the reading time matches the list.
+            'post' => $this->postSummary($All->firstWhere('id', $Blog->id) ?? $Blog) + [
                 'id' => $Blog->id,
-                'content' => (string)$Blog->detail,
+                'html' => $Body['html'],
+                'toc' => $Body['toc'],
                 'meta_title' => $Blog->meta_title,
                 'meta_desc' => $Blog->meta_desc,
                 'updated_at' => optional($Blog->updated_at)->toIso8601String(),
@@ -196,11 +232,8 @@ class StorefrontController extends Controller
                     'a' => $item['answer'] ?? $item['a'] ?? null,
                 ])->filter(fn($item) => $item['q'] && $item['a'])->values(),
             ],
-            'related' => Blog::where('status', 2)->where('type', $Blog->type)->where('id', '!=', $Blog->id)->orderby('id', 'DESC')->take(3)
-                ->select('id', 'title', 'slug', 'type', 'short_detail', 'image', 'image_big', 'view', 'created_at')
-                ->selectRaw('CHAR_LENGTH(detail) as detail_length')->get()
-                ->map(fn($post) => $this->postSummary($post)),
-            'popular' => $this->popularPosts($Blog->type, 4, $Blog->id),
+            'related' => $Related->map(fn($post) => $this->postSummary($post))->values(),
+            'next' => $Next ? $this->postSummary($Next) : null,
             'comments' => $Comments->map(fn($comment) => [
                 'id' => $comment->id,
                 'parent_id' => $comment->parent_id ? (int)$comment->parent_id : null,
@@ -211,10 +244,13 @@ class StorefrontController extends Controller
         ]);
     }
 
-    /* شمارش بازدید (صفحات Next.js کش می شوند، پس بازدید از سمت مرورگر ثبت می شود) */
+    /*
+     * شمارش بازدید (صفحات Next.js کش می شوند، پس بازدید از سمت مرورگر ثبت می شود).
+     * toBase: بازدید نباید updated_at (تاریخ آخرین ویرایش) را عوض کند.
+     */
     public function blogView($slug): JsonResponse
     {
-        Blog::where('status', 2)->where('slug', $slug)->increment('view');
+        Blog::where('status', 2)->where('slug', $slug)->toBase()->increment('view');
         return $this->success(null);
     }
 
@@ -417,35 +453,34 @@ class StorefrontController extends Controller
         ];
     }
 
+    /* مقالات و اخبار منتشر شده با ستون های لازم برای postSummary، جدیدترین اول */
+    private function publishedPosts()
+    {
+        return Blog::where('status', 2)->orderby('id', 'DESC')
+            ->select('id', 'title', 'slug', 'type', 'topic', 'short_detail', 'image', 'image_big', 'view', 'share_at', 'created_at')
+            // Spaces in the HTML ≈ words in the text (Persian joins word parts with ZWNJ, not spaces).
+            ->selectRaw("CHAR_LENGTH(detail) - CHAR_LENGTH(REPLACE(detail, ' ', '')) as detail_words");
+    }
+
     private function postSummary($post): array
     {
-        // ~200 words a minute; list queries only know the HTML length (≈ 9 characters per word incl. markup)
-        $words = isset($post->detail_length)
-            ? $post->detail_length / 9
-            : count(preg_split('/\s+/u', trim(strip_tags((string)$post->detail)), -1, PREG_SPLIT_NO_EMPTY));
+        // ~200 words a minute
+        $words = isset($post->detail_words) ? (int)$post->detail_words : BlogHtml::words($post->detail);
+        // The admin's publish date (share_at), else when it was written.
+        $published = $post->share_at ? Carbon::parse($post->share_at) : $post->created_at;
         return [
             'title' => $post->title,
             'slug' => $post->slug,
             'type' => $post->type,
+            'topic' => BlogTopics::of($post),
             'excerpt' => trim(html_entity_decode(strip_tags((string)$post->short_detail))),
             'image' => $this->assetPath($post->image_big ?: $post->image),
             'thumb' => $this->assetPath($post->image ?: $post->image_big),
             'views' => (int)$post->view,
             'reading_minutes' => max(1, (int)round($words / 200)),
+            'published_at' => optional($published)->toIso8601String(),
             'created_at' => optional($post->created_at)->toIso8601String(),
         ];
-    }
-
-    private function popularPosts($Type, $take, $exceptId = null)
-    {
-        return Blog::where('status', 2)->where('type', $Type)->when($exceptId, fn($q) => $q->where('id', '!=', $exceptId))
-            ->orderby('view', 'DESC')->take($take)->get(['title', 'slug', 'image', 'image_big', 'view'])
-            ->map(fn($post) => [
-                'title' => $post->title,
-                'slug' => $post->slug,
-                'thumb' => $this->assetPath($post->image ?: $post->image_big),
-                'views' => (int)$post->view,
-            ]);
     }
 
     /* فقط محصولاتی که در صفحه خرید قابل خرید هستند (GetSingleNumberDetail) */

@@ -149,6 +149,9 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
     Route::post('services/buy', 'StorefrontAccountController@servicesBuy')->middleware('throttle:10,1');
     Route::post('services/pay-card', 'StorefrontAccountController@servicesPayCard')->middleware('throttle:10,1');
     Route::get('services/orders/{id}', 'StorefrontAccountController@servicesOrder')->middleware('throttle:40,1');
+    Route::post('subscriptions/buy', 'StorefrontAccountController@subscriptionsBuy')->middleware('throttle:10,1');
+    Route::post('subscriptions/pay-card', 'StorefrontAccountController@subscriptionsPayCard')->middleware('throttle:10,1');
+    Route::get('subscriptions/orders/{id}', 'StorefrontAccountController@subscriptionsOrder')->middleware('throttle:40,1');
 });
 
 /* Next.js storefront: who is logged in (session cookie reaches Laravel through the Next.js fallback rewrite) */
@@ -212,7 +215,9 @@ Route::get('CreateClass', [\App\Http\Controllers\Site\SiteController::class, 'Cr
 
 
 Route::get('/CreateService', [\App\Http\Controllers\Controller::class, 'MakeProduct']);
-Route::get('/CheckPvaQuantity', [\App\Http\Controllers\Controller::class, 'CheckPvaQuantity']);
+// Long stock-sync job (smspva call per product + DB writes): super admins only, like routes/admin.php (BUG-025).
+Route::get('/CheckPvaQuantity', [\App\Http\Controllers\Controller::class, 'CheckPvaQuantity'])
+    ->middleware(['admin', 'auth:admin', 'role_or_permission:super-admin']);
 Route::get('/Products', [\App\Http\Controllers\Admin\VirtualServiceController::class, 'Products']);
 Route::get('/UpdateCount', [\App\Http\Controllers\Admin\VirtualServiceController::class, 'UpdateCount']);
 Route::get('/UpdatePrice', [\App\Http\Controllers\Admin\VirtualServiceController::class, 'UpdatePrice']);

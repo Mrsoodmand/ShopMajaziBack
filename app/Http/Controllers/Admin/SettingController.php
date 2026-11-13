@@ -110,6 +110,9 @@ class SettingController extends Controller
             $Faq = Add_Faq($request);
 
             $Page = Pages::find(6);
+            if (!$Page) {
+                return response()->json(['error' => ['صفحه خدمات مجازی (شناسه ۶) در جدول pages پیدا نشد.']], 404);
+            }
             $Page->h1 = $request->input('h1');
             $Page->long_detail = $request->input('detail');
             $Page->image = $request->input('image_gallery');

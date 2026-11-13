@@ -31,6 +31,7 @@
         })(window, document, "clarity", "script", "lbb2ig9kcg");
     </script>
     @yield('header')
+    <script src="/js/persian-digits.js?v=1"></script>
 </head>
 <body class="handheld-toolbar-enabled">
 <!-- Google Tag Manager (noscript) -->

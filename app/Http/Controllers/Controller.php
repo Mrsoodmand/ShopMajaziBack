@@ -173,12 +173,21 @@ class Controller extends BaseController
 
     public function UploadUserTicketImage($file_peram)
     {
-        $file_name = $file_peram->getClientOriginalName();
-        $file_name = substr($file_name, 0, strrpos($file_name, '.'));
-        $file_name = str_replace(' ', '', $file_name);
-        $file_name = str_replace('+', '--', $file_name);
-        $Random_num = rand(0, 999999);
-        $New_File_Name = $file_name . '-' . $Random_num . '.' . $file_peram->guessClientExtension();
+        // The extension comes from the file's content, never from the browser's MIME type or the file name, and only
+        // image/PDF extensions are kept. Before, a PNG with PHP appended and sent as application/x-php passed the
+        // mimes rule and was saved as .php in public/tickets (BUG-024).
+        $extension = strtolower((string) $file_peram->guessExtension());
+        if (!in_array($extension, ['png', 'jpg', 'jpeg', 'bmp', 'webp', 'pdf'], true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'file' => 'فقط تصویر (PNG، JPG، WebP، BMP) یا PDF پیوست کنید.',
+            ]);
+        }
+        // Letters, digits, "-" and "_" only: no dots, so "x.php.png" can't become "x.php-123.png".
+        $file_name = pathinfo($file_peram->getClientOriginalName(), PATHINFO_FILENAME);
+        $file_name = preg_replace('/[^A-Za-z0-9_-]+/', '', str_replace('+', '--', $file_name));
+        $file_name = substr($file_name, 0, 60) ?: 'file';
+        $Random_num = random_int(0, 999999);
+        $New_File_Name = $file_name . '-' . $Random_num . '.' . $extension;
         $DestinationPath = 'tickets/';
         $file_peram->move($DestinationPath, $New_File_Name);
         $path_file = 'tickets/' . $New_File_Name;

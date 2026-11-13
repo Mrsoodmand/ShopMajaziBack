@@ -286,7 +286,8 @@ class GoogleVoiceNumbers
 
     private function call(array $Params)
     {
-        if (DevFakeProviders()) {
+        // Locally only the read-only list may go to the real Numberland (DEV_REAL_NUMBERLAND_LIST); buying stays fake.
+        if (DevFakeProviders() && !($Params['method'] === 'spnumberslist' && DevRealNumberLandList())) {
             return DevFakeNumberLandSpecial($Params);
         }
         $Key = config('services.numberland.key');

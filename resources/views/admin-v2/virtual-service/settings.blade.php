@@ -1,12 +1,9 @@
-@extends('admin-v2.layout.master',['MetaTitle' => 'تنظیمات شماره مجازی'])
+@extends('admin-v2.layout.master',['MetaTitle' => 'تنظیمات خدمات مجازی'])
 @section('content')
     @php
-        if (isset($Page)){
-            $Seo = json_decode($Page->seo,true);
-        }
-         if (isset($Setting)){
-            $Setting = json_decode($Setting->key,true);
-        }
+        $Seo = isset($Page) ? (json_decode($Page->seo, true) ?: []) : [];
+        // Stored as "/upload/…" by the image picker, or as a full address by older saves.
+        $Image = isset($Page) && $Page->image ? (preg_match('#^https?://#', $Page->image) ? $Page->image : url($Page->image)) : '';
     @endphp
     <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
         <div class="post d-flex flex-column-fluid" id="kt_post">
@@ -16,33 +13,35 @@
                       method="post">
                     @csrf
                     <div class="d-flex flex-column gap-7 gap-lg-10 w-100 w-lg-300px mb-7 me-lg-10">
-                        <button type="button" id="submit_btn" class="btn btn-primary">
-                            <span class="indicator-label">ذخیره تغییرات</span>
-                            <span class="indicator-progress">لطفا صبر کنید...<span
-                                        class="spinner-border spinner-border-sm align-middle ms-2"></span></span>
-                        </button>
-                        <div class="card card-flush py-4">
-                            <div class="card-header">
-                                <div class="card-title">
-                                    <h2>تصویر شاخص</h2>
-                                    <div style="left: 15px;position: absolute">
-                                        <button type="button" data-ckfinder-field="gallery_image_input_1"
-                                                class="btn btn-sm btn-primary">افزودن تصویر
-                                        </button>
+                        <aside style="position: sticky;top: 6rem">
+                            <div class="card card-flush py-4">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <h2>تصویر شاخص</h2>
+                                        <div style="left: 15px;position: absolute">
+                                            <button type="button" data-ckfinder-field="gallery_image_input_1"
+                                                    class="btn btn-sm btn-primary">افزودن تصویر
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body text-center pt-0">
+                                    <input type="text" name="image_gallery" id="gallery_image_input_1" class="form-control mb-2"
+                                           placeholder="لینک تصویر" value="{{ $Image }}">
+                                    <img alt="" id="gallery_image_input_per_1" width="150" height="150"
+                                         style="margin-top:20px;margin-bottom: 20px;object-fit: contain;{{ $Image ? '' : 'display:none' }}"
+                                         src="{{ $Image }}">
+                                    <div class="text-muted fs-7">تصویر شاخص صفحه خدمات مجازی. فقط فایل های تصویری
+                                        *.png، *.jpg و *.jpeg پذیرفته می شوند
                                     </div>
                                 </div>
                             </div>
-                            <div class="card-body text-center pt-0">
-
-                                <input type="text" name="image_gallery" class="form-control mb-2"
-                                       placeholder="لینک تصویر" value="{{isset($Page) ? secure_url($Page->image) : '' }}">
-                                <img alt="image" width="150" height="150" style="margin-top:20px;margin-bottom: 20px"
-                                     src="{{isset($Page) ? secure_url($Page->image) : '' }}">
-                                <div class="text-muted fs-7">تصویر بندانگشتی محصول را تنظیم کنید. فقط فایل های تصویری
-                                    *.png، *.jpg و *.jpeg پذیرفته می شوند
-                                </div>
-                            </div>
-                        </div>
+                            <button type="button" id="submit_btn" class="btn w-100 btn-primary mt-5">
+                                <span class="indicator-label">ذخیره تغییرات</span>
+                                <span class="indicator-progress">لطفا صبر کنید...<span
+                                            class="spinner-border spinner-border-sm align-middle ms-2"></span></span>
+                            </button>
+                        </aside>
                     </div>
                     <div class="d-flex flex-column flex-row-fluid gap-7 gap-lg-10">
                         <ul class="nav nav-custom nav-tabs nav-line-tabs nav-line-tabs-2x border-0 fs-4 fw-bold mb-n2">
@@ -68,7 +67,7 @@
                                                 <div class="fv-row w-100 flex-md-root fv-plugins-icon-container">
                                                     <label class="required form-label">تگ H1</label>
                                                     <input type="text" name="h1" class="form-control mb-2"
-                                                           placeholder="نام به فارسی"
+                                                           placeholder="عنوان اصلی صفحه"
                                                            value="{{isset($Page) ? $Page->h1 : '' }}"/>
                                                 </div>
                                             </div>
@@ -97,19 +96,19 @@
                                             <div class="mb-10">
                                                 <label class="required form-label">متا تایتل</label>
                                                 <input type="text" name="meta_title" class="form-control mb-2"
-                                                       placeholder="نام به فارسی"
-                                                       value="{{isset($Seo) ? $Seo['meta_title'] : '' }}"/>
+                                                       placeholder="عنوان صفحه در نتایج گوگل"
+                                                       value="{{ $Seo['meta_title'] ?? '' }}"/>
                                             </div>
                                             <div class="mb-10">
-                                                <label class="required form-label">توضحیات متا</label>
+                                                <label class="required form-label">توضیحات متا</label>
                                                 <input type="text" name="meta_desc" class="form-control mb-2"
-                                                       placeholder="نام به فارسی"
-                                                       value="{{isset($Seo) ? $Seo['meta_desc'] : '' }}"/>
+                                                       placeholder="توضیح کوتاه صفحه در نتایج گوگل"
+                                                       value="{{ $Seo['meta_desc'] ?? '' }}"/>
                                             </div>
                                             <div>
                                                 <label class="form-label">توضیحات</label>
                                                 <textarea name="seo" class="form-control" cols="30"
-                                                          rows="10">{!! isset($Seo) ? $Seo['meta'] : '' !!}</textarea>
+                                                          rows="10">{{ $Seo['meta'] ?? '' }}</textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -117,15 +116,6 @@
                             </div>
                         </div>
                         <!--end::Tab content-->
-                        <div class="d-flex justify-content-end">
-                            <button type="button" id="submit_btn" class="btn btn-primary">
-                                <span class="indicator-label">ذخیره تغییرات</span>
-                                <span class="indicator-progress">لطفا صبر کنید...
-                                    <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                </span>
-                            </button>
-                            <!--end::Button-->
-                        </div>
                     </div>
                 </form>
             </div>
@@ -136,18 +126,6 @@
     <link href="{{URL::asset('admin/js/all.css')}}" rel="stylesheet" type="text/css">
 @endsection
 @section('footer')
-    <script src="{{secure_url('/admin-v2')}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
-    <!--end::Page Vendors Javascript-->
-    <!--begin::Page سفارشی Javascript(used by this page)-->
-    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/apps/ecommerce/catalog/save-product.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/js/widgets.bundle.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/widgets.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/apps/chat/chat.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/utilities/modals/upgrade-plan.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/utilities/modals/create-app.js"></script>
-    <script src="{{secure_url('/admin-v2')}}/assets/js/custom/utilities/modals/users-search.js"></script>
-
     @include('admin.layout.submit-form')
     <script src="{{asset('plugins/ckeditor/ckeditor.js')}}"></script>
     <script src="{{secure_url('admin/js/all.js')}}" type="text/javascript"></script>
@@ -165,14 +143,10 @@
 
         })
 
-        function ChangeName() {
-            var text = $("#name").val()
-            var replace = $("#name").val().replace('شماره مجازی کشور', "")
-            var url = "خرید "
-            var all = url + text;
-            var replace_all = "وب سایت شماره مجازی ارائه دهنده شماره مجازی +   replace +  اپل آیدی ، اینستاگرام ، واتس آپ ، تلگرام ، تیک تاک و انواع اپلیکشین های دیگر با تنوع بیش از 30 کشور سرویس دهنده.  | پشتیبانی 24 ساعته | فقط با 3 کلیک شمارتو بخر   .";
-            $(".replace").val(all)
-            $("#desc").val(" وب سایت شماره مجازی ارائه دهنده  شماره مجازی از کشورهای " + replace + " ، روسیه ، امریکا ، آرژانتین ، آلمان ، انگلستان و بیش از 50 کشور و با تنوع بیش از 60 برنامه و اپلیکشین | پشتیبانی 24 ساعته | فقط با 3 کلیک شمارتو بخر. ")
-        }
+        // A link typed or pasted into the image field updates the preview too.
+        $('#gallery_image_input_1').on('input change', function () {
+            var url = $(this).val().trim();
+            $('#gallery_image_input_per_1').attr('src', url).toggle(url !== '');
+        });
     </script>
 @endsection

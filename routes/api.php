@@ -29,6 +29,8 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::post('blog/{slug}/view', 'Api\StorefrontController@blogView')->middleware('throttle:20,1');
     Route::get('virtual-services/{slug}', 'Api\StorefrontController@serviceCategory');
     Route::get('virtual-services/{category}/{slug}', 'Api\StorefrontController@serviceDetail');
+    Route::get('accounts', 'Api\StorefrontController@accounts');
+    Route::get('accounts/{slug}', 'Api\StorefrontController@account');
     Route::get('google-voice', 'Api\StorefrontController@googleVoice');
     Route::get('apple-id', 'Api\StorefrontController@appleId');
     Route::get('prices', 'Api\StorefrontController@prices');

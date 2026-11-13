@@ -74,7 +74,7 @@ class ReactAppController extends Controller
                     ]))] : null,
                     $can(['virtual-service', 'virtual-service-orders', 'create-edit-virtual-service']) ? ['label' => 'خدمات مجازی', 'icon' => 'services', 'children' => array_values(array_filter([
                         $can(['create-edit-virtual-service']) ? ['label' => 'پلتفرم‌ها و سرویس‌ها', 'to' => '/services'] : null,
-                        $can(['virtual-service-setting']) ? ['label' => 'تنظیمات', 'href' => route('admin.virtualService-setting-page')] : null,
+                        $can(['edit-page']) ? ['label' => 'متن صفحه', 'to' => '/pages/6'] : null, // replaces the old Blade settings page (same row: pages #6)
                         $can(['virtual-service-orders']) ? $orders(2) : null,
                     ]))] : null,
                     $can(['add-apple-id', 'ready-apple-id-orders']) ? ['label' => 'اپل آیدی', 'icon' => 'appleid', 'children' => array_values(array_filter([

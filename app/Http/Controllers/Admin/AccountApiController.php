@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Concerns\AdminApi;
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
 use App\Models\Product;
+use App\Services\AccountOrders;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -72,6 +73,17 @@ class AccountApiController extends Controller
             'metaTitle' => (string) ($d['meta_title'] ?? ''),
             'metaDesc' => (string) ($d['meta_desc'] ?? ''),
             'headHtml' => (string) ($d['seo'] ?? ''),
+            // What the storefront (/accounts) shows; empty = AccountOrders guesses from the old fields.
+            'enName' => (string) ($d['en_name'] ?? ''),
+            'tagline' => (string) ($d['tagline'] ?? ''),
+            'taglineEn' => (string) ($d['tagline_en'] ?? ''),
+            'category' => (string) ($d['category'] ?? ''),
+            'color' => (string) ($d['color'] ?? ''),
+            'activation' => (string) ($d['activation'] ?? ''),
+            'delivery' => (string) ($d['delivery'] ?? ''),
+            'deliveryEn' => (string) ($d['delivery_en'] ?? ''),
+            'popular' => !empty($d['popular']),
+            'sort' => $p->sort !== null ? (string) $p->sort : '',
             'fields' => collect($this->decode($p->filds))->map(fn ($f) => [
                 'name' => (string) ($f['filed_name'] ?? ''),
                 'title' => (string) ($f['title'] ?? ''),
@@ -84,6 +96,8 @@ class AccountApiController extends Controller
             'plans' => Plan::where('product_id', $p->id)->where('type', 'accounts')->orderBy('sort')->orderBy('id')->get()->map(fn (Plan $pl) => [
                 'id' => $pl->id,
                 'name' => (string) $pl->name,
+                'enName' => (string) $pl->en_name,
+                'months' => $pl->months !== null ? (string) $pl->months : '',
                 'price' => $pl->price !== null ? (string) $pl->price : '',
                 'discount' => $pl->discount !== null ? (string) $pl->discount : '',
                 'count' => $pl->count !== null ? (string) $pl->count : '',
@@ -112,6 +126,16 @@ class AccountApiController extends Controller
             'metaTitle' => 'required|string|max:255',
             'metaDesc' => 'required|string|max:1000',
             'headHtml' => 'nullable|string',
+            'enName' => 'nullable|string|max:120',
+            'tagline' => 'nullable|string|max:160',
+            'taglineEn' => 'nullable|string|max:160',
+            'category' => ['nullable', Rule::in(array_merge([''], AccountOrders::CATEGORIES))],
+            'color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'activation' => ['nullable', Rule::in(array_merge([''], AccountOrders::ACTIVATIONS))],
+            'delivery' => 'nullable|string|max:80',
+            'deliveryEn' => 'nullable|string|max:80',
+            'popular' => 'boolean',
+            'sort' => 'nullable|integer|min:0|max:100000',
             'fields' => 'array',
             'fields.*.name' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/', 'distinct'],
             'fields.*.title' => 'required|string|max:255',
@@ -125,12 +149,15 @@ class AccountApiController extends Controller
             'plans' => 'array',
             'plans.*.id' => 'nullable|integer',
             'plans.*.name' => 'required|string|max:255',
+            'plans.*.enName' => 'nullable|string|max:200',
+            'plans.*.months' => 'nullable|integer|min:1|max:120',
             'plans.*.price' => 'required|numeric|min:0',
             'plans.*.discount' => 'nullable|numeric|min:0',
             'plans.*.count' => 'nullable|integer|min:0',
             'plans.*.live' => 'boolean',
         ], $this->messages() + [
             'fields.*.name.regex' => 'نام فنی فقط حروف انگلیسی، عدد و _ (مثل email).',
+            'color.regex' => 'رنگ را به شکل #10a37f بنویسید.',
         ]);
         foreach ($data['fields'] ?? [] as $i => $f) {
             if ($f['type'] === 'select' && empty($f['options'])) {
@@ -150,6 +177,15 @@ class AccountApiController extends Controller
                 'meta_desc' => $data['metaDesc'],
                 'image_gallery' => $data['image'] ?? null,
                 'seo' => $data['headHtml'] ?? null,
+                'en_name' => $data['enName'] ?? null,
+                'tagline' => $data['tagline'] ?? null,
+                'tagline_en' => $data['taglineEn'] ?? null,
+                'category' => ($data['category'] ?? '') ?: null,
+                'color' => isset($data['color']) && $data['color'] !== '' ? strtolower($data['color']) : null,
+                'activation' => ($data['activation'] ?? '') ?: null,
+                'delivery' => $data['delivery'] ?? null,
+                'delivery_en' => $data['deliveryEn'] ?? null,
+                'popular' => !empty($data['popular']),
             ]);
             $fields = collect($data['fields'] ?? [])->map(fn ($f) => [
                 'type' => $f['type'] === 'select' ? 'select_box' : 'text',
@@ -170,6 +206,7 @@ class AccountApiController extends Controller
                 'notes' => json_encode((object) $notes, JSON_UNESCAPED_UNICODE),
                 'commission' => $data['commission'] ?? null,
                 'status' => ($data['live'] ?? false) ? 1 : 0,
+                'sort' => ($data['sort'] ?? '') === '' ? null : (int) $data['sort'],
             ])->save();
 
             $keep = [];
@@ -180,6 +217,8 @@ class AccountApiController extends Controller
                     'product_id' => $p->id,
                     'type' => 'accounts',
                     'name' => $row['name'],
+                    'en_name' => ($row['enName'] ?? '') === '' ? null : $row['enName'],
+                    'months' => ($row['months'] ?? '') === '' ? null : (int) $row['months'],
                     'price' => $row['price'],
                     'discount' => ($row['discount'] ?? '') === '' ? null : $row['discount'],
                     'count' => ($row['count'] ?? '') === '' ? null : $row['count'],

@@ -24,18 +24,30 @@ type Post = {
     date: string;
     time: string;
     faq: FaqRow[];
+    topic: string; // '' = guessed on the site from the slug and title
+    topicGuess?: string;
     views?: number;
 };
 
 function blank(): Post {
     const now = new Date();
     const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Tehran' }).format(now);
-    return { title: '', slug: '', status: 'draft', short: '', content: '', image: '', imageBig: '', metaTitle: '', metaDesc: '', date: jalali(now), time, faq: [] };
+    return { title: '', slug: '', status: 'draft', short: '', content: '', image: '', imageBig: '', metaTitle: '', metaDesc: '', date: jalali(now), time, faq: [], topic: '' };
 }
 
 const labels: Record<string, string> = {
     title: 'عنوان', slug: 'نامک', status: 'وضعیت', short: 'خلاصه', content: 'متن', image: 'تصویر شاخص', imageBig: 'تصویر بزرگ',
-    metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', date: 'تاریخ انتشار', time: 'ساعت انتشار', faq: 'سؤالات متداول',
+    metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', date: 'تاریخ انتشار', time: 'ساعت انتشار', faq: 'سؤالات متداول', topic: 'موضوع',
+};
+
+// The blog's topic filters on the site (same ids as App\Services\BlogTopics).
+const topics: Record<string, string> = {
+    guides: 'راهنما و اشتراک‌ها',
+    numbers: 'شماره مجازی',
+    apple: 'اپل آیدی و اپل',
+    telegram: 'تلگرام',
+    social: 'شبکه‌های اجتماعی',
+    news: 'اخبار تکنولوژی',
 };
 
 const statuses: { id: PostStatus; label: string; hint: string }[] = [
@@ -117,6 +129,20 @@ export default function PostEditor({ kind }: { kind: PostKind }) {
                             ))}
                         </div>
                     </fieldset>
+                    {kind === 'blog' && (
+                        <Field label="موضوع" error={err('topic')} hint="فیلتر موضوع در وبلاگ سایت و کارت خرید کنار نوشته.">
+                            {(p) => (
+                                <select {...p} className="field" value={form.topic} onChange={(e) => set({ topic: e.target.value })}>
+                                    <option value="">{form.topicGuess ? `خودکار (${topics[form.topicGuess]})` : 'خودکار، از روی نامک و عنوان'}</option>
+                                    {Object.entries(topics).map(([id, label]) => (
+                                        <option key={id} value={id}>
+                                            {label}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </Field>
+                    )}
                     <div className="grid grid-cols-[1fr_88px] gap-2">
                         <Field label="تاریخ انتشار" error={err('date')}>
                             {(p) => <input {...p} dir="ltr" className="field num" value={form.date} onChange={(e) => set({ date: e.target.value })} placeholder="1404/08/07" />}

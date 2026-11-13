@@ -86,6 +86,22 @@ class StockApiTest extends AdminTestCase
         $plans = DB::table('plans')->where('product_id', $id)->get();
         $this->assertCount(1, $plans);
         $this->assertSame($account['plans'][1]['id'], $plans[0]->id, 'plans are updated in place');
+
+        // What the new storefront shows (kept in `detail`, next to the old fields).
+        $this->postJson("/admin/api/accounts/$id", array_merge($payload, ['category' => 'nope', 'color' => 'red', 'activation' => 'x']))
+            ->assertStatus(422)->assertJsonValidationErrors(['category', 'color', 'activation']);
+        $payload = array_merge($payload, [
+            'enName' => 'ChatGPT Plus', 'tagline' => 'مدل‌های جدید', 'taglineEn' => 'Latest models', 'category' => 'ai', 'color' => '#10A37F',
+            'activation' => 'own', 'delivery' => '۱۵ دقیقه', 'deliveryEn' => 'Within 15 minutes', 'popular' => true, 'sort' => '2',
+            'plans' => [array_merge($account['plans'][1], ['enName' => '3 months', 'months' => '3'])],
+        ]);
+        $this->postJson("/admin/api/accounts/$id", $payload)->assertOk();
+        $detail = json_decode(DB::table('products')->where('id', $id)->value('detail'), true);
+        $this->assertSame(['ChatGPT Plus', 'ai', '#10a37f', 'own', true], [$detail['en_name'], $detail['category'], $detail['color'], $detail['activation'], $detail['popular']]);
+        $this->assertSame('<p>بلند</p>', $detail['long_detail'], 'old fields stay');
+        $saved = $this->getJson("/admin/api/accounts/$id")->assertOk()->json('account');
+        $this->assertSame(['Latest models', 'Within 15 minutes', '2'], [$saved['taglineEn'], $saved['deliveryEn'], $saved['sort']]);
+        $this->assertSame(['3 months', '3'], [$saved['plans'][0]['enName'], $saved['plans'][0]['months']]);
     }
 
     public function test_ip_location_servers_clients_and_waiting_orders(): void
