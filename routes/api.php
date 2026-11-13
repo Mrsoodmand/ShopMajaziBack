@@ -35,6 +35,10 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::get('apple-id', 'Api\StorefrontController@appleId');
     Route::get('prices', 'Api\StorefrontController@prices');
     Route::get('seo', 'Api\StorefrontController@seo');
+    // Customer comments (StorefrontCommentController): approved ones to read, new ones wait for the admin.
+    Route::get('comments', 'Api\StorefrontCommentController@index');
+    Route::post('comments', 'Api\StorefrontCommentController@store')->middleware('throttle:5,1');
+    Route::get('testimonials', 'Api\StorefrontCommentController@testimonials');
 });
 
 Route::get('generateZoomMetting', 'ApiController@generateZoomMetting');
