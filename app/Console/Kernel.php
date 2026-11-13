@@ -15,7 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Exchange rates from AriaPay into the `currency` table (App\Services\CurrencyRates).
+        $schedule->command('currency:update')->everyThirtyMinutes()->withoutOverlapping();
     }
 
     /**

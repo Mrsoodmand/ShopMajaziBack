@@ -73,6 +73,12 @@ return [
         'key' => env('PLISIO_API_KEY'),
     ],
 
+    // Exchange rates (App\Services\CurrencyRates, php artisan currency:update). The token stays in .env only.
+    'ariapay' => [
+        'url' => env('ARIAPAY_URL', 'https://currency.ariapay.me/wp-json/ariapay/v1/rates'),
+        'token' => env('ARIAPAY_TOKEN'),
+    ],
+
     'navasan' => [
         'key' => env('NAVASAN_API_KEY'),
     ],

@@ -53,7 +53,7 @@ Route::get('check-sms-active-price', 'Api\VirtualNumberController@ActiveCheckPri
 Route::get('check-virtual-number-order-expire', 'Api\VirtualNumberController@CheckVirtualNumberExpire');
 
 Route::get('mailtest', 'Controller@mailtest');
-Route::get('update-dollar-price', 'Api\SettingController@GetCurrencyPrice');
+Route::get('update-dollar-price', 'Api\SettingController@GetCurrencyPrice')->middleware('throttle:2,1');
 Route::post('sendTelegram/{token}', 'Api\SettingController@SendTelegramMessage');
 
 
