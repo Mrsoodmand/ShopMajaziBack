@@ -175,7 +175,7 @@ class StorefrontAccountController extends Controller
         if (!$User = $this->user()) {
             return $this->signInFirst();
         }
-        $Product = Virtual_Products::where('id', intval($request->input('product_id')))->where('status', 1)->where('toman_price', '>', 0)->first();
+        $Product = Virtual_Products::where('id', intval($request->input('product_id')))->where('status', 1)->where('toman_price', '>', 0)->whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->first();
         if (is_null($Product)) {
             return $this->fail('این شماره در حال حاضر در دسترس نیست.', 'unavailable', 404);
         }
@@ -215,7 +215,7 @@ class StorefrontAccountController extends Controller
         if ($User->bank_blocked != 0) {
             return $this->fail('امکان پرداخت با درگاه بانک برای حساب شما وجود ندارد، لطفا با پشتیبانی تماس بگیرید.', 'bank_blocked', 403);
         }
-        $Product = Virtual_Products::where('id', intval($request->input('product_id')))->where('status', 1)->where('toman_price', '>', 0)->first();
+        $Product = Virtual_Products::where('id', intval($request->input('product_id')))->where('status', 1)->where('toman_price', '>', 0)->whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->first();
         if (is_null($Product)) {
             return $this->fail('این شماره در حال حاضر در دسترس نیست.', 'unavailable', 404);
         }

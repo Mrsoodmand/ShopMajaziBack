@@ -23,6 +23,24 @@ class VirtualNumberOffers
     /** Every provider column on services and countries, with its admin label. */
     public const LABELS = ['pva' => 'SMS-PVA', 'man' => 'SMS-Man', 'active' => 'SMS-Activate', 'land' => 'Land'];
 
+    /**
+     * Servers the shop sells from: their switch in admin › شماره مجازی › تنظیمات › سرورها (settings row #3, which the
+     * old admin wrote too). A server without a saved switch keeps selling. A switched-off server's numbers leave the
+     * catalog and can't be bought (App\Services\Pricing::chargePrice refuses them as well).
+     */
+    public static function sellingTypes(): array
+    {
+        static $types = null;
+        if ($types === null) {
+            $switches = json_decode((string) optional(\App\Models\Setting::find(3))->key, true) ?: [];
+            $types = array_values(array_filter(array_keys(self::PROVIDERS), function ($type) use ($switches) {
+                $on = $switches[$type] ?? null;
+                return $on === null || filter_var($on, FILTER_VALIDATE_BOOLEAN);
+            }));
+        }
+        return $types;
+    }
+
     public static function offered($code): bool
     {
         $code = trim((string) $code);

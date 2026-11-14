@@ -500,7 +500,7 @@ class StorefrontController extends Controller
     /* فقط محصولاتی که در صفحه خرید قابل خرید هستند (GetSingleNumberDetail) */
     private function numberOffers()
     {
-        return Virtual_Products::where('status', 1)->where('toman_price', '>', 0);
+        return Virtual_Products::where('status', 1)->where('toman_price', '>', 0)->whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes()); // switched-off servers don't sell
     }
 
     /* همان گرد کردن قیمت صفحه شماره مجازی (GetNumbers) */

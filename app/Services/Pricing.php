@@ -108,6 +108,9 @@ class Pricing
     /** What a number costs the customer: the stored formula, rounded the way the site shows prices. */
     public static function chargePrice(Virtual_Products $product): int
     {
+        if (!in_array((string) $product->type, VirtualNumberOffers::sellingTypes(), true)) {
+            throw new \RuntimeException('این سرور شماره مجازی در حال حاضر فروش ندارد.');
+        }
         $price = self::numberPrice((string) $product->type, (float) $product->dollar_price);
         return (int) str_replace(',', '', CovertVirtualNumberPrice(number_format($price)));
     }

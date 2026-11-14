@@ -99,7 +99,7 @@ export default function SettingsPage() {
             }
         >
             <Panel title="سرورها">
-                <p className="mb-3 text-muted">کلید هر سرور در همان تنظیمات پنل قدیم ذخیره می‌شود؛ فروشگاه فعلاً آن را نمی‌خواند و فروش هر سرور به کدها و قیمت‌هایش بستگی دارد.</p>
+                <p className="mb-3 text-muted">سروری که خاموش باشد در سایت فروخته نمی‌شود: شماره‌هایش از فهرست حذف می‌شوند و خریدشان ممکن نیست. با روشن کردن دوباره، همان لحظه برمی‌گردند.</p>
                 <p className="mb-3 text-muted">
                     درصد سود هر سرور (قیمت = هزینه سرور × نرخ ارز × (۱ + سود)) در{' '}
                     <Link to="/pricing" className="font-medium text-primary underline-offset-4 hover:underline">ارزها و سود</Link> تنظیم می‌شود.

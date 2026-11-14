@@ -52,14 +52,14 @@ class VirtualNumberController extends Controller
             if (Session::has('Product_id_Selected')) {
                 $SelectedProduct = Virtual_Products::find(Session::get('Product_id_Selected'));
                 if (!is_null($SelectedProduct)) {
-                    $Products = Virtual_Products::where('service_id', $SelectedProduct->service_id)->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')->where('dollar_price', '!=', 0)->get();
+                    $Products = Virtual_Products::whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->where('service_id', $SelectedProduct->service_id)->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')->where('dollar_price', '!=', 0)->get();
                 }
                 Session::forget('Product_id_Selected');
             } else {
-                $Products = Virtual_Products::where('service_id', 50)->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')->where('dollar_price', '!=', 0)->get();
+                $Products = Virtual_Products::whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->where('service_id', 50)->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')->where('dollar_price', '!=', 0)->get();
             }
         } else {
-            $Products = Virtual_Products::where('service_id', 50)->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')->where('dollar_price', '!=', 0)->get();
+            $Products = Virtual_Products::whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->where('service_id', 50)->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')->where('dollar_price', '!=', 0)->get();
         }
         $Page = Pages::find(1);
         $Comment = Comment::where('type', 'page')->where('post_id', 1)->where('status', 1)->orderby('id', 'DESC')->select('parent_id', 'name', 'text', 'created_at', 'id')->get();
@@ -78,7 +78,7 @@ class VirtualNumberController extends Controller
     /* انتخاب شماره از لندینگ Next.js و باز شدن مودال خرید در صفحه خرید */
     public function Checkout($id)
     {
-        $Product = Virtual_Products::where('id', intval($id))->where('status', 1)->where('toman_price', '>', 0)->first();
+        $Product = Virtual_Products::where('id', intval($id))->where('status', 1)->where('toman_price', '>', 0)->whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->first();
         if (is_null($Product)) {
             return redirect()->route('virtual-number-buy');
         }
@@ -95,7 +95,7 @@ class VirtualNumberController extends Controller
         $Dollar = \App\Services\Pricing::numberRate('pva');
         $Ruble = \App\Services\Pricing::numberRate('man');
         if (!is_null($Service)) {
-            $Products = Virtual_Products::where('service_id', $Service->id)
+            $Products = Virtual_Products::whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->where('service_id', $Service->id)
                 ->orderby('country_sort', 'ASC')
                 ->select('countryName','toman_price', 'dollar_price', 'countryImage', 'country_id', 'id', 'type')
                 ->get();
@@ -334,7 +334,7 @@ class VirtualNumberController extends Controller
             $filter = 'ASC';
         }
         if (!is_null($Service)) {
-            $Products = Virtual_Products::where('service_id', $Service->id)
+            $Products = Virtual_Products::whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes())->where('service_id', $Service->id)
                 ->select('countryName', 'dollar_price', 'countryImage', 'country_id', 'id', 'type','toman_price','country_sort')
                 ->orderby($orderBy, $filter)
                 ->get();
