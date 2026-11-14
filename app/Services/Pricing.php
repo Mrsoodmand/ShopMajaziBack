@@ -111,8 +111,17 @@ class Pricing
         if (!in_array((string) $product->type, VirtualNumberOffers::sellingTypes(), true)) {
             throw new \RuntimeException('این سرور شماره مجازی در حال حاضر فروش ندارد.');
         }
-        $price = self::numberPrice((string) $product->type, (float) $product->dollar_price);
-        return (int) str_replace(',', '', CovertVirtualNumberPrice(number_format($price)));
+        return self::shownNumberPrice((string) $product->type, (float) $product->dollar_price);
+    }
+
+    /**
+     * The rounded Toman price of a number, computed live from its cost. The catalog shows this and checkout charges
+     * it, so the two always agree (the stored toman_price can lag a rate update by a few Toman, which the rounding
+     * below can turn into 50).
+     */
+    public static function shownNumberPrice(string $operator, float $cost): int
+    {
+        return (int) str_replace(',', '', CovertVirtualNumberPrice(number_format(self::numberPrice($operator, $cost))));
     }
 
     /**

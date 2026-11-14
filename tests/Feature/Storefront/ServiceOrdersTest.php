@@ -147,15 +147,15 @@ class ServiceOrdersTest extends TestCase
             ->assertStatus(422)->assertJsonPath('code', 'count_invalid');
     }
 
-    public function test_a_changed_price_buys_nothing_and_returns_the_new_one(): void
+    public function test_a_changed_price_still_buys_at_the_current_price(): void
     {
         $id = $this->service();
         $plan = $this->plan($id, 1000);
         $this->user(500000);
 
         $this->postJson('/api/v1/storefront/account/services/buy', ['service_id' => $id, 'plan_id' => $plan, 'fields' => $this->fields(), 'price' => 150000])
-            ->assertStatus(409)->assertJsonPath('code', 'price_changed')->assertJsonPath('data.price', 176000);
-        $this->assertSame(0, DB::table('order_items')->where('product_id', $id)->count());
+            ->assertOk()->assertJsonPath('data.order.price', 176000);
+        $this->assertSame(1, DB::table('order_items')->where('product_id', $id)->count());
     }
 
     public function test_fields_are_checked_against_the_service(): void

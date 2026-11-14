@@ -140,7 +140,7 @@ class SubscriptionsTest extends TestCase
         $this->getJson("/api/v1/storefront/account/subscriptions/orders/{$order->id}")->assertOk()->assertJsonPath('data.order.id', $order->id);
     }
 
-    public function test_bad_answers_a_moved_price_and_a_short_wallet_are_refused(): void
+    public function test_bad_answers_and_a_short_wallet_are_refused(): void
     {
         $id = $this->product();
         $plan = $this->plan($id, 'یک ماهه', '3');
@@ -149,8 +149,9 @@ class SubscriptionsTest extends TestCase
 
         $this->postJson($url, ['product_id' => $id, 'plan_id' => $plan, 'fields' => ['email' => 'not-an-email', 'password' => 'hunter22']])
             ->assertStatus(422)->assertJsonPath('code', 'fields_invalid')->assertJsonPath('data.field', 'email');
+        // A price the page showed before rates moved doesn't stop the purchase; here the wallet is what refuses it.
         $this->postJson($url, ['product_id' => $id, 'plan_id' => $plan, 'fields' => $this->fields(), 'price' => 500000])
-            ->assertStatus(409)->assertJsonPath('code', 'price_changed')->assertJsonPath('data.price', 660000);
+            ->assertStatus(400)->assertJsonPath('code', 'balance');
         $this->postJson($url, ['product_id' => $id, 'plan_id' => $plan, 'fields' => $this->fields(), 'price' => 660000])
             ->assertStatus(400)->assertJsonPath('code', 'balance');
         $other = $this->plan($this->product(), 'یک ماهه', '3');

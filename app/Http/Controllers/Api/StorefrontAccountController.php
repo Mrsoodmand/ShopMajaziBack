@@ -167,8 +167,8 @@ class StorefrontAccountController extends Controller
     }
 
     /*
-     * Buy with the wallet. `price` is what the page showed; if the charge would differ (rates moved since the page
-     * loaded), nothing is bought and the new price comes back (code price_changed).
+     * Buy with the wallet, at the current price (the catalog shows the same Pricing::chargePrice). A `price` sent by
+     * the page is ignored: if rates moved since the page loaded, the buyer pays the new price without being stopped.
      */
     public function buy(Request $request): JsonResponse
     {
@@ -180,9 +180,6 @@ class StorefrontAccountController extends Controller
             return $this->fail('این شماره در حال حاضر در دسترس نیست.', 'unavailable', 404);
         }
         $Price = $this->chargePrice($Product);
-        if ($request->filled('price') && intval($request->input('price')) !== $Price) {
-            return $this->fail('قیمت این شماره تغییر کرده است.', 'price_changed', 409, ['price' => $Price]);
-        }
 
         $Response = app(WalletController::class)->PayWithWallet(1, $Product->id, $request);
         $Body = $Response->getData(true);
@@ -220,9 +217,6 @@ class StorefrontAccountController extends Controller
             return $this->fail('این شماره در حال حاضر در دسترس نیست.', 'unavailable', 404);
         }
         $Price = $this->chargePrice($Product);
-        if ($request->filled('price') && intval($request->input('price')) !== $Price) {
-            return $this->fail('قیمت این شماره تغییر کرده است.', 'price_changed', 409, ['price' => $Price]);
-        }
         $Return = (string)$request->input('return');
         $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : '/virtual-number';
 
@@ -396,9 +390,6 @@ class StorefrontAccountController extends Controller
         if (is_null($Number)) {
             return [null, $this->fail('این شماره فروخته شده است. لطفا شماره دیگری انتخاب کنید.', 'sold', 404)];
         }
-        if ($request->filled('price') && intval($request->input('price')) !== $Number['price']) {
-            return [null, $this->fail('قیمت این شماره تغییر کرده است.', 'price_changed', 409, ['price' => $Number['price']])];
-        }
         return [$Number, null];
     }
 
@@ -553,9 +544,6 @@ class StorefrontAccountController extends Controller
             $Spec = ['type' => AppleIds::READY, 'qty' => $Qty, 'price' => $Each * $Qty, 'details' => null];
         }
 
-        if ($request->filled('price') && intval($request->input('price')) !== $Spec['price']) {
-            return [null, $this->fail('قیمت تغییر کرده است.', 'price_changed', 409, ['price' => $Spec['price']])];
-        }
         return [$Spec, null];
     }
 

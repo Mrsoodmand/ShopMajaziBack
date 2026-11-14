@@ -108,12 +108,13 @@ class StorefrontController extends Controller
         $Page = Pages::find(1);
         $Services = Virtual_Service::where('status', 1)->orderby('sort', 'ASC')->get(['id', 'faName', 'image', 'special']);
         $Offers = $this->numberOffers()->whereIn('service_id', $Services->pluck('id'))
-            ->get(['service_id', 'country_id', 'countryName', 'countryImage', 'country_sort', 'toman_price']);
+            ->get(['service_id', 'country_id', 'countryName', 'countryImage', 'country_sort', 'type', 'dollar_price'])
+            ->each(fn($row) => $row->shown_price = $this->offerPrice($row));
         $Countries = Virtual_Country::whereIn('id', $Offers->pluck('country_id')->unique())->get(['id', 'faName'])->keyBy('id');
 
         $summary = fn($rows, $key) => [
             'count' => $rows->pluck($key)->unique()->count(),
-            'min_price' => $this->numberPrice($rows->min('toman_price')),
+            'min_price' => (int)$rows->min('shown_price'),
         ];
 
         $ServiceList = $Services->map(function ($service) use ($Offers, $summary) {
@@ -166,13 +167,13 @@ class StorefrontController extends Controller
         }
 
         $servers = ['pva' => 1, 'man' => 2, 'active' => 3];
-        $Offers = $query->orderby('country_sort', 'ASC')->get(['id', 'service_id', 'country_id', 'type', 'toman_price'])
+        $Offers = $query->orderby('country_sort', 'ASC')->get(['id', 'service_id', 'country_id', 'type', 'dollar_price'])
             ->map(fn($product) => [
                 'id' => $product->id,
                 'service_id' => $product->service_id,
                 'country_id' => $product->country_id,
                 'server' => $servers[$product->type] ?? 1,
-                'price' => $this->numberPrice($product->toman_price),
+                'price' => $this->offerPrice($product),
             ]);
 
         return $this->success(['offers' => $Offers]);
@@ -356,9 +357,9 @@ class StorefrontController extends Controller
             $From['/apple-id/custom'] = $Prices['custom'];
             $From['/apple-id'] = min($From['/apple-id'] ?? PHP_INT_MAX, $Prices['custom']);
         }
-        $Min = $this->numberOffers()->min('toman_price');
-        if ($Min) {
-            $From['/virtual-number'] = $From['/virtual-numbers'] = $this->numberPrice($Min);
+        $Cheapest = $this->numberOffers()->orderBy('toman_price')->first(['type', 'dollar_price']);
+        if ($Cheapest) {
+            $From['/virtual-number'] = $From['/virtual-numbers'] = $this->offerPrice($Cheapest);
         }
         try {
             $Service = app(GoogleVoiceNumbers::class);
@@ -503,10 +504,10 @@ class StorefrontController extends Controller
         return Virtual_Products::where('status', 1)->where('toman_price', '>', 0)->whereIn('type', \App\Services\VirtualNumberOffers::sellingTypes()); // switched-off servers don't sell
     }
 
-    /* همان گرد کردن قیمت صفحه شماره مجازی (GetNumbers) */
-    private function numberPrice($tomanPrice): int
+    /* قیمت نمایشی یک شماره: همان مبلغی که هنگام پرداخت کسر می شود (Pricing::chargePrice) */
+    private function offerPrice(Virtual_Products $product): int
     {
-        return (int)str_replace(',', '', CovertVirtualNumberPrice(number_format($tomanPrice)));
+        return \App\Services\Pricing::shownNumberPrice((string)$product->type, (float)$product->dollar_price);
     }
 
     /* «شماره مجازی تلگرام -1» → «تلگرام» */

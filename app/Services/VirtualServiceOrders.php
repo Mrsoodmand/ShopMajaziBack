@@ -119,9 +119,6 @@ class VirtualServiceOrders
             $Answers[] = ['filed_name' => $Field['filed_name'], 'filed_type' => $Title, 'filed_value' => $Value];
         }
 
-        if (isset($Input['price']) && $Input['price'] !== '' && intval($Input['price']) !== $Price) {
-            return [null, ['قیمت تغییر کرده است.', 'price_changed', 409, ['price' => $Price]]];
-        }
 
         $Detail = $Answers;
         $Detail['plan'] = [
