@@ -129,7 +129,7 @@ Route::group(['prefix' => 'cart'], function () {
    through the Next.js /api/v1 rewrite. POSTs need the X-XSRF-TOKEN header (from the XSRF-TOKEN cookie). */
 Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], function () {
     Route::get('me', 'StorefrontAccountController@me');
-    Route::group(['middleware' => 'throttle:15,1'], function () {
+    Route::group(['middleware' => 'throttle:storefront-auth'], function () {
         Route::post('start', 'StorefrontAccountController@start');
         Route::post('code', 'StorefrontAccountController@code');
         Route::post('login', 'StorefrontAccountController@login');
@@ -137,23 +137,35 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
     });
     Route::post('logout', 'StorefrontAccountController@logout');
     Route::get('virtual-numbers/orders', 'StorefrontAccountController@orders');
-    Route::post('virtual-numbers/buy', 'StorefrontAccountController@buy')->middleware('throttle:10,1');
-    Route::post('virtual-numbers/pay-card', 'StorefrontAccountController@payByCard')->middleware('throttle:10,1');
+    Route::post('virtual-numbers/buy', 'StorefrontAccountController@buy')->middleware('throttle:storefront-buy');
+    Route::post('virtual-numbers/pay-card', 'StorefrontAccountController@payByCard')->middleware('throttle:storefront-buy');
     Route::get('dev-bank/{authority}', 'StorefrontAccountController@devBank'); // local development only (404 otherwise)
-    Route::get('virtual-numbers/orders/{id}', 'StorefrontAccountController@order')->middleware('throttle:40,1');
+    Route::get('virtual-numbers/orders/{id}', 'StorefrontAccountController@order')->middleware('throttle:storefront-poll');
     Route::post('virtual-numbers/orders/{id}/cancel', 'StorefrontAccountController@cancel');
-    Route::post('google-voice/buy', 'StorefrontAccountController@googleVoiceBuy')->middleware('throttle:10,1');
-    Route::post('google-voice/pay-card', 'StorefrontAccountController@googleVoicePayCard')->middleware('throttle:10,1');
-    Route::get('google-voice/orders/{id}', 'StorefrontAccountController@googleVoiceOrder')->middleware('throttle:40,1');
-    Route::post('apple-id/buy', 'StorefrontAccountController@appleIdBuy')->middleware('throttle:10,1');
-    Route::post('apple-id/pay-card', 'StorefrontAccountController@appleIdPayCard')->middleware('throttle:10,1');
-    Route::get('apple-id/orders/{id}', 'StorefrontAccountController@appleIdOrder')->middleware('throttle:40,1');
-    Route::post('services/buy', 'StorefrontAccountController@servicesBuy')->middleware('throttle:10,1');
-    Route::post('services/pay-card', 'StorefrontAccountController@servicesPayCard')->middleware('throttle:10,1');
-    Route::get('services/orders/{id}', 'StorefrontAccountController@servicesOrder')->middleware('throttle:40,1');
-    Route::post('subscriptions/buy', 'StorefrontAccountController@subscriptionsBuy')->middleware('throttle:10,1');
-    Route::post('subscriptions/pay-card', 'StorefrontAccountController@subscriptionsPayCard')->middleware('throttle:10,1');
-    Route::get('subscriptions/orders/{id}', 'StorefrontAccountController@subscriptionsOrder')->middleware('throttle:40,1');
+    Route::post('google-voice/buy', 'StorefrontAccountController@googleVoiceBuy')->middleware('throttle:storefront-buy');
+    Route::post('google-voice/pay-card', 'StorefrontAccountController@googleVoicePayCard')->middleware('throttle:storefront-buy');
+    Route::get('google-voice/orders/{id}', 'StorefrontAccountController@googleVoiceOrder')->middleware('throttle:storefront-poll');
+    Route::post('apple-id/buy', 'StorefrontAccountController@appleIdBuy')->middleware('throttle:storefront-buy');
+    Route::post('apple-id/pay-card', 'StorefrontAccountController@appleIdPayCard')->middleware('throttle:storefront-buy');
+    Route::get('apple-id/orders/{id}', 'StorefrontAccountController@appleIdOrder')->middleware('throttle:storefront-poll');
+    Route::post('services/buy', 'StorefrontAccountController@servicesBuy')->middleware('throttle:storefront-buy');
+    Route::post('services/pay-card', 'StorefrontAccountController@servicesPayCard')->middleware('throttle:storefront-buy');
+    Route::get('services/orders/{id}', 'StorefrontAccountController@servicesOrder')->middleware('throttle:storefront-poll');
+    Route::post('subscriptions/buy', 'StorefrontAccountController@subscriptionsBuy')->middleware('throttle:storefront-buy');
+    Route::post('subscriptions/pay-card', 'StorefrontAccountController@subscriptionsPayCard')->middleware('throttle:storefront-buy');
+    Route::get('subscriptions/orders/{id}', 'StorefrontAccountController@subscriptionsOrder')->middleware('throttle:storefront-poll');
+    // The dashboard (/account on the Next.js site): StorefrontPanelController.
+    Route::get('panel', 'StorefrontPanelController@index')->middleware('throttle:storefront-read');
+    Route::get('panel/orders/{id}', 'StorefrontPanelController@order')->middleware('throttle:storefront-read');
+    Route::get('panel/tickets/{id}', 'StorefrontPanelController@ticket')->middleware('throttle:storefront-read');
+    Route::group(['middleware' => 'throttle:storefront-write'], function () {
+        Route::post('panel/tickets', 'StorefrontPanelController@newTicket');
+        Route::post('panel/tickets/{id}/reply', 'StorefrontPanelController@reply');
+        Route::post('panel/tickets/{id}/close', 'StorefrontPanelController@closeTicket');
+        Route::post('panel/profile', 'StorefrontPanelController@profile');
+        Route::post('panel/password', 'StorefrontPanelController@password');
+        Route::post('panel/top-up', 'StorefrontPanelController@topUp');
+    });
 });
 
 /* Next.js storefront: who is logged in (session cookie reaches Laravel through the Next.js fallback rewrite) */

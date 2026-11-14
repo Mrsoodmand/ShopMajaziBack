@@ -134,7 +134,7 @@ class ShopController extends Controller
         [$payment, $Key] = $Gateways->fromCallback($request) ?? [null, null];
         if (is_null($payment) || (int) $payment->type !== 3) {
             Session::flash('error', ['خطایی رخ داده لطفا با پشتیبانی تماس حاصل فرمایید.']);
-            return redirect()->route('user.wallet-list');
+            return $this->topUpBack('failed');
         }
         $Label = \App\Services\Payments\GatewayManager::GATEWAYS[$Key]['label'] ?? $Key;
         if (!$Gateways->callbackPaid($request, $Key)) {
@@ -142,7 +142,7 @@ class ShopController extends Controller
             $payment->error = 'لغو شده توسط کاربر';
             $payment->save();
             Session::flash('error', ['تراکنش توسط کاربر لغو شد']);
-            return redirect()->route('user.wallet-list');
+            return $this->topUpBack('cancelled');
         }
 
         // One callback at a time per payment, so a reload can't credit the wallet twice.
@@ -150,7 +150,7 @@ class ShopController extends Controller
             $payment = Payment::find($payment->id);
             if ($payment->status === 'Complete') {
                 Session::flash('success', 'این پرداخت قبلاً ثبت شده است.');
-                return redirect()->route('user.wallet-list');
+                return $this->topUpBack('ok');
             }
             $Verify = $Gateways->verify($payment, (int) round($payment->price * 10));
             if (!$Verify->ok && !$Verify->alreadyVerified) {
@@ -160,7 +160,7 @@ class ShopController extends Controller
                 $payment->details = $Label;
                 $payment->save();
                 Session::flash('error', [$Verify->message ?: 'پرداخت انجام نشد.']);
-                return redirect()->route('user.wallet-list');
+                return $this->topUpBack('failed');
             }
 
             $payment->refId = $Verify->refId;
@@ -176,7 +176,7 @@ class ShopController extends Controller
                     $payment->status = '-3';
                     $payment->save();
                     Session::flash('error', ['مغایرت در کارت پرداختی، لطفا عکس کارتی که با آن پرداخت را انجام دادید از طریق تیکت برای پشتیبانی ارسال نمایید.']);
-                    return redirect()->route('user.wallet-list');
+                    return $this->topUpBack('held');
                 }
             }
 
@@ -189,10 +189,20 @@ class ShopController extends Controller
                 $User->save();
             }
             Session::flash('success', 'پرداخت با موفقیت انجام شد.' . ($Verify->refId ? " کد رهگیری: {$Verify->refId}" : ''));
-            return redirect()->route('user.wallet-list');
+            return $this->topUpBack('ok');
         });
     }
 
+
+    /*
+     * Where a top-up comes back to: the Next.js dashboard (/account/funds?topup=ok|held|cancelled|failed) when it was
+     * started there (StorefrontPanelController@topUp), else the old wallet page.
+     */
+    private function topUpBack(string $Result)
+    {
+        $Path = Session::pull('storefront_topup_return');
+        return $Path ? redirect()->away(StorefrontUrl($Path) . '?topup=' . $Result) : redirect()->route('user.wallet-list');
+    }
 
     protected $SmsPvaApiKey = null;
     protected $NumberLandApi = null;
