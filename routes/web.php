@@ -119,7 +119,9 @@ Route::group(['prefix' => 'login'], function () {
 });
 /* v2 */
 Route::group(['prefix' => 'cart'], function () {
-    Route::get('/', 'v2\CartController@Cart')->name('Cart');
+    // The old cart page never had its view (user.checkout) on this site: /cart answered 500. Buying happens on each
+    // product page now, so the address goes home.
+    Route::redirect('/', '/')->name('Cart');
     Route::post('add', 'v2\CartController@AddToCart')->name('AddToCart');
     Route::get('delete/{id}', 'v2\CartController@DeleteFromCart')->name('DeleteFromCart');
 });
@@ -152,6 +154,18 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
     Route::post('subscriptions/buy', 'StorefrontAccountController@subscriptionsBuy')->middleware('throttle:10,1');
     Route::post('subscriptions/pay-card', 'StorefrontAccountController@subscriptionsPayCard')->middleware('throttle:10,1');
     Route::get('subscriptions/orders/{id}', 'StorefrontAccountController@subscriptionsOrder')->middleware('throttle:40,1');
+    // The dashboard (/account on the Next.js site): StorefrontPanelController.
+    Route::get('panel', 'StorefrontPanelController@index')->middleware('throttle:60,1');
+    Route::get('panel/orders/{id}', 'StorefrontPanelController@order')->middleware('throttle:60,1');
+    Route::get('panel/tickets/{id}', 'StorefrontPanelController@ticket')->middleware('throttle:60,1');
+    Route::group(['middleware' => 'throttle:15,1'], function () {
+        Route::post('panel/tickets', 'StorefrontPanelController@newTicket');
+        Route::post('panel/tickets/{id}/reply', 'StorefrontPanelController@reply');
+        Route::post('panel/tickets/{id}/close', 'StorefrontPanelController@closeTicket');
+        Route::post('panel/profile', 'StorefrontPanelController@profile');
+        Route::post('panel/password', 'StorefrontPanelController@password');
+        Route::post('panel/top-up', 'StorefrontPanelController@topUp');
+    });
 });
 
 /* Next.js storefront: who is logged in (session cookie reaches Laravel through the Next.js fallback rewrite) */
