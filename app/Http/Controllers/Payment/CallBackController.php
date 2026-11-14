@@ -25,7 +25,9 @@ class CallBackController extends Controller
     public function BankCallBack(Request $request)
     {
         try {
-            $payment = Payment::where('authority', $request->input('Authority'))->first();
+            // Which gateway sent the buyer back, and its payment (admin › درگاه‌های پرداخت).
+            $Gateways = app(\App\Services\Payments\GatewayManager::class);
+            [$payment, $GatewayKey] = $Gateways->fromCallback($request) ?? [null, null];
 
             // /payment/callback in web.php has no auth middleware; without a user nothing below can run.
             if (!Auth::guard('user')->check()) {
@@ -39,31 +41,20 @@ class CallBackController extends Controller
                 $order = Order::find($payment->order_id);
                 if (Auth::guard('user')->user()->id == $order->user_id) {
 
-                    $MerchantID = config('services.zarinpal.merchant_id');
-//                    $MerchantID = config('services.zarinpal.merchant_id_alt');
-                    $Authority = $request->input('Authority');
-                    if ($request->input('Status') == 'OK') {
-                        if (Auth::guard('admin')->check()) {
-                            $Amount = 30000;
-                        } else {
-                            $Amount = $payment->price * 10;
-                        }
-                        $result = [
-                            'merchant_id' => $MerchantID,
-                            'authority' => $Authority,
-                            'amount' => $Amount,
-                        ];
-
-                        $response = ZarinPalMethod('https://api.zarinpal.com/pg/v4/payment/verify.json', $result);
-                        if (array_key_exists('data', $response)) {
-                            if ($response['data']['code'] == 100) {
-                                $Ref = $response['data']['ref_id'];
+                    $GatewayLabel = \App\Services\Payments\GatewayManager::GATEWAYS[$GatewayKey]['label'] ?? $GatewayKey;
+                    if ($Gateways->callbackPaid($request, $GatewayKey)) {
+                        $Amount = Auth::guard('admin')->check() ? 30000 : (int) round($payment->price * 10); // Rial, as started
+                        $Verify = $Gateways->verify($payment, $Amount);
+                        $response = $Verify->legacyResponse(); // what the fulfillment below reads (ref_id)
+                        if ($Verify->ok || $Verify->alreadyVerified) {
+                            if ($Verify->ok) {
+                                $Ref = $Verify->refId;
 
                                 $payment->refId = $Ref;
-                                $payment->details = 'ZarinPal';
+                                $payment->details = $GatewayLabel;
                                 $payment->status = 'Complete';
-                                $payment->fee = $response['data']['fee'];
-                                $payment->card = $response['data']['card_pan'];
+                                $payment->fee = $Verify->fee;
+                                $payment->card = $Verify->card;
                                 $payment->paid_at = Carbon::now();
                                 $payment->user_id = Auth::guard('user')->user()->id;
                                 $payment->save();
@@ -109,9 +100,9 @@ class CallBackController extends Controller
                             }
                         } else {
                             $payment->status = '-4';
-                            $payment->help = $response['error']['code'];
-                            $payment->error = $response['error']['message'];
-                            $payment->detail = 'ZarinPal';
+                            $payment->help = $Verify->code;
+                            $payment->error = $Verify->message;
+                            $payment->details = $GatewayLabel;
                             $payment->save();
 
                             if ($payment->type == 1) {
@@ -130,7 +121,7 @@ class CallBackController extends Controller
                                 return $Back;
                             }
                             $Status = false;
-                            $Data['msg'] = $response['error']['message'];
+                            $Data['msg'] = $Verify->message;
                             $Data['orderId'] = $Id;
                             $Data['Url'] = route('user.single-order',$Id);
                             return view('user-v2.callback', compact('Status', 'Data'));

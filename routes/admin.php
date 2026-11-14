@@ -362,6 +362,10 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('pricing', 'Admin\PricingApiController@index')->name('pricing');
         Route::post('pricing', 'Admin\PricingApiController@save');
         Route::post('pricing/refresh', 'Admin\PricingApiController@refresh');
+        // درگاه‌های پرداخت (App\Services\Payments\GatewayManager).
+        Route::get('payment-gateways', 'Admin\PaymentGatewayApiController@index')->name('payment-gateways');
+        Route::post('payment-gateways', 'Admin\PaymentGatewayApiController@save');
+        Route::post('payment-gateways/{key}/test', 'Admin\PaymentGatewayApiController@test')->where('key', '[a-z]+');
     });
 
     Route::middleware('role_or_permission:super-admin|accounts-list|accounts-create-edit')->group(function () {

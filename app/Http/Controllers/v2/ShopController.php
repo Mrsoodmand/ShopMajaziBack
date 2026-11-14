@@ -99,44 +99,26 @@ class ShopController extends Controller
         }
     }
 
-    /* انتقال به بانک برای شارژ حساب */
-    public function ZarinPalSendToBankChargeWallet($order,$Card)
+    /*
+     * انتقال به بانک برای شارژ حساب: through the gateways in admin › درگاه‌های پرداخت. Top-ups must be paid with the
+     * user's registered card: Zibal is told to accept only that card (allowedCards); with Zarinpal the card is
+     * checked on return, as before.
+     */
+    public function ZarinPalSendToBankChargeWallet($order, $Card)
     {
-        $MerchantID = config('services.zarinpal.merchant_id'); //Required
-        $Amount = $order->price * 10; //Amount will be based on Toman - Required
-        $Description = "شارژ کیف پول کیف پول،شماره تراکنش $order->id"; // Required
-        $Email = (Auth::guard('user')->user()->email != null ? Auth::guard('user')->user()->email : null);
-        $Mobile = Auth::guard('user')->user()->mobile; // Optional
-        $CallbackURL = route('user.ChargeWalletCallBack');
-
-        $result =
-            [
-                'merchant_id' => $MerchantID,
-                'amount' => $Amount,
-                'description' => $Description,
-                'callback_url' => $CallbackURL,
-                "metadata" => [
-                    'email' => "$Email",
-                    'mobile' => "$Mobile",
-//                    'card_pan' => "$Card->card"
-                ],
-            ];
-        $response = ZarinPalMethod('https://api.zarinpal.com/pg/v4/payment/request.json',$result);
-
-        if ($response['data']['code'] == 100) {
-            $payment = Payment::find($order->id);
-            $payment->authority = $response['data']['authority'];
-            $payment->save();
-            Header('Location: https://www.zarinpal.com/pg/StartPay/' . $response['data']['authority']);
-            //برای استفاده از زرین گیت باید ادرس به صورت زیر تغییر کند:
-            //Header('Location: https://www.zarinpal.com/pg/StartPay/'.$result->Authority.'/ZarinGate');
+        $User = Auth::guard('user')->user();
+        $Url = app(\App\Services\Payments\GatewayManager::class)->start(
+            Payment::find($order->id),
+            (int) round($order->price * 10), // Rial
+            route('user.ChargeWalletCallBack'),
+            "شارژ کیف پول، شماره تراکنش $order->id",
+            ['mobile' => (string) $User->mobile, 'email' => (string) $User->email, 'allowedCards' => $Card && $Card->card ? [preg_replace('/\D/', '', $Card->card)] : []],
+        );
+        if ($Url) {
+            Header('Location: ' . $Url);
         } else {
-            $payment = Payment::find($order->id);
-            $payment->error = $this->ZartinPallErrors[$result->Status];
-            $payment->save();
-            echo 'ERR: ' . $this->ZartinPallErrors[$result->Status];
+            echo 'ERR: ' . Payment::find($order->id)->error;
         }
-
     }
 
     /* صفحه برگشت از بانک برای شارژ حساب */
@@ -145,87 +127,70 @@ class ShopController extends Controller
         return $this->CallBackZarinPalSendToBankChargeWallet($request);
     }
 
-    /* بررسی کد تایید زرین پال برای شارژ حساب */
+    /* بررسی پرداخت شارژ حساب با همان درگاهی که پرداخت از آن شروع شد */
     public function CallBackZarinPalSendToBankChargeWallet($request)
     {
-        $payment = Payment::where('authority', $request->input('Authority'))->first();
-        if (!is_null($payment)) {
-            $MerchantID = config('services.zarinpal.merchant_id');
-            $Amount = $payment->price * 10; //Amount will be based on Toman
-            $Authority = $request->input('Authority');
-            if ($request->input('Status') == 'OK') {
-                $result = [
-                    'merchant_id' => $MerchantID,
-                    'authority' => $Authority,
-                    'amount' => $Amount,
-                ];
-                $response = ZarinPalMethod('https://api.zarinpal.com/pg/v4/payment/verify.json',$result);
-                if (array_key_exists('data',$response)){
-                    $Card = Card::find($payment->card_id);
-                    $First = substr($Card->card, 0, 6);
-                    $Last = substr($Card->card, 12, 4);
-                    $CardNum = $First . '******' . $Last;
-                    if ($response['data']['card_pan'] == $CardNum){
-                        if ($response['data']['code'] == 100) {
-                            // Update Order Payment
-                            $Ref = $response['data']['ref_id'];
-                            $payment = Payment::find($payment->id);
-                            $payment->refId = $Ref;
-                            $payment->details = 'ZarinPal';
-                            $payment->status = 'Complete';
-                            $payment->fee = $response['data']['fee'];
-                            $payment->card = $response['data']['card_pan'];
-                            $payment->paid_at = Carbon::now();
-                            $payment->save();
+        $Gateways = app(\App\Services\Payments\GatewayManager::class);
+        [$payment, $Key] = $Gateways->fromCallback($request) ?? [null, null];
+        if (is_null($payment) || (int) $payment->type !== 3) {
+            Session::flash('error', ['خطایی رخ داده لطفا با پشتیبانی تماس حاصل فرمایید.']);
+            return redirect()->route('user.wallet-list');
+        }
+        $Label = \App\Services\Payments\GatewayManager::GATEWAYS[$Key]['label'] ?? $Key;
+        if (!$Gateways->callbackPaid($request, $Key)) {
+            $payment->status = 'failed';
+            $payment->error = 'لغو شده توسط کاربر';
+            $payment->save();
+            Session::flash('error', ['تراکنش توسط کاربر لغو شد']);
+            return redirect()->route('user.wallet-list');
+        }
 
-                            $User = User::find($payment->user_id);
-                            $User->wallet = $payment->price + $User->wallet;
-                            $User->save();
-
-                            Session::flash('success', "پرداخت با موفقیت انجام شد. کد رهگیری :$Ref ");
-                            return redirect()->route('user.wallet-list');
-                        } else {
-                            // Update Order Payment
-                            $payment = Payment::find($payment->id);
-                            $payment->refId = $response['data']['ref_id'];
-                            $payment->details = 'ZarinPal';
-                            $payment->status = 'Complete';
-                            $payment->fee = $response['data']['fee'];
-                            $payment->card = $response['data']['card_pan'];
-                            $payment->save();
-                            Session::flash('success', "پرداخت با موفقیت انجام شد");
-                            return redirect()->route('user.wallet-list');
-                        }
-                    }else{
-                        $payment = Payment::find($payment->id);
-                        $payment->refId = $response['data']['ref_id'];
-                        $payment->details = 'ZarinPal';
-                        $payment->status = '-3';
-                        $payment->fee = $response['data']['fee'];
-                        $payment->card = $response['data']['card_pan'];
-                        $payment->save();
-                        Session::flash('error', ['مغایرت در کارت پرداختی، لطفا عکس کارتی که با آن پرداخت را انجام دادید از طریق تیکت برای پشتیبانی ارسال نمایید.']);
-                        return redirect()->route('user.wallet-list');
-                    }
-                }else{
-                    $payment->status = '-4';
-                    $payment->help = $response['error']['code'];
-                    $payment->error = $response['error']['message'];
-                    $payment->detail = 'ZarinPal';
-                    $payment->save();
-                    Session::flash('error', ['تراکنش توسط کاربر لغو شد']);
-                    return redirect()->route('user.wallet-list');
-                }
-            } else {
-                $payment->status = 'failed';
-                $payment->error = 'لغو شده توسط کاربر';
-                $payment->save();
-                Session::flash('error', ['تراکنش توسط کاربر لغو شد']);
+        // One callback at a time per payment, so a reload can't credit the wallet twice.
+        return \Illuminate\Support\Facades\Cache::lock('wallet-topup:' . $payment->id, 30)->block(15, function () use ($Gateways, $payment, $Key, $Label) {
+            $payment = Payment::find($payment->id);
+            if ($payment->status === 'Complete') {
+                Session::flash('success', 'این پرداخت قبلاً ثبت شده است.');
                 return redirect()->route('user.wallet-list');
             }
-        }
-        Session::flash('error', ['خطایی رخ داده لطفا با پشتیبانی تماس حاصل فرمایید.']);
-        return redirect()->route('user.wallet-list');
+            $Verify = $Gateways->verify($payment, (int) round($payment->price * 10));
+            if (!$Verify->ok && !$Verify->alreadyVerified) {
+                $payment->status = '-4';
+                $payment->help = $Verify->code;
+                $payment->error = $Verify->message;
+                $payment->details = $Label;
+                $payment->save();
+                Session::flash('error', [$Verify->message ?: 'پرداخت انجام نشد.']);
+                return redirect()->route('user.wallet-list');
+            }
+
+            $payment->refId = $Verify->refId;
+            $payment->details = $Label;
+            $payment->fee = $Verify->fee;
+            $payment->card = $Verify->card;
+
+            // Zarinpal can't restrict the card up front: the paying card must be the registered one.
+            if ($Key !== 'zibal') {
+                $Card = Card::find($payment->card_id);
+                $CardNum = $Card ? substr($Card->card, 0, 6) . '******' . substr($Card->card, 12, 4) : null;
+                if ($Verify->card !== $CardNum) {
+                    $payment->status = '-3';
+                    $payment->save();
+                    Session::flash('error', ['مغایرت در کارت پرداختی، لطفا عکس کارتی که با آن پرداخت را انجام دادید از طریق تیکت برای پشتیبانی ارسال نمایید.']);
+                    return redirect()->route('user.wallet-list');
+                }
+            }
+
+            $payment->status = 'Complete';
+            $payment->paid_at = $payment->paid_at ?? Carbon::now();
+            $payment->save();
+            if ($Verify->ok) { // verified now (not by an earlier callback): credit once
+                $User = User::find($payment->user_id);
+                $User->wallet = $payment->price + $User->wallet;
+                $User->save();
+            }
+            Session::flash('success', 'پرداخت با موفقیت انجام شد.' . ($Verify->refId ? " کد رهگیری: {$Verify->refId}" : ''));
+            return redirect()->route('user.wallet-list');
+        });
     }
 
 

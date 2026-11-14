@@ -517,94 +517,36 @@ class BankController extends Controller
         }
     }
 
-    /* درگاه پرداخت زیرن پال */
+    /* درگاه پرداخت: the old pages' bank step. Sends the buyer to the first gateway that opens a session
+       (admin › درگاه‌های پرداخت, App\Services\Payments\GatewayManager), or prints why none could. */
     public function ZarinPalSendToBank($payment = null, $order = null, $type = 'old')
     {
-        if ($type == 'new') {
-            $Url = $this->zarinPalStartUrl($payment, $order);
-            if ($Url) {
-                Header('Location: ' . $Url);
-            } else {
-                echo 'ERR: ' . Payment::find($payment->id)->error;
-            }
+        $payment ??= Payment::where('order_id', $order->id)->first();
+        $Url = $this->zarinPalStartUrl($payment, $order);
+        if ($Url) {
+            Header('Location: ' . $Url);
         } else {
-            $MerchantID = config('services.zarinpal.merchant_id');
-//            $MerchantID = config('services.zarinpal.merchant_id_alt');
-            if (!is_null($payment)) {
-                $Description = "بابت تراکنش شماره $payment->id";
-                $Amount = $payment->price;
-            } else {
-                $Amount = $order->price;
-                $Description = "بابت سفارش شماره $order->id";
-            }
-            $Email = (Auth::guard('user')->user()->email != null ? Auth::guard('user')->user()->email : null);
-            $Mobile = Auth::guard('user')->user()->mobile;
-            $CallbackURL = route('user.service-bank-callback');
-            $client = new \SoapClient('https://www.zarinpal.com/pg/services/WebGate/wsdl', ['encoding => UTF-8']);
-            if (Auth::guard('admin')->check()) {
-                $Amount = 3000;
-            }
-            $result = $client->PaymentRequest(
-                [
-                    'MerchantID' => $MerchantID,
-                    'Amount' => $Amount,
-                    'Description' => $Description,
-                    'Email' => $Email,
-                    'Mobile' => $Mobile,
-                    'CallbackURL' => $CallbackURL,
-                ]
-            );
-
-            if ($result->Status == 100) {
-                if (!is_null($payment)) {
-                    $Pay = $payment;
-                } else {
-                    $Pay = Payment::where('order_id', $order->id)->first();
-                }
-                $Pay->authority = $result->Authority;
-                $Pay->save();
-                Header('Location: https://www.zarinpal.com/pg/StartPay/' . $result->Authority);
-                //برای استفاده از زرین گیت باید ادرس به صورت زیر تغییر کند:
-                //Header('Location: https://www.zarinpal.com/pg/StartPay/'.$result->Authority.'/ZarinGate');
-            } else {
-                if (!is_null($payment)) {
-                    $Pay = Payment::find($payment->id);
-                } else {
-                    $Pay = Payment::where('order_id', $order->id)->first();
-                }
-                $Pay->error = $this->ZartinPallErrors[$result->Status];
-                $Pay->save();
-                echo 'ERR: ' . $this->ZartinPallErrors[$result->Status];
-            }
+            echo 'ERR: ' . Payment::find($payment->id)->error;
         }
     }
 
     /*
-     * ZarinPal v4: registers the payment (amount in rial = toman × 10, as the callback verifies it) and returns the
-     * StartPay URL to send the buyer to, or null with the reason saved on the payment. `$CallbackURL` defaults to the
-     * old site's callback route; the Next.js storefront passes the same path on its own origin.
+     * Opens a bank payment session for a payment (amount in Rial = toman × 10, as the callback verifies it) through
+     * the gateways set in admin › درگاه‌های پرداخت, and returns the address to send the buyer to, or null with the
+     * reason saved on the payment. `$CallbackURL` defaults to the old site's callback route; the Next.js storefront
+     * passes the same path on its own origin. (Named for Zarinpal, its only gateway before.)
      */
     public function zarinPalStartUrl($payment, $order = null, $CallbackURL = null): ?string
     {
-        $MerchantID = config('services.zarinpal.merchant_id');
-        $Amount = Auth::guard('admin')->check() ? 30000 : ($order ?? $payment)->price * 10;
+        $Rial = Auth::guard('admin')->check() ? 30000 : (int) round(($order ?? $payment)->price * 10);
         $User = Auth::guard('user')->user();
-        $response = ZarinPalMethod('https://api.zarinpal.com/pg/v4/payment/request.json', [
-            'merchant_id' => $MerchantID,
-            'amount' => $Amount,
-            'description' => "بابت تراکنش شماره $payment->id",
-            'callback_url' => $CallbackURL ?? route('user.service-bank-callback'),
-            'metadata' => ['email' => (string)$User->email, 'mobile' => (string)$User->mobile],
-        ]);
-        $Pay = Payment::find($payment->id);
-        if (is_array($response) && isset($response['data']['code']) && $response['data']['code'] == 100) {
-            $Pay->authority = $response['data']['authority'];
-            $Pay->save();
-            return (DevFakeProviders() ? DevFakeZarinPalPage() : 'https://www.zarinpal.com/pg/StartPay/') . $response['data']['authority'];
-        }
-        $Pay->error = is_array($response) ? json_encode($response['errors'] ?? $response['error'] ?? $response) : 'ZarinPal: no response';
-        $Pay->save();
-        return null;
+        return app(\App\Services\Payments\GatewayManager::class)->start(
+            Payment::find($payment->id),
+            $Rial,
+            $CallbackURL ?? route('user.service-bank-callback'),
+            "بابت تراکنش شماره $payment->id",
+            ['mobile' => (string) optional($User)->mobile, 'email' => (string) optional($User)->email],
+        );
     }
 
     /* خطاهای زرین پال */

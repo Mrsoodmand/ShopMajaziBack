@@ -24,6 +24,7 @@ import { APPLE, GOOGLE_VOICE } from './pages/stock/config';
 import AccountsList from './pages/accounts/AccountsList';
 import AccountEditor from './pages/accounts/AccountEditor';
 import PricingPage from './pages/pricing/PricingPage';
+import GatewaysPage from './pages/gateways/GatewaysPage';
 import IpLocations from './pages/ip/IpLocations';
 import IpLocationPage from './pages/ip/IpLocationPage';
 import TicketsPage from './pages/tickets/TicketsPage';
@@ -92,6 +93,7 @@ if (root) {
                     { path: 'accounts', element: <AccountsList /> },
                     { path: 'accounts/:id', element: <AccountEditor /> },
                     { path: 'pricing', element: <PricingPage /> },
+                    { path: 'payment-gateways', element: <GatewaysPage /> },
                     { path: 'ip', element: <IpLocations /> },
                     { path: 'ip/:id', element: <IpLocationPage /> },
                     { path: 'tickets', element: <TicketsPage /> },

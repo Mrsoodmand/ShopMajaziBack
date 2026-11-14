@@ -597,6 +597,8 @@ function ZarinPalMethod($url, $data)
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // a hung gateway must fail fast so the next one can be tried
+    curl_setopt($ch, CURLOPT_TIMEOUT, 25);
     $response = curl_exec($ch);
     curl_close($ch);
     return $response = json_decode($response, true);
