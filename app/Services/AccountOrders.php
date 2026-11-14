@@ -37,11 +37,10 @@ class AccountOrders
 
     private const SECRET = '/pass|رمز|کلمه\s*(ی\s*)?عبور/iu';
 
-    // The services rate: dollars → toman, with the margin set in admin › currencies (#20).
-    public function rate(): float
+    // Dollars → toman for one subscription: the market dollar plus its own profit, else the dollar's (Pricing).
+    public function rate(?Product $Product = null): float
     {
-        $Currency = Currency::find(20);
-        return $Currency ? (float)CalculatorSellPrice($Currency) : 0.0;
+        return Pricing::productRate($Product);
     }
 
     /*
@@ -115,6 +114,7 @@ class AccountOrders
         $Short = self::shortName($Product, $Info);
         $Fields = $this->fields($Product);
         $PlanRows = [];
+        $Rate = Pricing::productRate($Product); // its own profit, if it has one
         foreach ($Plans as $Plan) {
             [$Price, $Was] = self::planPrices($Plan, $Info, $Rate);
             if ($Price <= 0) {
@@ -198,7 +198,7 @@ class AccountOrders
             return [null, ['این پلن دیگر ارائه نمی شود. لطفا پلن دیگری انتخاب کنید.', 'plan_invalid', 422, []]];
         }
         $Info = $this->decode($Product->detail);
-        [$Price] = self::planPrices($Plan, $Info, $this->rate());
+        [$Price] = self::planPrices($Plan, $Info, $this->rate($Product));
         if ($Price <= 0) {
             return [null, ['این اشتراک در حال حاضر در دسترس نیست.', 'unavailable', 404, []]];
         }

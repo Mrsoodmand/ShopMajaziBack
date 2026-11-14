@@ -38,11 +38,11 @@ class UpdateCurrencyRates extends Command
             $l['change'] === null ? '-' : sprintf('%+.1f%%', $l['change']), $l['skipped'] ?? ($dry ? 'dry run' : 'saved'),
         ], $lines));
 
-        // What the derived "PayPal dollar" (subscriptions, services) becomes with the new dollar.
+        // The dollar subscriptions and services sell at (market + the dollar's profit).
         $usd = collect($lines)->firstWhere('code', 'usd');
         if ($paypalBefore && $usd && $usd['new'] && $usd['old'] && !$usd['skipped']) {
             $after = (int) round($paypalBefore * $usd['new'] / $usd['old']);
-            $this->line(sprintf('PayPal dollar (#20, subscriptions and services): %s → %s Toman', number_format($paypalBefore), number_format($after)));
+            $this->line(sprintf('Services dollar (market + profit): %s → %s Toman', number_format($paypalBefore), number_format($after)));
         }
 
         $changed = collect($lines)->filter(fn ($l) => !$l['skipped'] && $l['new'] !== $l['old']);
@@ -55,7 +55,7 @@ class UpdateCurrencyRates extends Command
 
     private function paypalDollar(): ?int
     {
-        $row = Currency::find(20);
-        return $row && function_exists('CalculatorSellPrice') ? (int) round(CalculatorSellPrice($row)) : null;
+        $rate = \App\Services\Pricing::servicesRate();
+        return $rate > 0 ? (int) round($rate) : null;
     }
 }

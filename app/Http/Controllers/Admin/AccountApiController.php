@@ -67,6 +67,12 @@ class AccountApiController extends Controller
             'withPlans' => (string) ($d['type'] ?? '1') !== '0',
             'currency' => (string) ($d['price_type'] ?? '1') === '0' ? 'toman' : 'dollar',
             'commission' => $p->commission !== null ? (string) $p->commission : '',
+            // Its own profit on the market dollar ('' = the dollar's profit), and what the editor previews with.
+            'profit' => $p->profit_percent !== null ? rtrim(rtrim((string) $p->profit_percent, '0'), '.') : '',
+            'pricing' => [
+                'marketDollar' => (int) round(\App\Services\Pricing::market(\App\Services\Pricing::DOLLAR)),
+                'dollarProfit' => (float) \App\Services\Pricing::currencyProfit(\App\Services\Pricing::DOLLAR),
+            ],
             'short' => (string) ($d['short_detail'] ?? ''),
             'content' => (string) ($d['long_detail'] ?? ''),
             'image' => (string) ($d['image_gallery'] ?? ''),
@@ -120,6 +126,7 @@ class AccountApiController extends Controller
             'withPlans' => 'boolean',
             'currency' => ['required', Rule::in(['dollar', 'toman'])],
             'commission' => 'nullable|numeric|min:0|max:100',
+            'profit' => 'nullable|numeric|min:-50|max:1000',
             'short' => 'required|string',
             'content' => 'required|string',
             'image' => 'nullable|string|max:500',
@@ -158,6 +165,9 @@ class AccountApiController extends Controller
         ], $this->messages() + [
             'fields.*.name.regex' => 'نام فنی فقط حروف انگلیسی، عدد و _ (مثل email).',
             'color.regex' => 'رنگ را به شکل #10a37f بنویسید.',
+            'profit.numeric' => 'سود اختصاصی باید عدد باشد (یا خالی بماند).',
+            'profit.min' => 'سود اختصاصی نمی‌تواند کمتر از -۵۰ باشد.',
+            'profit.max' => 'سود اختصاصی نمی‌تواند بیشتر از ۱۰۰۰ باشد.',
         ]);
         foreach ($data['fields'] ?? [] as $i => $f) {
             if ($f['type'] === 'select' && empty($f['options'])) {
@@ -205,6 +215,7 @@ class AccountApiController extends Controller
                 'filds' => json_encode($fields, JSON_UNESCAPED_UNICODE),
                 'notes' => json_encode((object) $notes, JSON_UNESCAPED_UNICODE),
                 'commission' => $data['commission'] ?? null,
+                'profit_percent' => isset($data['profit']) && $data['profit'] !== '' ? $data['profit'] : null,
                 'status' => ($data['live'] ?? false) ? 1 : 0,
                 'sort' => ($data['sort'] ?? '') === '' ? null : (int) $data['sort'],
             ])->save();

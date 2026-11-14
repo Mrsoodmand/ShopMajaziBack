@@ -315,11 +315,11 @@ class ServiceApiController extends Controller
         ];
     }
 
-    /** Toman per dollar the storefront uses for service prices (currency #20), or null when it is not set up. */
+    /** Toman per dollar the storefront uses for service prices (market dollar + profit), or null without a rate. */
     private function rate(): ?float
     {
-        $currency = Currency::find(20);
-        return $currency ? (float) CalculatorSellPrice($currency) : null;
+        $rate = \App\Services\Pricing::servicesRate();
+        return $rate > 0 ? $rate : null;
     }
 
     /** 'count' (any amount in steps, VirtualServiceOrders::countPricing) or 'plans' (packages). */

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { count, parseDecimal } from '../../lib/format';
 import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '../../lib/api';
 import { useSave } from '../../lib/useSave';
@@ -17,6 +18,9 @@ type Account = {
     withPlans: boolean;
     currency: 'dollar' | 'toman';
     commission: string;
+    // Its own profit on the market dollar; '' = the dollar's profit (admin › ارزها و سود).
+    profit: string;
+    pricing?: { marketDollar: number; dollarProfit: number };
     short: string;
     content: string;
     image: string;
@@ -46,6 +50,7 @@ const blank: Account = {
     withPlans: true,
     currency: 'dollar',
     commission: '',
+    profit: '',
     short: '',
     content: '',
     image: '',
@@ -68,7 +73,7 @@ const blank: Account = {
 };
 
 const labels: Record<string, string> = {
-    name: 'نام', slug: 'نامک', currency: 'واحد قیمت', commission: 'پورسانت', short: 'توضیح کوتاه', content: 'متن صفحه', image: 'تصویر',
+    name: 'نام', slug: 'نامک', currency: 'واحد قیمت', commission: 'پورسانت', profit: 'سود اختصاصی', short: 'توضیح کوتاه', content: 'متن صفحه', image: 'تصویر',
     metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', fields: 'فیلدهای سفارش', notes: 'نکات', plans: 'پلن‌ها',
     enName: 'نام انگلیسی', tagline: 'شعار فارسی', taglineEn: 'شعار انگلیسی', category: 'دسته', color: 'رنگ', activation: 'نحوه تحویل', delivery: 'زمان تحویل', deliveryEn: 'زمان تحویل انگلیسی', sort: 'ترتیب',
     'plans.name': 'نام', 'plans.enName': 'نام انگلیسی', 'plans.months': 'مدت', 'plans.price': 'قیمت', 'plans.discount': 'قیمت با تخفیف', 'plans.count': 'تعداد',
@@ -127,6 +132,7 @@ export default function AccountEditor() {
         const res = await save.run<{ success: string; id: number }>(isNew ? '/admin/api/accounts' : `/admin/api/accounts/${id}`, {
             ...form,
             commission: form.commission === '' ? null : form.commission,
+            profit: form.profit.trim() === '' ? null : form.profit,
             plans: form.withPlans ? form.plans : [],
         });
         if (res && isNew) navigate(`/accounts/${res.id}`, { replace: true });
@@ -193,6 +199,9 @@ export default function AccountEditor() {
                     </Field>
                     <Field label="پورسانت معرف (٪)" optional error={err('commission')}>
                         {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={form.commission} onChange={(e) => set({ commission: e.target.value })} />}
+                    </Field>
+                    <Field label="سود اختصاصی (٪)" optional error={err('profit')} hint={profitHint(form)}>
+                        {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={form.pricing ? String(form.pricing.dollarProfit) : ''} value={form.profit} onChange={(e) => set({ profit: e.target.value })} />}
                     </Field>
                     <div className="sm:col-span-2">
                         <ImageField label="تصویر" value={form.image} onChange={(image) => set({ image })} error={err('image')} uploadUrl="/admin/api/uploads/account-image" square noSvg />
@@ -368,4 +377,15 @@ export default function AccountEditor() {
             </Panel>
         </EditorLayout>
     );
+}
+
+// What one dollar of this account's plans sells for: market dollar × (1 + its own profit, else the dollar's).
+function profitHint(form: Account): string {
+    if (form.currency === 'toman') return 'قیمت پلن‌ها به تومان است؛ سود روی آن‌ها اعمال نمی‌شود.';
+    if (!form.pricing) return 'خالی بماند تا سود دلار (ارزها و سود) اعمال شود.';
+    const own = parseDecimal(form.profit);
+    const profit = form.profit.trim() === '' || own === null ? form.pricing.dollarProfit : own;
+    const rate = Math.round(form.pricing.marketDollar * (1 + profit / 100));
+    const source = form.profit.trim() === '' ? `سود دلار، ${profit}٪` : `${profit}٪`;
+    return `خالی = سود دلار. هر دلار این اکانت: ${count(rate)} تومان (${source}).`;
 }

@@ -9,12 +9,9 @@ use RuntimeException;
 
 /**
  * Live exchange rates from AriaPay (config services.ariapay: ARIAPAY_TOKEN in .env, never in git — the repo is
- * public) into the `currency` table, which every price in the shop is computed from:
- *   #1 Dollar  — virtual numbers (with #34), and the base of the derived rates below
- *   #4 Euro, #34 Ruble
- *   #20 "PayPal dollar" (dollar + its markup, see CalculatorSellPrice) — subscriptions and social services
- * Derived rows (type = the id they follow, with a percent or fixed markup) need no update: they read the base
- * row's price when a price is calculated.
+ * public) into the `currency` table (sell = the market rate). Selling prices add the admin's profit percentages on
+ * top (App\Services\Pricing): #1 Dollar for subscriptions, services and SMS-PVA numbers, #34 Ruble for SMS-Man and
+ * SMS-Activate numbers, #4 Euro.
  *
  * AriaPay quotes in Rial; the table holds Toman, so values are divided by 10.
  * Tether (#26) isn't offered by AriaPay and is left as it is.
@@ -82,6 +79,8 @@ class CurrencyRates
         }
         if (!$dryRun) {
             Log::info('currency rates updated', $out);
+            // Numbers keep a stored price: rewrite it from the new rates (subscriptions and services read them live).
+            Pricing::repriceNumbers();
         }
         return $out;
     }

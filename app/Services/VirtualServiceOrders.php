@@ -23,11 +23,10 @@ class VirtualServiceOrders
 {
     public const TYPE = 2;
 
-    // The services rate: dollars → toman, with the margin set in admin › currencies (#20).
+    // Dollars → toman for social services: the market dollar plus the dollar's profit (Pricing).
     public function rate(): float
     {
-        $Currency = Currency::find(20);
-        return $Currency ? (float)CalculatorSellPrice($Currency) : 0.0;
+        return Pricing::servicesRate();
     }
 
     // Toman for `count` of a service priced in dollars per 1,000, rounded like every price the site shows.

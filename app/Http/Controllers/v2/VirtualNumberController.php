@@ -28,8 +28,8 @@ class VirtualNumberController extends Controller
     public function Price()
     {
         $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-        $Dollar = $Currency->where('id', 1)->first()->sell * 2;
-        $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
+        $Dollar = \App\Services\Pricing::numberRate('pva');
+        $Ruble = \App\Services\Pricing::numberRate('man');
 
         return $data = [
             'dollar' => $Dollar,
@@ -43,8 +43,8 @@ class VirtualNumberController extends Controller
         $SelectedProduct = $Service = $Orders = $SelectedServiceImage = null;
         $Services = Virtual_Service::orderby('sort', 'ASC')->where('status', 1)->select('id', 'faName', 'image', 'sort', 'special')->get();
         $Currency = Currency::wherein('id', [1, 34])->get();
-        $Dollar = $Currency->where('id', 1)->first()->sell * 2;
-        $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
+        $Dollar = \App\Services\Pricing::numberRate('pva');
+        $Ruble = \App\Services\Pricing::numberRate('man');
 
         if (Auth::guard('user')->check()) {
             $Orders = Order::where('type', 1)->where('user_id', UserID()->id)->orderby('id', 'DESC')->where('status', '!=', 'waiting to pay')->take(20)->pluck('id')->toArray();
@@ -92,8 +92,8 @@ class VirtualNumberController extends Controller
     {
         $Service = Virtual_Service::find($request->input('id'));
         $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-        $Dollar = $Currency->where('id', 1)->first()->sell * 2;
-        $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
+        $Dollar = \App\Services\Pricing::numberRate('pva');
+        $Ruble = \App\Services\Pricing::numberRate('man');
         if (!is_null($Service)) {
             $Products = Virtual_Products::where('service_id', $Service->id)
                 ->orderby('country_sort', 'ASC')
@@ -124,8 +124,8 @@ class VirtualNumberController extends Controller
             if (!is_null($Product)) {
                 if ($Product->status == 1) {
                     $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-                    $Dollar = $Currency->where('id', 1)->first()->sell * 2;
-                    $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
+                    $Dollar = \App\Services\Pricing::numberRate('pva');
+                    $Ruble = \App\Services\Pricing::numberRate('man');
 
                     if ($Product->type == 'pva') {
                         $Price = $Dollar * $Product->dollar_price;

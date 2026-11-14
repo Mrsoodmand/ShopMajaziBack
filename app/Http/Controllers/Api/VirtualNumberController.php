@@ -29,7 +29,7 @@ class VirtualNumberController extends Controller
                 ];
                 $Result = json_decode(VirtualNumber_SmsPvaMethod($Data), true);
                 $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-                $Dollar = $Currency->where('id', 1)->first()->sell * 2;
+                $Dollar = \App\Services\Pricing::numberRate('pva'); // dollar + PVA profit
 
                 if (is_array($Result)) {
                     if ($Result['response'] == 1) {
@@ -56,7 +56,7 @@ class VirtualNumberController extends Controller
     {
         $Country = Virtual_Country::where('man', '!=', 'empty')->where('is_updated', 0)->select('id', 'man')->take(1)->get();
         $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-        $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
+        $Ruble = \App\Services\Pricing::numberRate('man'); // ruble + SMS-Man profit
         if (count($Country) != 0) {
             foreach ($Country as $country) {
                 $Url = "http://api.sms-man.com/control/get-prices?token=1vORE0znw6EQD-4TgUQavVXJMqW4-d9e&country_id=$country->man";
@@ -95,7 +95,7 @@ class VirtualNumberController extends Controller
     {
         $Service = Virtual_Service::where('active', '!=', 'empty')->orderby('sort', 'ASC')->where('active_update', 0)->first();
         $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-        $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
+        $Ruble = \App\Services\Pricing::numberRate('active'); // ruble + SMS-Activate profit
         if (!is_null($Service)) {
             $Url = "https://api.sms-activate.org/stubs/handler_api.php?api_key=" . config('services.sms_activate.key') . "&action=getTopCountriesByService&service=$Service->active";
             $Result = json_decode(VirtualNumber_ActivePvaMethod($Url), true);

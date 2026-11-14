@@ -436,35 +436,13 @@ class VirtualServiceController extends Controller
         }
     }
 
+    /* Old URL (/UpdateTomanPrice): reprices every number from its cost with the current rates and operator profits
+       (App\Services\Pricing). It used to ask SMS-PVA about every product and price them ×3 with an old setting. */
     public function UpdateTomanPrice()
     {
-        $VirtualCode = Virtual_Products::get();
-        $Setting = Setting::find(1);
-
-        set_time_limit(2000);
-
-        foreach ($VirtualCode as $key => $code) {
-
-            $ch = curl_init();
-            $address = "http://smspva.com/priemnik.php?metod=get_service_price&country=$code->country_code&service=$code->service_code&apikey=" . config('services.smspva.legacy_key') . "";
-            curl_setopt($ch, CURLOPT_URL, $address);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            $export = json_decode(curl_exec($ch), true);
-            curl_close($ch);
-            if ($export['response'] == 1) {
-                $New = Virtual_Products::find($code->id);
-                $New->toman_price = ($code->dollar_price * $Setting->value) * 3;
-                $New->save();
-
-
-            } else {
-                $update = VirtualCode::find($code->id);
-                $update->status = 0;
-                $update->save();
-            }
-
-        }
+        return response()->json(['success' => true, 'changed' => \App\Services\Pricing::repriceNumbers()]);
     }
+
 
 
 }

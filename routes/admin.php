@@ -357,6 +357,13 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('google-voices/{id}/delete', 'Admin\GoogleVoiceApiController@delete')->whereNumber('id');
     });
 
+    // ارزها و سود: market rates and profit percentages (App\Services\Pricing).
+    Route::middleware('role_or_permission:super-admin')->group(function () {
+        Route::get('pricing', 'Admin\PricingApiController@index')->name('pricing');
+        Route::post('pricing', 'Admin\PricingApiController@save');
+        Route::post('pricing/refresh', 'Admin\PricingApiController@refresh');
+    });
+
     Route::middleware('role_or_permission:super-admin|accounts-list|accounts-create-edit')->group(function () {
         Route::get('accounts', 'Admin\AccountApiController@index')->name('accounts');
         Route::get('accounts/{id}', 'Admin\AccountApiController@show')->whereNumber('id');

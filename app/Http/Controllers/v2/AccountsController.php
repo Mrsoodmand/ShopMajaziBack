@@ -31,7 +31,7 @@ class AccountsController extends Controller
         if (!is_null($Product)) {
             $Plans = Plan::where('product_id', $Product->id)->orderby('sort', 'ASC')->where('status', 1)->get()->toarray();
             $Related = Product::where('type', 'accounts')->where('id', '!=', $Product->id)->where('status', 1)->get();
-            $Currency = CalculatorSellPrice(Currency::find(20));
+            $Currency = \App\Services\Pricing::productRate($Product);
             return response()->view('site-v2.accounts.single', compact('Product', 'Plans', 'Related', 'Currency'));
 
         } else {

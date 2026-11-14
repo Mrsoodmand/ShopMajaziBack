@@ -231,16 +231,7 @@ class BankController extends Controller
     /* سفارش و پرداخت شماره مجازی در انتظار بانک (also used by Api\StorefrontAccountController) */
     public function createVirtualNumberBankOrder($Product): array
     {
-        $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-        $Dollar = $Currency->where('id', 1)->first()->sell * 2;
-        $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
-        if ($Product->type == 'pva') {
-            $Price = $Dollar * $Product->dollar_price;
-        } else {
-            $Price = $Ruble * $Product->dollar_price;
-        }
-        $Price = CovertVirtualNumberPrice(number_format($Price));
-        $Price = str_replace(',', '', $Price);
+        $Price = \App\Services\Pricing::chargePrice($Product); // operator's rate + profit, rounded
 
         $Order = new Order();
         $Order->user_id = UserID()->id;

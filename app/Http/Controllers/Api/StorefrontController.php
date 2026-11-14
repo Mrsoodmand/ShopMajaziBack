@@ -262,7 +262,7 @@ class StorefrontController extends Controller
             return $this->error('دسته بندی مورد نظر یافت نشد.', 404);
         }
 
-        $Currency = CalculatorSellPrice(Currency::find(20));
+        $Currency = \App\Services\Pricing::servicesRate();
         $Products = Product::where('type', 'service')->where('status', 1)->where('country_id', $Category->id)->orderby('id', 'DESC')->get();
         $Plans = Plan::whereIn('product_id', $Products->pluck('id'))->where('status', 1)->orderby('count', 'ASC')->get()->groupBy('product_id');
 
@@ -296,7 +296,7 @@ class StorefrontController extends Controller
             return $this->error('سرویس مورد نظر یافت نشد.', 404);
         }
 
-        $Currency = CalculatorSellPrice(Currency::find(20));
+        $Currency = \App\Services\Pricing::servicesRate();
         $Siblings = Product::where('type', 'service')->where('status', 1)->where('country_id', $Category->id)
             ->where('id', '!=', $Product->id)->orderby('id', 'DESC')->take(8)->get();
         $Plans = Plan::whereIn('product_id', $Siblings->pluck('id')->push($Product->id))->where('status', 1)->orderby('count', 'ASC')->get()->groupBy('product_id');
@@ -331,9 +331,23 @@ class StorefrontController extends Controller
      * For the Persian site, which shows every price in Toman: the dollar rate (currencies #1, sell) to convert
      * prices that are still in dollars, and the real lowest price (Toman) of each live service, keyed by its page.
      */
-    public function prices(AppleIds $Apple): JsonResponse
+    public function prices(AppleIds $Apple, AccountOrders $Accounts): JsonResponse
     {
         $From = [];
+        // Subscriptions: each one's cheapest plan (its own profit included), keyed by its page.
+        $Products = Product::where('type', 'accounts')->where('status', 1)->get();
+        $Plans = $Accounts->plansFor($Products);
+        foreach ($Products as $Product) {
+            $Row = $Accounts->product($Product, $Plans->get($Product->id, collect()), 0);
+            $Min = $Row ? collect($Row['plans'] ?? [])->pluck('price')->filter()->min() : null;
+            if ($Min) {
+                $From['/accounts/' . $Product->slug] = (int) $Min;
+                $From['/accounts'] = min($From['/accounts'] ?? PHP_INT_MAX, (int) $Min);
+                if ($Product->slug === 'telegram-premium') {
+                    $From['/telegram/premium'] = (int) $Min;
+                }
+            }
+        }
         $Prices = $Apple->prices();
         if ($Prices['ready'] > 0) {
             $From['/apple-id/usa'] = $From['/apple-id'] = $Prices['ready'];
@@ -357,7 +371,7 @@ class StorefrontController extends Controller
         }
 
         return $this->success([
-            'usd' => (int)optional(Currency::find(1))->sell,
+            'usd' => (int)round(\App\Services\Pricing::servicesRate()), // dollar + profit, for prices still in dollars
             'from' => $From,
         ]);
     }
@@ -504,7 +518,7 @@ class StorefrontController extends Controller
     /* دسته بندی های خدمات مجازی به همراه سرویس ها، به ترتیب و تنظیمات پنل مدیریت (پنهان ها حذف می شوند) */
     private function serviceCategories(bool $withPlans = false)
     {
-        $Currency = CalculatorSellPrice(Currency::find(20));
+        $Currency = \App\Services\Pricing::servicesRate();
         $Categories = Category::where('type', 'product')->where(fn($q) => $q->whereNull('status')->orWhere('status', '!=', 1))
             ->orderby('sort')->orderby('id')->get();
         $Products = Product::where('type', 'service')->where('status', 1)

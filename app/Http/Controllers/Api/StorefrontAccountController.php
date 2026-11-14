@@ -717,9 +717,7 @@ class StorefrontAccountController extends Controller
     // The price WalletController::payWithWalletLocked charges for a virtual number (same formula).
     private function chargePrice(Virtual_Products $Product): int
     {
-        $Currency = Currency::whereIn('id', [1, 34])->select('sell', 'id')->get();
-        $Rate = $Product->type == 'pva' ? $Currency->where('id', 1)->first()->sell * 2 : $Currency->where('id', 34)->first()->sell * 2.5;
-        return (int)str_replace(',', '', CovertVirtualNumberPrice(number_format($Rate * $Product->dollar_price)));
+        return \App\Services\Pricing::chargePrice($Product);
     }
 
     private function ownOrder($User, $id): ?Order

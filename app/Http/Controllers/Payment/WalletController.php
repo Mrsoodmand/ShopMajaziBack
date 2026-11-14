@@ -179,16 +179,7 @@ class WalletController extends Controller
                             }
                             if (!is_null($Product)) {
                                 if ($type == 1) {
-                                    $Currency = Currency::wherein('id', [1, 34])->select('sell', 'id')->get();
-                                    $Dollar = $Currency->where('id', 1)->first()->sell * 2;
-                                    $Ruble = $Currency->where('id', 34)->first()->sell * 2.5;
-                                    if ($Product->type == 'pva') {
-                                        $Price = $Dollar * $Product->dollar_price;
-                                    } else {
-                                        $Price = $Ruble * $Product->dollar_price;
-                                    }
-                                    $Price = CovertVirtualNumberPrice(number_format($Price));
-                                    $Price = str_replace(',', '', $Price);
+                                    $Price = \App\Services\Pricing::chargePrice($Product); // operator's rate + profit, rounded
                                 } elseif ($type == 2) {
                                     $Price = $Product->price;
                                 } elseif ($type == 3 || $type == 4) {

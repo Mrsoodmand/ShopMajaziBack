@@ -27,7 +27,7 @@ class VirtualServiceController extends Controller
         if (!is_null($Category)){
             $Products = Product::where('country_id', $Category->id)->orderby('id', 'DESC')->where('status',1)->where('type', 'service')->get();
             $Title = $Category->meta_title;
-            $Currency = CalculatorSellPrice(Currency::find(20));
+            $Currency = \App\Services\Pricing::servicesRate();
 
             return view('site-v2.virtual-service.service-category', compact('Category', 'Products', 'Title','Currency'));
         }else{
@@ -45,7 +45,7 @@ class VirtualServiceController extends Controller
                 if ($Product->country_id == $Category->id) {
                     $Plans = Plan::where('product_id', $Product->id)->get()->toarray();
                     $Related = Product::where('country_id',$Category->id)->where('id','!=',$Product->id)->where('status',1)->get();
-                    $Currency = CalculatorSellPrice(Currency::find(20));
+                    $Currency = \App\Services\Pricing::servicesRate();
 
                     $Comment = Comment::where('type', 'service')->where('post_id', $Product->id)->where('status', 1)->orderby('id', 'DESC')->select('parent_id', 'name', 'text', 'created_at', 'id')->get();
 
