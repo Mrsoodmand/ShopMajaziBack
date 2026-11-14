@@ -22,6 +22,11 @@ class ZibalGateway implements Gateway
         113 => 'مبلغ از سقف مجاز درگاه بیشتر است.', 114 => 'کد ملی نامعتبر است.', 115 => 'IP سرور در پنل زیبال ثبت نشده است.',
         140 => 'آدرس بازگشت ارسال نشده است.',
     ];
+    // /v1/verify result codes.
+    private const VERIFY_ERRORS = [
+        102 => 'مرچنت یافت نشد.', 103 => 'مرچنت غیرفعال است.', 104 => 'مرچنت نامعتبر است.',
+        115 => 'IP سرور در پنل زیبال ثبت نشده است.', 202 => 'پرداخت انجام نشد یا ناموفق بود.', 203 => 'شناسه پرداخت نامعتبر است.',
+    ];
     // Payment status codes.
     private const STATUS = [
         -1 => 'در انتظار پرداخت', -2 => 'خطای داخلی', 1 => 'پرداخت شده - تاییدشده', 2 => 'پرداخت شده - تاییدنشده',
@@ -83,7 +88,8 @@ class ZibalGateway implements Gateway
                 $res['cardNumber'] ?? null, null, (string) $result);
         }
         $status = isset($res['status']) ? (int) $res['status'] : null;
-        $message = $result === 202 && $status !== null ? (self::STATUS[$status] ?? 'پرداخت انجام نشد.') : ($res['message'] ?? 'پرداخت تایید نشد.');
+        $message = ($result === 202 && $status !== null ? (self::STATUS[$status] ?? null) : null)
+            ?? self::VERIFY_ERRORS[$result] ?? 'پرداخت تایید نشد. اگر مبلغی کسر شده، تا ۷۲ ساعت بازمی‌گردد.';
         return new VerifyResult(false, code: (string) $result, message: $message);
     }
 }
