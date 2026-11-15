@@ -11,6 +11,7 @@ import UserDetail from './pages/UserDetail';
 import ServicesPage from './pages/services/ServicesPage';
 import PlatformEditor from './pages/services/PlatformEditor';
 import ServiceEditor from './pages/services/ServiceEditor';
+import TelegramStarsPage from './pages/services/TelegramStarsPage';
 import SeoPage from './pages/seo/SeoPage';
 import MediaPage from './pages/media/MediaPage';
 import TransactionsPage from './pages/transactions/TransactionsPage';
@@ -72,6 +73,7 @@ if (root) {
                     { path: 'services', element: <ServicesPage /> },
                     { path: 'services/platforms/:id', element: <PlatformEditor /> },
                     { path: 'services/:id', element: <ServiceEditor /> },
+                    { path: 'telegram-stars', element: <TelegramStarsPage /> },
                     { path: 'seo', element: <SeoPage /> },
                     { path: 'media', element: <MediaPage /> },
                     // One route for the list and an opened transaction, so the list stays mounted while the panel changes.

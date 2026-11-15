@@ -88,7 +88,8 @@ class ServiceApiController extends Controller
 
     public function services(Request $request)
     {
-        $query = Product::where('type', 'service');
+        // Telegram Stars has its own page (Admin\TelegramStarsController).
+        $query = Product::where('type', 'service')->where(fn ($q) => $q->whereNull('slug')->orWhere('slug', '!=', \App\Services\TelegramStars::SLUG));
         if ($request->filled('category')) {
             $query->where('country_id', $request->integer('category'));
         }

@@ -266,6 +266,8 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('services/{id}', 'Admin\ServiceApiController@service')->whereNumber('id');
         Route::post('services/{id}', 'Admin\ServiceApiController@saveService')->whereNumber('id');
         Route::post('uploads/service-image', 'Admin\ServiceApiController@upload');
+        Route::get('telegram-stars', 'Admin\TelegramStarsController@show')->name('telegram-stars');
+        Route::post('telegram-stars', 'Admin\TelegramStarsController@save');
     });
     Route::group(['prefix' => 'virtual-numbers', 'as' => 'virtual-numbers.'], function () {
         Route::middleware('role_or_permission:super-admin|virtual-number-services')->group(function () {

@@ -264,7 +264,7 @@ class StorefrontController extends Controller
         }
 
         $Currency = \App\Services\Pricing::servicesRate();
-        $Products = Product::where('type', 'service')->where('status', 1)->where('country_id', $Category->id)->orderby('id', 'DESC')->get();
+        $Products = Product::where('type', 'service')->where('status', 1)->where('country_id', $Category->id)->where(fn($q) => $q->whereNull('slug')->orWhere('slug', '!=', \App\Services\TelegramStars::SLUG))->orderby('id', 'DESC')->get();
         $Plans = Plan::whereIn('product_id', $Products->pluck('id'))->where('status', 1)->orderby('count', 'ASC')->get()->groupBy('product_id');
 
         $Services = $Products->map(fn($product) => $this->categoryService($product, $Category, $Plans, $Currency))->values();
@@ -292,14 +292,14 @@ class StorefrontController extends Controller
     {
         $Category = Category::where('type', 'product')->where('slug', $category)->where(fn($q) => $q->whereNull('status')->orWhere('status', '!=', 1))->first();
         $Product = is_null($Category) ? null : Product::where('type', 'service')->where('status', 1)
-            ->where('country_id', $Category->id)->where('slug', $slug)->first();
+            ->where('country_id', $Category->id)->where('slug', $slug)->where(fn($q) => $q->whereNull('slug')->orWhere('slug', '!=', \App\Services\TelegramStars::SLUG))->first();
         if (is_null($Product)) {
             return $this->error('سرویس مورد نظر یافت نشد.', 404);
         }
 
         $Currency = \App\Services\Pricing::servicesRate();
         $Siblings = Product::where('type', 'service')->where('status', 1)->where('country_id', $Category->id)
-            ->where('id', '!=', $Product->id)->orderby('id', 'DESC')->take(8)->get();
+            ->where('id', '!=', $Product->id)->where(fn($q) => $q->whereNull('slug')->orWhere('slug', '!=', \App\Services\TelegramStars::SLUG))->orderby('id', 'DESC')->take(8)->get();
         $Plans = Plan::whereIn('product_id', $Siblings->pluck('id')->push($Product->id))->where('status', 1)->orderby('count', 'ASC')->get()->groupBy('product_id');
         $Detail = $this->decode($Product->detail) ?? [];
         $Comments = Comment::where('type', 'service')->where('post_id', $Product->id)->where('status', 1)
@@ -401,6 +401,14 @@ class StorefrontController extends Controller
             'max_qty' => AppleIds::MAX_QTY,
             'packs' => AppleIds::PACKS,
         ]);
+    }
+
+    /* Telegram Stars for /telegram/stars (App\Services\TelegramStars): plans, the any-amount range and per-Star pricing. */
+    public function telegramStars(\App\Services\TelegramStars $Stars): JsonResponse
+    {
+        $Data = $Stars->storefront();
+        // Off answers 200 too, so the storefront's cached copy is replaced (Next.js keeps the old one on an error).
+        return $this->success($Data ? ['enabled' => true] + $Data : ['enabled' => false]);
     }
 
     public function googleVoice(): JsonResponse
@@ -523,7 +531,7 @@ class StorefrontController extends Controller
         $Categories = Category::where('type', 'product')->where(fn($q) => $q->whereNull('status')->orWhere('status', '!=', 1))
             ->orderby('sort')->orderby('id')->get();
         $Products = Product::where('type', 'service')->where('status', 1)
-            ->whereIn('country_id', $Categories->pluck('id'))->orderby('id', 'DESC')->get();
+            ->whereIn('country_id', $Categories->pluck('id'))->where(fn($q) => $q->whereNull('slug')->orWhere('slug', '!=', \App\Services\TelegramStars::SLUG))->orderby('id', 'DESC')->get();
         $Plans = Plan::whereIn('product_id', $Products->pluck('id'))->where('status', 1)->orderby('count', 'ASC')->get()->groupBy('product_id');
 
         return $Categories->map(function ($category) use ($Products, $Plans, $Currency, $withPlans) {

@@ -82,7 +82,15 @@ class VirtualServiceOrders
         }
 
         $Plan = null;
-        if ($Pricing = self::countPricing($Product, $this->rate())) {
+        if (TelegramStars::isStars($Product) && empty($Input['plan_id'])) {
+            // Telegram Stars: any amount between the admin's min and max, priced per Star (plans use the branch below).
+            [$Min, $Max] = [(int)$Product->min_count, (int)$Product->max_count];
+            $Count = intval($Input['count'] ?? 0);
+            if ($Count < $Min || $Count > $Max) {
+                return [null, ['تعداد باید بین ' . number_format($Min) . ' و ' . number_format($Max) . ' باشد.', 'count_invalid', 422, ['min' => $Min, 'max' => $Max, 'step' => 1]]];
+            }
+            $Price = TelegramStars::price($Product, $Count, $this->rate());
+        } elseif ($Pricing = self::countPricing($Product, $this->rate())) {
             ['step' => $Step, 'min' => $Min, 'max' => $Max] = $Pricing;
             $Count = intval($Input['count'] ?? 0);
             if ($Count < $Min || $Count > $Max || $Count % $Step !== 0) {
@@ -123,7 +131,7 @@ class VirtualServiceOrders
         $Detail = $Answers;
         $Detail['plan'] = [
             'plan_id' => $Plan?->id,
-            'plan_name' => $Plan ? $Plan->name : number_format($Count) . ' عدد',
+            'plan_name' => $Plan ? $Plan->name : number_format($Count) . (TelegramStars::isStars($Product) ? ' استار' : ' عدد'),
             'count' => $Count,
         ];
         return [['product' => $Product, 'platform' => $Platform, 'count' => $Count, 'price' => $Price, 'detail' => $Detail], null];

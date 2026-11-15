@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Services\AccountOrders;
 use App\Services\AppleIds;
 use App\Services\GoogleVoiceNumbers;
+use App\Services\TelegramStars;
 use App\Services\VirtualServiceOrders;
 use App\User;
 use Carbon\Carbon;
@@ -347,9 +348,10 @@ class StorefrontCartController extends Controller
                 $Plan = $Spec['detail']['plan'] ?? [];
                 $Count = (int)($Plan['count'] ?? 0);
                 $First = $this->firstAnswer($Spec['detail']);
+                $Stars = TelegramStars::isStars($Spec['product']);
                 return [['price' => (int)$Spec['price'], 'label' => [
-                    'fa' => ['title' => $Name['fa'], 'detail' => trim(number_format($Count) . ' عدد' . ($First ? ' · ' . $First : ''))],
-                    'en' => ['title' => $Name['en'] ?: $Name['fa'], 'detail' => trim(number_format($Count) . ($First ? ' · ' . $First : ''))],
+                    'fa' => ['title' => $Name['fa'], 'detail' => trim(number_format($Count) . ($Stars ? ' استار' : ' عدد') . ($First ? ' · ' . $First : ''))],
+                    'en' => ['title' => $Name['en'] ?: $Name['fa'], 'detail' => trim(number_format($Count) . ($Stars ? ' Stars' : '') . ($First ? ' · ' . $First : ''))],
                 ]], null];
             case 'subscription':
                 [$Spec, $E] = app(AccountOrders::class)->spec($Payload);
