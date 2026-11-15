@@ -336,11 +336,16 @@ class StorefrontPanelController extends Controller
     private function lookup(Collection $Orders): array
     {
         $Items = OrderItem::whereIn('order_id', $Orders->pluck('id'))->orderBy('id')->get()->groupBy('order_id')->map->first();
+        // Orders bought together from the cart (Api\StorefrontCartController): their checkout, and its bank payment.
+        $Checkouts = \App\Models\CartCheckout::whereIn('id', $Orders->pluck('checkout_id')->filter()->unique())->get()->keyBy('id');
+        $CartPays = Payment::whereIn('id', $Checkouts->pluck('payment_id')->filter())->get()->keyBy('id');
         $NumberIds = $Items->filter(fn($i) => (int)optional($Orders->firstWhere('id', $i->order_id))->type === 1)->pluck('product_id');
         $Numbers = Virtual_Products::whereIn('id', $NumberIds)->get()->keyBy('id');
         $ProductIds = $Items->filter(fn($i) => in_array((int)optional($Orders->firstWhere('id', $i->order_id))->type, [2, 7]))->pluck('product_id');
         $Products = Product::whereIn('id', $ProductIds)->get()->keyBy('id');
         return [
+            'checkouts' => $Checkouts,
+            'cart_pays' => $CartPays,
             'items' => $Items,
             'numbers' => $Numbers,
             'services' => Virtual_Service::whereIn('id', $Numbers->pluck('service_id'))->get()->keyBy('id'),
@@ -377,6 +382,16 @@ class StorefrontPanelController extends Controller
             'refund' => $Refunded ? ['amount' => (int)round((float)($Refund->price ?? 0)) ?: (int)$Order->price, 'at' => $this->iso($Refund->created_at ?? $Order->updated_at)] : null,
             'name' => null, 'sub' => null, 'number' => null, 'code' => null, 'seconds_left' => 0, 'count' => null,
         ];
+        // One cart order (several services paid together): its number (C-…), how it was paid, the card for a bank payment.
+        $Checkout = $Order->checkout_id ? $L['checkouts']->get($Order->checkout_id) : null;
+        $CartPay = $Checkout && $Checkout->payment_id ? $L['cart_pays']->get($Checkout->payment_id) : null;
+        $Data['cart'] = $Checkout ? [
+            'id' => (int)$Checkout->id,
+            'paid_with' => $Checkout->method === 'card' ? 'card' : 'wallet',
+            'card' => $CartPay ? $this->maskedCard($CartPay->card, $CartPay->card_id) : null,
+            'total' => (int)$Checkout->total,
+            'at' => $this->iso($Checkout->created_at),
+        ] : null;
 
         if ($Type === 1) {
             $Product = $Item ? $L['numbers']->get($Item->product_id) : null;

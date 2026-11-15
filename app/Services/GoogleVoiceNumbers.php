@@ -195,6 +195,16 @@ class GoogleVoiceNumbers
                     $Order->wallet_status = 1;
                     $Order->detail = 'این شماره دیگر موجود نبود؛ مبلغ به کیف پول شما برگشت.';
                     $Order->save();
+                    // The refund as a payment (type 2), like virtual numbers, so the statement and /account show it.
+                    $Refund = new \App\Models\Payment();
+                    $Refund->user_id = $Order->user_id;
+                    $Refund->order_id = $Order->id;
+                    $Refund->type = 2;
+                    $Refund->status = 'Complete';
+                    $Refund->creator = 'system';
+                    $Refund->help = "برگشت وجه سفارش شماره $Order->id به کیف پول (شماره گوگل ویس دیگر موجود نبود)";
+                    $Refund->price = $Order->price;
+                    $Refund->save();
                 });
                 Log::warning('Google Voice: Numberland refused', ['order' => $Order->id, 'response' => $Body]);
                 return 'refunded';

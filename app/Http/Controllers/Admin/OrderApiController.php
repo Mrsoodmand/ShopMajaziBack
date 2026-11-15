@@ -161,6 +161,11 @@ class OrderApiController extends Controller
             'walletRefunded' => (int) $order->wallet_status === 1,
             'expireDate' => $order->expire_date ? $this->date($jdf, $order->expire_date) : null,
             'createdAt' => $this->date($jdf, $order->created_at),
+            // Bought with other services from the storefront cart (Api\StorefrontCartController): the others in it.
+            'cart' => $order->checkout_id ? [
+                'id' => (int) $order->checkout_id,
+                'orders' => Order::where('checkout_id', $order->checkout_id)->orderBy('id')->pluck('id')->map(fn ($v) => (int) $v)->values(),
+            ] : null,
             'legacyUrl' => route('admin.order single', $order->id),
             'customer' => $user ? [
                 'id' => $user->id,

@@ -33,6 +33,8 @@ export type Order = {
     walletRefunded: boolean;
     createdAt: string | null;
     legacyUrl: string;
+    /** Bought together from the storefront cart: its number (C-…) and every order in it, this one included. */
+    cart: { id: number; orders: number[] } | null;
     customer: { id: number; name: string | null; mobile: string | null; email: string | null; wallet: number; url: string } | null;
     payment: Payment | null;
     payments: Payment[];
@@ -77,6 +79,20 @@ export default function OrderDetail() {
                                     {' '}· ثبت <span dir="ltr" className="num">{order.createdAt}</span>
                                 </span>
                             </p>
+                            {order.cart && order.cart.orders.length > 1 && (
+                                <p className="mt-1.5 text-[13px] text-body">
+                                    سبد خرید <span dir="ltr" className="num font-bold">#C-{order.cart.id}</span> · مورد{' '}
+                                    <span className="num">{order.cart.orders.indexOf(order.id) + 1}</span> از <span className="num">{order.cart.orders.length}</span>
+                                    {order.cart.orders.filter((x) => x !== order.id).map((x) => (
+                                        <span key={x}>
+                                            {' '}·{' '}
+                                            <Link to={`/orders/${x}`} className="num font-medium text-primary hover:underline">
+                                                #{x}
+                                            </Link>
+                                        </span>
+                                    ))}
+                                </p>
+                            )}
                         </div>
                         <a href={order.legacyUrl} className="btn btn-ghost text-[13px] font-medium">
                             <ExternalLink aria-hidden size={15} />
