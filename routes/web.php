@@ -166,6 +166,16 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
         Route::post('panel/password', 'StorefrontPanelController@password');
         Route::post('panel/top-up', 'StorefrontPanelController@topUp');
     });
+    // Shopping cart (StorefrontCartController): guests may fill it; paying needs sign-in.
+    Route::get('cart', 'StorefrontCartController@show')->middleware('throttle:storefront-read');
+    Route::get('cart/checkouts/{id}', 'StorefrontCartController@showCheckout')->middleware('throttle:storefront-poll');
+    Route::group(['middleware' => 'throttle:storefront-write'], function () {
+        Route::post('cart/items', 'StorefrontCartController@add');
+        Route::post('cart/items/{id}', 'StorefrontCartController@update');
+        Route::post('cart/items/{id}/remove', 'StorefrontCartController@remove');
+        Route::post('cart/clear', 'StorefrontCartController@clear');
+    });
+    Route::post('cart/checkout', 'StorefrontCartController@checkout')->middleware('throttle:storefront-buy');
 });
 
 /* Next.js storefront: who is logged in (session cookie reaches Laravel through the Next.js fallback rewrite) */
@@ -189,6 +199,8 @@ Route::group(['prefix' => 'payment'], function () {
     Route::get('callback', 'Payment\CallBackController@BankCallBack')->name('service-bank-callback');
 
     Route::get('wallet/{type}/{id}', 'Payment\WalletController@PayWithWallet')->name('PayWithWallet');
+    // Bank back from paying a whole cart (Api\StorefrontCartController@bankBack).
+    Route::match(['get', 'post'], 'cart-callback', 'Api\StorefrontCartController@bankBack')->name('cart-bank-callback');
 });
 
 

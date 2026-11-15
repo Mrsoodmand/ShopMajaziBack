@@ -372,7 +372,7 @@ class StorefrontAccountController extends Controller
     }
 
     // The number the buyer picked, checked with Numberland and against the price the page showed: [number, error].
-    private function googleVoiceNumber(Request $request, GoogleVoiceNumbers $Numbers): array
+    public function googleVoiceNumber(Request $request, GoogleVoiceNumbers $Numbers): array
     {
         if (!$Numbers->enabled()) { // switched off in admin › Google Voice
             return [null, $this->fail('فروش گوگل ویس موقتا متوقف است. لطفا کمی بعد دوباره تلاش کنید.', 'gv_paused', 503)];
@@ -506,7 +506,7 @@ class StorefrontAccountController extends Controller
     }
 
     // What the buyer asked for, checked, with the price: [{type, qty, price, details}, error].
-    private function appleIdSpec(Request $request, AppleIds $Apple): array
+    public function appleIdSpec(Request $request, AppleIds $Apple): array
     {
         $Prices = $Apple->prices();
         $Custom = $request->input('kind') === 'custom';
