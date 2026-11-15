@@ -30,10 +30,20 @@ class PricingApiController extends Controller
         return response()->json($this->state());
     }
 
-    /** {currencies: {id: profit}, operators: {key: profit}} — saves and reprices the numbers. */
+    // A manual rate further than this (percent) from the current one needs `confirm`, so a typo can't reprice the shop.
+    private const CONFIRM_OVER = 40;
+
+    /**
+     * {currencies: {id: profit}, operators: {key: profit}, rates: {id: {mode: auto|manual, rate}}, confirm} — saves and
+     * reprices the numbers. A currency switched back to automatic gets AriaPay's rate right away.
+     */
     public function save(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'rates' => 'array',
+            'rates.*.mode' => 'required|in:auto,manual',
+            'rates.*.rate' => 'nullable|integer|min:1|max:1000000000',
+            'confirm' => 'boolean',
             'currencies' => 'array',
             'currencies.*' => 'required|numeric|min:-50|max:1000',
             'operators' => 'array',
@@ -47,8 +57,58 @@ class PricingApiController extends Controller
             'operators.*.numeric' => 'درصد سود باید عدد باشد.',
             'operators.*.min' => 'درصد سود نمی‌تواند کمتر از -۵۰ باشد.',
             'operators.*.max' => 'درصد سود نمی‌تواند بیشتر از ۱۰۰۰ باشد.',
+            'rates.*.rate.integer' => 'نرخ را به تومان و بدون اعشار بنویسید.',
+            'rates.*.rate.min' => 'نرخ باید بیشتر از صفر باشد.',
         ]);
-        DB::transaction(function () use ($data) {
+
+        // Manual rates: present, and not far from the current one unless confirmed.
+        $rows = Currency::whereIn('id', array_keys(self::CURRENCIES))->get()->keyBy('id');
+        $rates = [];
+        $errors = [];
+        foreach ($data['rates'] ?? [] as $id => $r) {
+            $id = (int) $id;
+            if (!isset(self::CURRENCIES[$id]) || !isset($rows[$id])) {
+                continue;
+            }
+            $mode = self::CURRENCIES[$id]['auto'] ? $r['mode'] : 'manual'; // Tether has no feed
+            $rate = $r['rate'] ?? null;
+            if ($mode === 'manual') {
+                if (!$rate) {
+                    $errors["rates.$id.rate"] = ['نرخ دستی را بنویسید.'];
+                    continue;
+                }
+                $old = (int) $rows[$id]->sell;
+                $change = $old > 0 ? abs($rate - $old) / $old * 100 : 0;
+                if ($rate !== $old && $change > self::CONFIRM_OVER && empty($data['confirm'])) {
+                    $errors["rates.$id.rate"] = [sprintf('این نرخ %s٪ با نرخ فعلی فرق دارد؛ برای ذخیره، آن را تأیید کنید.', number_format($change))];
+                    continue;
+                }
+            }
+            $rates[$id] = ['mode' => $mode, 'rate' => $mode === 'manual' ? (int) $rate : null];
+        }
+        if ($errors) {
+            return response()->json(['message' => 'نرخ‌ها ذخیره نشد.', 'errors' => $errors], 422);
+        }
+
+        $notes = [];
+        $fetch = false;
+        DB::transaction(function () use ($data, $rates, $rows, &$notes, &$fetch) {
+            foreach ($rates as $id => $r) {
+                $row = $rows[$id];
+                $was = $row->rate_mode ?? 'auto';
+                $name = $row->faName ?: self::CURRENCIES[$id]['code'];
+                if ($r['mode'] === 'manual') {
+                    $changed = (int) $row->sell !== $r['rate'] || $was !== 'manual';
+                    if ($changed) {
+                        Currency::whereKey($id)->update(['sell' => $r['rate'], 'buy' => $r['rate'], 'rate_mode' => 'manual', 'rate_mode_at' => $was !== 'manual' ? now() : ($row->rate_mode_at ?? now())]);
+                        $notes[] = "$name: دستی ← " . number_format($r['rate']) . ' تومان';
+                    }
+                } elseif ($was !== 'auto') {
+                    Currency::whereKey($id)->update(['rate_mode' => 'auto', 'rate_mode_at' => now()]);
+                    $notes[] = "$name: خودکار (AriaPay)";
+                    $fetch = true;
+                }
+            }
             foreach ($data['currencies'] ?? [] as $id => $profit) {
                 if (isset(self::CURRENCIES[(int) $id])) {
                     Currency::whereKey((int) $id)->update(['profit_percent' => $profit]);
@@ -60,8 +120,21 @@ class PricingApiController extends Controller
                 }
             }
         });
+        if ($notes) {
+            $who = optional(auth('admin')->user())->full_name ?? 'admin';
+            \Illuminate\Support\Facades\Log::info('currency rate mode changed', ['by' => $who, 'changes' => $notes]);
+            if (function_exists('SendTelegramMessage')) {
+                SendTelegramMessage("تغییر نرخ ارز در پنل ($who)\n" . implode("\n", $notes) . "\n#نرخ_ارز");
+            }
+        }
+        // Back on automatic: take AriaPay's rate now (it also reprices). If the feed fails, the last rate stays.
+        $fetchFailed = false;
+        if ($fetch) {
+            $fetchFailed = Artisan::call('currency:update') !== 0;
+        }
         $changed = Pricing::repriceNumbers(); // also forgets the old values
-        return response()->json(['success' => 'سود ذخیره شد و قیمت‌ها به‌روز شد.', 'repriced' => array_sum($changed)] + $this->state());
+        $message = $fetchFailed ? 'ذخیره شد، اما نرخ AriaPay دریافت نشد؛ تا به‌روزرسانی بعدی، آخرین نرخ می‌ماند.' : 'ذخیره شد و قیمت‌ها به‌روز شد.';
+        return response()->json(['success' => $message, 'repriced' => array_sum($changed)] + $this->state());
     }
 
     /** Fetches the market rates from AriaPay now (the schedule does it every 30 minutes). */
@@ -88,6 +161,10 @@ class PricingApiController extends Controller
                 'name' => (string) (optional($c)->faName ?: $meta['code']),
                 'code' => $meta['code'],
                 'auto' => $meta['auto'],
+                // manual: an admin typed the rate (AriaPay leaves it alone); feed = AriaPay's latest, to compare.
+                'mode' => $meta['auto'] ? (optional($c)->rate_mode ?: 'auto') : 'manual',
+                'modeAt' => optional($c)->rate_mode_at ? \Carbon\Carbon::parse($c->rate_mode_at)->toIso8601String() : null,
+                'feed' => optional($c)->feed_rate ? (int) $c->feed_rate : null,
                 'usedFor' => $meta['usedFor'],
                 'market' => (int) round($market),
                 'profit' => $profit,

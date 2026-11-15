@@ -14,7 +14,8 @@ use RuntimeException;
  * SMS-Activate numbers, #4 Euro.
  *
  * AriaPay quotes in Rial; the table holds Toman, so values are divided by 10.
- * Tether (#26) isn't offered by AriaPay and is left as it is.
+ * Tether (#26) isn't offered by AriaPay and is left as it is. A currency an admin put on manual (currency.rate_mode,
+ * admin › ارزها و سود) keeps the admin's rate: only feed_rate is updated, for comparison.
  */
 class CurrencyRates
 {
@@ -64,8 +65,14 @@ class CurrencyRates
             $old = $row ? (int) $row->sell : null;
             $change = $old && $new ? round(($new - $old) / $old * 100, 1) : null;
             $line = compact('code', 'id', 'old', 'new', 'change') + ['skipped' => null];
+            // AriaPay's latest value is kept for comparison, also while an admin has the rate on manual.
+            if ($row && $new && !$dryRun && (int)$row->feed_rate !== $new) {
+                Currency::whereKey($id)->update(['feed_rate' => $new]);
+            }
             if (!$row) {
                 $line['skipped'] = 'no currency row';
+            } elseif (($row->rate_mode ?? 'auto') === 'manual') {
+                $line['skipped'] = 'manual rate (admin)';
             } elseif (!$new) {
                 $line['skipped'] = 'not in the feed';
             } elseif (!$force && $change !== null && abs($change) > self::MAX_CHANGE) {
