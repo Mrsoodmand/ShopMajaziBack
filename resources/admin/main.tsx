@@ -6,6 +6,7 @@ import Shell from './components/Shell';
 import Dashboard from './pages/dashboard/Dashboard';
 import OrdersList from './pages/OrdersList';
 import OrderDetail from './pages/OrderDetail';
+import OrderNew from './pages/OrderNew';
 import UsersList from './pages/UsersList';
 import UserDetail from './pages/UserDetail';
 import ServicesPage from './pages/services/ServicesPage';
@@ -67,6 +68,7 @@ if (root) {
                 children: [
                     { index: true, element: <Dashboard /> },
                     { path: 'orders', element: <OrdersList /> },
+                    { path: 'orders/new', element: <OrderNew /> },
                     { path: 'orders/:id', element: <OrderDetail /> },
                     { path: 'users', element: <UsersList /> },
                     { path: 'users/:id', element: <UserDetail /> },

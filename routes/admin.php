@@ -249,6 +249,11 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
     Route::get('dashboard', 'Admin\DashboardApiController')->name('dashboard');
     Route::get('orders', 'Admin\OrderApiController@index')->name('orders');
     Route::get('orders/{id}', 'Admin\OrderApiController@show')->whereNumber('id')->name('order');
+    // Orders support makes for a customer, and extra amounts (tax, VAT…) on an order: Admin\OrderMakeApiController.
+    Route::get('orders/catalog', 'Admin\OrderMakeApiController@catalog')->name('order-catalog');
+    Route::post('orders/make', 'Admin\OrderMakeApiController@store')->name('order-make');
+    Route::post('orders/{id}/charges', 'Admin\OrderMakeApiController@charge')->whereNumber('id')->name('order-charge');
+    Route::post('orders/charges/{id}/drop', 'Admin\OrderMakeApiController@drop')->whereNumber('id')->name('order-charge-drop');
     Route::get('users', 'Admin\UserApiController@index')->name('users');
     Route::get('users/{id}', 'Admin\UserApiController@show')->whereNumber('id')->name('user');
     Route::middleware('role_or_permission:super-admin|transaction-list|bank-transaction|moghayerat')->group(function () {

@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { ArrowRight, ExternalLink, Send } from 'lucide-react';
-import { postForm, useQuery } from '../lib/api';
+import { ArrowRight, ExternalLink, Send, Trash2 } from 'lucide-react';
+import { NightCall } from './OrdersList';
+import { postForm, postJson, useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman } from '../lib/format';
 import { OrderStatus, PayStatus } from '../components/Status';
@@ -38,6 +39,13 @@ export type Order = {
     customer: { id: number; name: string | null; mobile: string | null; email: string | null; wallet: number; url: string } | null;
     payment: Payment | null;
     payments: Payment[];
+    /** Checkout answer: may support call 21:00–07:00? null = not asked. */
+    nightCall: boolean | null;
+    /** Made in admin › ثبت سفارش جدید by this admin; null for storefront orders. */
+    madeBy: string | null;
+    /** What the order asks the customer for: kind "order" = its own price (made by support), "extra" = tax, VAT… */
+    charges: { id: number; kind: 'order' | 'extra'; title: string; price: number; status: 'unpaid' | 'paid' | 'cancelled'; paymentId: number | null; by: string | null; at: string | null; paidAt: string | null }[];
+    cancelled: boolean;
     items: { id: number; title: string | null; price: number; rows: { label: string; value: string | null; copy?: boolean; ltr?: boolean }[] }[];
     history: { id: number; from: string | null; to: string | null; reason: string | null; by: string | null; at: string | null }[];
     chats: { id: number; from: 'admin' | 'customer'; text: string; by: string | null; at: string | null; unread: boolean }[];
@@ -71,6 +79,8 @@ export default function OrderDetail() {
                             <div className="flex flex-wrap items-center gap-3">
                                 <h1 className="num text-[22px] leading-tight font-bold">سفارش #{order.id}</h1>
                                 <OrderStatus status={order.status} />
+                                {order.nightCall && <NightCall label />}
+                                {order.nightCall === false && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[12px] text-muted">تماس شبانه نه</span>}
                             </div>
                             <p className="mt-1.5 text-body">
                                 {labels.orderType[order.type] ?? order.type}
@@ -79,6 +89,7 @@ export default function OrderDetail() {
                                     {' '}· ثبت <span dir="ltr" className="num">{order.createdAt}</span>
                                 </span>
                             </p>
+                            {order.madeBy && <p className="mt-1.5 text-[13px] text-body">ثبت‌شده توسط پشتیبانی · {order.madeBy}</p>}
                             {order.cart && order.cart.orders.length > 1 && (
                                 <p className="mt-1.5 text-[13px] text-body">
                                     سبد خرید <span dir="ltr" className="num font-bold">#C-{order.cart.id}</span> · مورد{' '}
@@ -190,7 +201,7 @@ function OrderTabs({ order, onChanged }: { order: Order; onChanged: () => void }
                     { id: 'customer', label: 'مشتری و پرداخت' },
                     { id: 'chat', label: 'گفتگو', count: unread || order.chats.length, tone: unread ? 'attention' : undefined, note: unread ? 'پیام جدید' : undefined },
                     { id: 'history', label: 'تاریخچه وضعیت', count: order.history.length },
-                    { id: 'payments', label: 'تراکنش‌ها', count: order.payments.length },
+                    { id: 'payments', label: 'تراکنش‌ها', count: order.payments.length, tone: due(order) ? 'attention' : undefined, note: due(order) ? 'پرداخت‌نشده' : undefined },
                 ]}
             />
             <TabPanel id="order" tab={tab}>
@@ -209,9 +220,14 @@ function OrderTabs({ order, onChanged }: { order: Order; onChanged: () => void }
                         <History order={order} />
                     </section>
                 ) : (
-                    <section aria-label="تراکنش‌ها" className={card}>
-                        <Payments order={order} />
-                    </section>
+                    <div className="space-y-6">
+                        <section aria-label="پرداخت‌های درخواستی" className={card}>
+                            <Charges order={order} onChanged={onChanged} />
+                        </section>
+                        <section aria-label="تراکنش‌ها" className={card}>
+                            <Payments order={order} />
+                        </section>
+                    </div>
                 )}
             </TabPanel>
         </div>
@@ -223,7 +239,10 @@ function OrderFacts({ order }: { order: Order }) {
     const c = order.customer;
     const facts = [
         { label: 'مبلغ', value: <span className="num">{toman(order.price)}</span> },
-        { label: 'پرداخت', value: <PayStatus status={order.payStatus} /> },
+        {
+            label: 'پرداخت',
+            value: due(order) ? <span className="num text-warn">بدهی {toman(due(order))}</span> : <PayStatus status={order.payStatus} />,
+        },
         {
             label: 'مشتری',
             value: c ? (
@@ -398,6 +417,133 @@ function Payments({ order }: { order: Order }) {
                     ))}
                 </tbody>
             </table>
+        </div>
+    );
+}
+
+const due = (order: Order) => order.charges.filter((c) => c.status === 'unpaid').reduce((sum, c) => sum + c.price, 0);
+
+/** Money the order asks the customer for, and adding an extra amount (tax, VAT, a price difference…). */
+function Charges({ order, onChanged }: { order: Order; onChanged: () => void }) {
+    const { csrfToken } = useBoot();
+    const [title, setTitle] = useState('');
+    const [currency, setCurrency] = useState<'toman' | 'usd'>('toman');
+    const [amount, setAmount] = useState('');
+    const [notify, setNotify] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [done, setDone] = useState<string | null>(null);
+    const [busy, setBusy] = useState<string | null>(null);
+    const id = useId();
+    const shown = order.charges.filter((c) => c.status !== 'cancelled');
+    const presets = ['مالیات بر ارزش افزوده', 'مابه‌التفاوت قیمت', 'هزینه ارسال'];
+
+    async function add(e: FormEvent) {
+        e.preventDefault();
+        setDone(null);
+        if (!title.trim() || !amount.trim()) {
+            setError('علت و مبلغ را وارد کنید.');
+            return;
+        }
+        setError(null);
+        setBusy('add');
+        try {
+            const res = await postJson(`/admin/api/orders/${order.id}/charges`, csrfToken, { title: title.trim(), currency, amount, notify });
+            setDone(res.success ?? 'ثبت شد.');
+            setTitle('');
+            setAmount('');
+            onChanged();
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    async function drop(c: Order['charges'][number]) {
+        const ask = c.kind === 'order' ? 'سفارش پرداخت‌نشده لغو شود؟' : `«${c.title}» حذف شود؟`;
+        if (!window.confirm(ask)) return;
+        setBusy(`drop-${c.id}`);
+        setDone(null);
+        try {
+            const res = await postJson(`/admin/api/orders/charges/${c.id}/drop`, csrfToken, {});
+            setDone(res.success ?? 'حذف شد.');
+            onChanged();
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    return (
+        <div>
+            <h3 className="mb-1 font-bold">پرداخت‌های درخواستی از مشتری</h3>
+            <p className="mb-3 text-[13px] text-muted">مشتری این مبالغ را در صفحه سفارش خود می‌بیند و با کیف پول یا کارت پرداخت می‌کند.</p>
+            {shown.length === 0 ? (
+                <p className="text-muted">پرداخت اضافه‌ای ثبت نشده است.</p>
+            ) : (
+                <ul className="m-0 list-none divide-y divide-stroke p-0">
+                    {shown.map((c) => (
+                        <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                            <div className="min-w-0">
+                                <div className="font-medium">{c.kind === 'order' ? 'مبلغ سفارش' : c.title}</div>
+                                <div className="text-[12px] text-muted">
+                                    {c.by ? `${c.by} · ` : ''}
+                                    <span dir="ltr" className="num">{c.paidAt ?? c.at}</span>
+                                    {c.paymentId && <> · تراکنش <span className="num">{c.paymentId}</span></>}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="num font-bold whitespace-nowrap">{toman(c.price)}</span>
+                                {c.status === 'paid' ? (
+                                    <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[12px] font-medium text-emerald-800 dark:text-emerald-300">پرداخت شد</span>
+                                ) : (
+                                    <>
+                                        <span className="rounded-full bg-warn-soft px-2 py-0.5 text-[12px] font-medium text-warn">در انتظار پرداخت</span>
+                                        <button type="button" className="btn btn-ghost px-2" onClick={() => drop(c)} disabled={busy !== null} aria-label={`حذف ${c.title}`}>
+                                            <Trash2 aria-hidden size={15} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {!order.cancelled && order.customer && (
+                <form onSubmit={add} noValidate className="mt-4 rounded-xl border border-stroke p-4">
+                    <h4 className="mb-3 font-bold">افزودن پرداخت اضافه</h4>
+                    <label htmlFor={`${id}-title`} className="mb-1 block font-medium">بابت</label>
+                    <input id={`${id}-title`} value={title} onChange={(e) => setTitle(e.target.value)} className="field" placeholder="مثلاً: مالیات بر ارزش افزوده" list={`${id}-presets`} />
+                    <datalist id={`${id}-presets`}>
+                        {presets.map((p) => <option key={p} value={p} />)}
+                    </datalist>
+                    <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                        <div>
+                            <label htmlFor={`${id}-amount`} className="mb-1 block font-medium">مبلغ</label>
+                            <input id={`${id}-amount`} inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} className="field num" placeholder={currency === 'usd' ? '12.5' : '150000'} />
+                        </div>
+                        <div>
+                            <label htmlFor={`${id}-cur`} className="mb-1 block font-medium">واحد</label>
+                            <select id={`${id}-cur`} value={currency} onChange={(e) => setCurrency(e.target.value as 'toman' | 'usd')} className="field">
+                                <option value="toman">تومان</option>
+                                <option value="usd">دلار</option>
+                            </select>
+                        </div>
+                    </div>
+                    {currency === 'usd' && <p className="mt-1.5 text-[13px] text-muted">با نرخ امروز دلار خدمات به تومان تبدیل و ثابت می‌شود.</p>}
+                    <label className="mt-3 flex items-center gap-2 text-[14px]">
+                        <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+                        اطلاع به مشتری با پیامک
+                    </label>
+                    {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+                    <button type="submit" className="btn btn-primary mt-4" disabled={busy !== null}>
+                        {busy === 'add' ? 'در حال ثبت…' : 'ثبت پرداخت اضافه'}
+                    </button>
+                </form>
+            )}
+            {done && <Notice>{done}</Notice>}
         </div>
     );
 }
@@ -608,7 +754,9 @@ function RefundForm({ order, onChanged }: { order: Order; onChanged: () => void 
     }
 
     if (step === 'confirm') {
-        const after = order.customer.wallet + order.price;
+        const chosen = refundable.find((p) => String(p.id) === paymentId);
+        const amount = chosen && chosen.price > 0 ? chosen.price : order.price;
+        const after = order.customer.wallet + amount;
         return (
             <div role="group" aria-labelledby={`${id}-confirm-title`}>
                 <h3 id={`${id}-confirm-title`} className="mb-3 font-bold">
@@ -616,7 +764,7 @@ function RefundForm({ order, onChanged }: { order: Order; onChanged: () => void 
                 </h3>
                 <dl className="m-0 rounded-xl bg-warn-soft px-4 py-1">
                     <Row label="مبلغ" num>
-                        {toman(order.price)}
+                        {toman(amount)}
                     </Row>
                     <Row label="به کیف پول">
                         {order.customer.name || 'بدون نام'}
@@ -635,11 +783,11 @@ function RefundForm({ order, onChanged }: { order: Order; onChanged: () => void 
                     <Row label="علت">{reason}</Row>
                 </dl>
                 <p className="mt-2 text-[13px] text-muted">
-                    مبلغ کل سفارش برمی‌گردد و تراکنش «{labels.paymentType['2']}» ثبت می‌شود. این کار برگشت‌پذیر نیست.
+                    مبلغ همین تراکنش برمی‌گردد و تراکنش «{labels.paymentType['2']}» ثبت می‌شود. این کار برگشت‌پذیر نیست.
                 </p>
                 <div className="mt-4 flex gap-2">
                     <button ref={confirmRef} type="button" className="btn btn-primary flex-1" onClick={confirm} disabled={busy}>
-                        {busy ? 'در حال عودت…' : `عودت ${toman(order.price)}`}
+                        {busy ? 'در حال عودت…' : `عودت ${toman(amount)}`}
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={() => setStep('form')} disabled={busy}>
                         انصراف

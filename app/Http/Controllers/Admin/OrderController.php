@@ -129,10 +129,17 @@ class OrderController extends Controller
             $paymentId = $request->input('payment_id');
             if ($paymentId != 0) {
                 $checkPayment = Payment::where('error', $paymentId)->where('order_id', $Order->id)->first();
+                // The payment being refunded, on this order. Orders can hold several (extra charges: tax, VAT…), so
+                // each refund returns that payment's own amount; old payments saved without one fall back to the order price.
+                $Paid = Payment::where('id', $paymentId)->where('order_id', $Order->id)->first();
+                if (is_null($Paid)) {
+                    return exception_error($request, 'تراکنش متعلق به این سفارش نیست.');
+                }
+                $Amount = (float)$Paid->price > 0 ? $Paid->price : $Order->price;
                 if (is_null($checkPayment)) {
                     /* شارژ کیف پول کاربر */
                     $User = User::find($Order->user_id);
-                    $User->wallet = $User->wallet + $Order->price;
+                    $User->wallet = $User->wallet + $Amount;
                     $User->save();
 
                     /* ثبت تغییر وضعیت */
@@ -158,7 +165,7 @@ class OrderController extends Controller
                     $Payment->type = 2;
                     $Payment->status = 'Complete';
                     $Payment->creator = 'system';
-                    $Payment->price = $Order->price;
+                    $Payment->price = $Amount;
                     $Payment->error = $paymentId;
                     $Payment->help = "عودت وجه شماره تراکنش $paymentId به کیف پول";
                     $Payment->save();

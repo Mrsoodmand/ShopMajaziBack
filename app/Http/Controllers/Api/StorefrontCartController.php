@@ -312,7 +312,12 @@ class StorefrontCartController extends Controller
                 default => 'not_charged',
             };
             if ($OrderId) {
-                Order::where('id', $OrderId)->update(['checkout_id' => $Checkout->id]);
+                // The checkout's "available for a call 21:00–07:00?" answer (Order::booted only sees the real request).
+                $Night = $Line['payload']['night_call'] ?? null;
+                Order::where('id', $OrderId)->update(array_filter([
+                    'checkout_id' => $Checkout->id,
+                    'night_call' => $Night === null || $Night === '' ? null : (int)filter_var($Night, FILTER_VALIDATE_BOOLEAN),
+                ], fn($v) => $v !== null));
             }
             if (!empty($Body['success'])) {
                 $Paid[] = $Line['line'];

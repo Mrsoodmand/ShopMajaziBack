@@ -165,6 +165,8 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
         Route::post('panel/profile', 'StorefrontPanelController@profile');
         Route::post('panel/password', 'StorefrontPanelController@password');
         Route::post('panel/top-up', 'StorefrontPanelController@topUp');
+        Route::post('panel/orders/{id}/pay', 'StorefrontPanelController@payOrder')->middleware('throttle:storefront-buy');
+        Route::post('panel/orders/{id}/cancel', 'StorefrontPanelController@cancelOrder')->middleware('throttle:storefront-buy');
     });
     // Shopping cart (StorefrontCartController): guests may fill it; paying needs sign-in.
     Route::get('cart', 'StorefrontCartController@show')->middleware('throttle:storefront-read');
@@ -201,6 +203,7 @@ Route::group(['prefix' => 'payment'], function () {
     Route::get('wallet/{type}/{id}', 'Payment\WalletController@PayWithWallet')->name('PayWithWallet');
     // Bank back from paying a whole cart (Api\StorefrontCartController@bankBack).
     Route::match(['get', 'post'], 'cart-callback', 'Api\StorefrontCartController@bankBack')->name('cart-bank-callback');
+    Route::match(['get', 'post'], 'order-charge-callback', 'Api\StorefrontPanelController@payBack')->name('order-charge-callback');
 });
 
 

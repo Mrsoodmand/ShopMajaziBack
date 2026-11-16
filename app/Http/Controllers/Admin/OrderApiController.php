@@ -99,6 +99,9 @@ class OrderApiController extends Controller
             ->where('type', 'user')->where('new', true)
             ->select('order_id', DB::raw('count(*) as c'))->groupBy('order_id')->pluck('c', 'order_id');
 
+        $due = \App\Models\OrderCharge::whereIn('order_id', $page->pluck('id'))->where('status', 'unpaid')
+            ->select('order_id', DB::raw('sum(price) as s'))->groupBy('order_id')->pluck('s', 'order_id');
+
         $jdf = new Jdf();
 
         return response()->json([
@@ -118,6 +121,8 @@ class OrderApiController extends Controller
                 'createdTs' => $o->created_at ? strtotime((string) $o->created_at) : null,
                 'customer' => $o->User ? ['id' => $o->User->id, 'name' => $o->User->name, 'mobile' => $o->User->mobile] : null,
                 'unread' => (int) ($unread[$o->id] ?? 0),
+                'nightCall' => $o->night_call === null ? null : (bool) $o->night_call,
+                'due' => (int) ($due[$o->id] ?? 0),
             ])->values(),
         ]);
     }
@@ -167,6 +172,21 @@ class OrderApiController extends Controller
                 'orders' => Order::where('checkout_id', $order->checkout_id)->orderBy('id')->pluck('id')->map(fn ($v) => (int) $v)->values(),
             ] : null,
             'legacyUrl' => route('admin.order single', $order->id),
+            'nightCall' => $order->night_call === null ? null : (bool) $order->night_call,
+            'madeBy' => $order->admin_id ? (Admin::where('id', $order->admin_id)->value('full_name') ?: 'پشتیبانی') : null,
+            // What the order asks the customer for (Admin\OrderMakeApiController): its own price or extra amounts.
+            'charges' => \App\Models\OrderCharge::where('order_id', $order->id)->orderBy('id')->get()->map(fn ($c) => [
+                'id' => $c->id,
+                'kind' => $c->kind,
+                'title' => $c->title,
+                'price' => (int) $c->price,
+                'status' => $c->status,
+                'paymentId' => $c->payment_id,
+                'by' => $c->admin_id ? (Admin::where('id', $c->admin_id)->value('full_name') ?: null) : null,
+                'at' => $this->date($jdf, $c->created_at),
+                'paidAt' => $c->paid_at ? $this->date($jdf, $c->paid_at) : null,
+            ])->values(),
+            'cancelled' => in_array($order->status, ['failed', 'back money to wallet'], true),
             'customer' => $user ? [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -257,6 +277,18 @@ class OrderApiController extends Controller
                     }
                     $value = $field['filed_value'] ?? null;
                     $rows[] = ['label' => $field['filed_type'] ?? $field['filed_name'] ?? 'فیلد', 'value' => is_scalar($value) ? (string) $value : null, 'copy' => true, 'ltr' => true];
+                }
+                break;
+            case '9': // made by support (Admin\OrderMakeApiController)
+                $title = $detail['title'] ?? null;
+                if (!empty($detail['note'])) {
+                    $rows[] = ['label' => 'توضیحات', 'value' => (string) $detail['note']];
+                }
+                if (($detail['currency'] ?? '') === 'usd') {
+                    $rows[] = ['label' => 'مبلغ دلاری', 'value' => '$' . $detail['amount'] . ' × ' . number_format((int) ($detail['rate'] ?? 0)), 'ltr' => true];
+                }
+                if (!empty($detail['plan_id']) || !empty($detail['count'])) {
+                    $rows[] = ['label' => 'محصول', 'value' => optional($item->Product)->faName];
                 }
                 break;
             case '5': // static IP

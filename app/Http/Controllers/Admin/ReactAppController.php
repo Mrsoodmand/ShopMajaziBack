@@ -32,7 +32,7 @@ class ReactAppController extends Controller
                 ],
                 'labels' => [
                     'orderStatus' => __('order.status'),
-                    'orderType' => collect(__('order.type'))->except('0'),
+                    'orderType' => collect(__('order.type'))->except('0')->put('9', 'سفارش اختصاصی'), // 9: App\Services\OrderCharges
                     'payStatus' => __('payments.status'),
                     'paymentType' => __('payments.type'),
                 ],

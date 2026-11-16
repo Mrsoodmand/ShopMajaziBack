@@ -18,6 +18,7 @@ use App\Models\Virtual_Service;
 use App\Services\AccountOrders;
 use App\Services\AppleIds;
 use App\Services\GoogleVoiceNumbers;
+use App\Services\OrderCharges;
 use App\Services\VirtualServiceOrders;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -53,7 +54,7 @@ class StorefrontPanelController extends Controller
             return $this->signInFirst();
         }
         $Wallet = $this->wallet($User);
-        $Orders = Order::where('user_id', $User->id)->where('pay_status', 'Complete')->orderByDesc('id')->take(self::ORDERS)->get();
+        $Orders = $this->visible(Order::where('user_id', $User->id))->orderByDesc('id')->take(self::ORDERS)->get();
         $Refunds = Payment::where('user_id', $User->id)->whereIn('type', self::REFUND)->where('status', 'Complete')
             ->whereIn('order_id', $Orders->pluck('id'))->get()->keyBy('order_id');
         $Pays = Payment::whereIn('id', $Orders->pluck('pay_id')->filter())->get()->keyBy('id');
@@ -76,7 +77,7 @@ class StorefrontPanelController extends Controller
         if (!$User = $this->user()) {
             return $this->signInFirst();
         }
-        $Order = Order::where('id', intval($id))->where('user_id', $User->id)->where('pay_status', 'Complete')->first();
+        $Order = $this->visible(Order::where('id', intval($id))->where('user_id', $User->id))->first();
         if (is_null($Order)) {
             return $this->fail('سفارش یافت نشد.', 'not_found', 404);
         }
@@ -85,6 +86,136 @@ class StorefrontPanelController extends Controller
         $Data = $this->summary($Order, $this->lookup(collect([$Order])), $Refund, $Pay);
         $Data['fields'] = $this->fields($Order);
         return $this->ok(['order' => $Data, 'wallet' => $this->wallet($User)]);
+    }
+
+    /*
+     * Pay what the order still asks for: {method: wallet|card, return?}. Card tops the wallet up with what it is short
+     * of (route order-charge-callback), then pays from the wallet and returns to `{return}?pay=ok|failed|cancelled|held`.
+     */
+    public function payOrder(Request $request, $id, OrderCharges $Charges): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        $Order = Order::where('id', intval($id))->where('user_id', $User->id)->first();
+        if (is_null($Order) || $Charges->due($Order) <= 0) {
+            return $this->fail('پرداختی برای این سفارش باقی نمانده است.', 'nothing_due', 404);
+        }
+        if ($request->input('method') !== 'card') {
+            [$Ok, $Code, $Message] = $Charges->pay($User, $Order);
+            if (!$Ok) {
+                return $this->fail($Message, $Code, $Code === 'busy' ? 429 : 400, ['wallet' => $this->wallet($User->fresh()), 'due' => $Charges->due($Order)]);
+            }
+            Auth::guard('user')->setUser($User->fresh()); // the wallet changed: answer with the new balance
+            return $this->ok($this->order($Order->id)->getData(true)['data'], $Message);
+        }
+        if ($User->bank_blocked != 0 || $User->wallet_blocked != 0) {
+            return $this->fail('امکان پرداخت با درگاه بانک برای حساب شما وجود ندارد، لطفا با پشتیبانی تماس بگیرید.', 'bank_blocked', 403);
+        }
+        $Payment = $Charges->startTopUp($User, $Order, self::TOP_UP_MIN);
+        $Url = $Payment ? app(\App\Services\Payments\GatewayManager::class)->start(
+            $Payment,
+            (int)$Payment->price * 10, // Rial
+            StorefrontUrl(route('order-charge-callback', [], false)),
+            "پرداخت سفارش $Order->id، شماره تراکنش $Payment->id",
+            ['mobile' => (string)$User->mobile, 'email' => (string)$User->email],
+        ) : null;
+        if (!$Url) {
+            if ($Payment) {
+                $Payment->status = 'failed';
+                $Payment->save();
+            }
+            return $this->fail('اتصال به درگاه پرداخت برقرار نشد. لطفا دوباره تلاش کنید.', 'bank_unavailable', 502);
+        }
+        $Return = (string)parse_url((string)$request->input('return'), PHP_URL_PATH);
+        $Return = preg_match('#^/(en/)?account/orders/\d+$#', $Return) ? $Return : '/account/orders/' . $Order->id;
+        $request->session()->put('storefront_charge_return', $Return);
+        return $this->ok(['url' => $Url, 'payment_id' => $Payment->id]);
+    }
+
+    /* Back from the bank for payOrder(): verify the top-up, credit the wallet once, pay the order's charges. */
+    public function payBack(Request $request, OrderCharges $Charges)
+    {
+        $Gateways = app(\App\Services\Payments\GatewayManager::class);
+        [$Payment, $Key] = $Gateways->fromCallback($request) ?? [null, null];
+        $Charge = $Payment ? \App\Models\OrderCharge::where('topup_id', $Payment->id)->first() : null;
+        if (is_null($Payment) || (int)$Payment->type !== 3 || is_null($Charge)) {
+            return $this->chargeBack('failed', null);
+        }
+        $Label = \App\Services\Payments\GatewayManager::GATEWAYS[$Key]['label'] ?? $Key;
+        if (!$Gateways->callbackPaid($request, $Key)) {
+            if ($Payment->status !== 'Complete') {
+                $Payment->status = 'failed';
+                $Payment->error = 'لغو شده توسط کاربر';
+                $Payment->save();
+            }
+            return $this->chargeBack('cancelled', $Charge->order_id);
+        }
+        try {
+            return \Illuminate\Support\Facades\Cache::lock('wallet-topup:' . $Payment->id, 60)->block(20, function () use ($Gateways, $Payment, $Charge, $Label, $Charges) {
+                $Payment = Payment::find($Payment->id);
+                if ($Payment->status !== 'Complete') {
+                    $Verify = $Gateways->verify($Payment, (int)round($Payment->price * 10));
+                    if (!$Verify->ok && !$Verify->alreadyVerified) {
+                        $Payment->status = '-4';
+                        $Payment->help = $Verify->code;
+                        $Payment->error = $Verify->message;
+                        $Payment->details = $Label;
+                        $Payment->save();
+                        return $this->chargeBack('failed', $Charge->order_id);
+                    }
+                    $Payment->refId = $Verify->refId;
+                    $Payment->details = $Label;
+                    $Payment->fee = $Verify->fee;
+                    $Payment->card = $Verify->card;
+                    $Payment->status = 'Complete';
+                    $Payment->paid_at = $Payment->paid_at ?? Carbon::now();
+                    $Payment->save();
+                    if ($Verify->ok) { // verified now, not by an earlier callback: credit once
+                        $Owner = \App\User::find($Payment->user_id);
+                        $Owner->wallet = $Payment->price + $Owner->wallet;
+                        $Owner->save();
+                    }
+                }
+                // The money is in the wallet now; pay the order as its owner (the session may have run out at the bank).
+                $Order = Order::find($Charge->order_id);
+                [$Ok] = $Charges->pay(\App\User::find($Payment->user_id), $Order);
+                return $this->chargeBack($Ok ? 'ok' : 'wallet', $Order->id);
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            return $this->chargeBack('held', $Charge->order_id);
+        }
+    }
+
+    /* The buyer cancels a pending order; what they paid goes back to the wallet. */
+    public function cancelOrder($id, OrderCharges $Charges): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        $Order = Order::where('id', intval($id))->where('user_id', $User->id)->first();
+        if (is_null($Order)) {
+            return $this->fail('سفارش یافت نشد.', 'not_found', 404);
+        }
+        [$Ok, $Code, $Message] = $Charges->cancel($User, $Order);
+        if (!$Ok) {
+            return $this->fail($Message, $Code, $Code === 'busy' ? 429 : 409);
+        }
+        Auth::guard('user')->setUser($User->fresh()); // the wallet changed: answer with the new balance
+        return $this->ok($this->order($Order->id)->getData(true)['data'], $Message);
+    }
+
+    private function chargeBack(string $Result, $OrderId)
+    {
+        $Path = \Illuminate\Support\Facades\Session::pull('storefront_charge_return') ?: ($OrderId ? '/account/orders/' . $OrderId : '/account/orders');
+        return redirect()->away(StorefrontUrl($Path) . '?pay=' . $Result);
+    }
+
+    // Orders the dashboard lists: paid ones, and ones that wait for the buyer to pay what support asked for.
+    private function visible($Query)
+    {
+        return $Query->where(fn($q) => $q->where('pay_status', 'Complete')
+            ->orWhereIn('id', \App\Models\OrderCharge::where('status', 'unpaid')->where('kind', 'order')->select('order_id')));
     }
 
     /* ---------- Support ---------- */
@@ -344,6 +475,7 @@ class StorefrontPanelController extends Controller
         $ProductIds = $Items->filter(fn($i) => in_array((int)optional($Orders->firstWhere('id', $i->order_id))->type, [2, 7]))->pluck('product_id');
         $Products = Product::whereIn('id', $ProductIds)->get()->keyBy('id');
         return [
+            'charges' => \App\Models\OrderCharge::whereIn('order_id', $Orders->pluck('id'))->where('status', '!=', 'cancelled')->orderBy('id')->get()->groupBy('order_id'),
             'checkouts' => $Checkouts,
             'cart_pays' => $CartPays,
             'items' => $Items,
@@ -366,13 +498,14 @@ class StorefrontPanelController extends Controller
             $Refunded => 'refunded',
             $Order->status === 'failed' => 'cancelled',
             $Order->status === 'suspended' => 'needs-you',
+            $Order->status === 'waiting to pay' => 'awaiting-payment',
             $Type === 1 && $Order->status === 'pending' => 'waiting',
             default => 'delivering',
         };
         $Data = [
             'id' => $Order->id,
             'type' => $Type,
-            'kind' => match ($Type) { 1 => 'number', 2 => 'social', 3, 4 => 'apple-id', 5 => 'static-ip', 6 => 'google-voice', default => 'subscription' },
+            'kind' => match ($Type) { 1 => 'number', 2 => 'social', 3, 4 => 'apple-id', 5 => 'static-ip', 6 => 'google-voice', OrderCharges::TYPE => 'custom', default => 'subscription' },
             'state' => $State,
             'price' => (int)$Order->price,
             'paid_with' => $Pay && $Pay->gate === 'Bank' ? 'card' : 'wallet',
@@ -382,6 +515,19 @@ class StorefrontPanelController extends Controller
             'refund' => $Refunded ? ['amount' => (int)round((float)($Refund->price ?? 0)) ?: (int)$Order->price, 'at' => $this->iso($Refund->created_at ?? $Order->updated_at)] : null,
             'name' => null, 'sub' => null, 'number' => null, 'code' => null, 'seconds_left' => 0, 'count' => null,
         ];
+        // What the order still asks for (an order support made, tax, VAT…) and whether the buyer may cancel it.
+        $Charges = $L['charges']->get($Order->id) ?? collect();
+        $Data['charges'] = $Charges->map(fn($c) => [
+            'id' => (int)$c->id, 'kind' => $c->kind, 'title' => (string)$c->title, 'price' => (int)$c->price,
+            'paid' => $c->status === 'paid', 'at' => $this->iso($c->paid_at ?? $c->created_at),
+        ])->values()->all();
+        $Data['due'] = (int)$Charges->where('status', 'unpaid')->sum('price');
+        $Data['cancellable'] = app(OrderCharges::class)->cancellable($Order);
+        $Data['night_call'] = $Order->night_call === null ? null : (bool)$Order->night_call;
+        if ($Type === OrderCharges::TYPE) {
+            $Data['name'] = ['fa' => (string)$Order->service, 'en' => (string)$Order->service];
+            $Data['paid_with'] = $Pay && $Pay->gate === 'Manual' ? 'outside' : $Data['paid_with'];
+        }
         // One cart order (several services paid together): its number (C-…), how it was paid, the card for a bank payment.
         $Checkout = $Order->checkout_id ? $L['checkouts']->get($Order->checkout_id) : null;
         $CartPay = $Checkout && $Checkout->payment_id ? $L['cart_pays']->get($Checkout->payment_id) : null;
@@ -450,6 +596,12 @@ class StorefrontPanelController extends Controller
                 }
             }
             return $Rows;
+        }
+        if ($Type === OrderCharges::TYPE) { // made by support: one row per line, with its note
+            return OrderItem::where('order_id', $Order->id)->orderBy('id')->get()->map(function ($i) {
+                $D = json_decode((string)$i->detail, true) ?: [];
+                return ['label' => (string)($D['title'] ?? 'خدمت'), 'value' => trim((string)($D['note'] ?? '')) ?: number_format((int)$i->price) . ' تومان', 'raw' => true];
+            })->values()->all();
         }
         if ($Type === 2 || $Type === 7) {
             $Data = $Type === 2 ? app(VirtualServiceOrders::class)->data($Order) : app(AccountOrders::class)->data($Order);

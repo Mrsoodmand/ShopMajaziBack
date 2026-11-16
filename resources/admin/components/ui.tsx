@@ -174,5 +174,5 @@ export function SkeletonRows({ rows = 8 }: { rows?: number }) {
 
 export function gateLabel(gate: string | null) {
     if (!gate) return '—';
-    return gate === 'Wallet' ? 'کیف پول' : gate === 'Bank' ? 'درگاه بانک' : gate;
+    return gate === 'Wallet' ? 'کیف پول' : gate === 'Bank' ? 'درگاه بانک' : gate === 'Manual' ? 'خارج از سایت' : gate;
 }

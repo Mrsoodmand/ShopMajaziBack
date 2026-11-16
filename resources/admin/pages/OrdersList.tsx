@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { AlertTriangle, MessageSquare } from 'lucide-react';
+import { AlertTriangle, MessageSquare, Moon, Plus } from 'lucide-react';
 import { useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman, waited } from '../lib/format';
@@ -20,6 +20,10 @@ type OrderRow = {
     createdTs: number | null;
     customer: { id: number; name: string | null; mobile: string | null } | null;
     unread: number;
+    /** Checkout answer: may support call 21:00–07:00? null = not asked. */
+    nightCall: boolean | null;
+    /** Toman the customer still has to pay (an order support made, tax, VAT…). */
+    due: number;
 };
 
 type OrdersPage = {
@@ -108,6 +112,8 @@ export default function OrdersList() {
                 <div className="flex items-center gap-2">
                     <OrderStatus status={o.status} />
                     {o.unread > 0 && <Unread n={o.unread} />}
+                    {o.nightCall && <NightCall />}
+                    {o.due > 0 && <Due amount={o.due} />}
                 </div>
             ),
         },
@@ -138,6 +144,12 @@ export default function OrdersList() {
             <PageHeader
                 title={typeLabel ? `سفارش‌های ${typeLabel}` : 'سفارش‌ها'}
                 subtitle={queue ? 'قدیمی‌ترین سفارش بالای صف است.' : 'جدیدترین سفارش‌ها اول، مگر ترتیب دیگری انتخاب کنید.'}
+                actions={
+                    <Link to="/orders/new" className="btn btn-primary">
+                        <Plus aria-hidden size={16} />
+                        ثبت سفارش جدید
+                    </Link>
+                }
             />
 
             <FilterBar
@@ -321,4 +333,19 @@ function OrderQuick({ id }: { id: number }) {
             </QuickSection>
         </>
     );
+}
+
+/** The customer said support may call them at night (21:00–07:00). */
+export function NightCall({ label = false }: { label?: boolean }) {
+    return (
+        <span title="تماس شبانه (۲۱ تا ۷ صبح) مجاز است" className="inline-flex items-center gap-1 rounded-full bg-indigo-soft px-2 py-0.5 text-[12px] font-medium text-indigo">
+            <Moon aria-hidden size={12} />
+            {label ? 'تماس شبانه مجاز' : <span className="sr-only">تماس شبانه مجاز</span>}
+        </span>
+    );
+}
+
+/** What the customer still owes on the order. */
+function Due({ amount }: { amount: number }) {
+    return <span className="num rounded-full bg-warn-soft px-2 py-0.5 text-[12px] font-medium whitespace-nowrap text-warn">بدهی {toman(amount)}</span>;
 }
