@@ -166,6 +166,13 @@ class BlogHtml
             $el->setAttribute('alt', trim($el->getAttribute('alt')));
             $el->setAttribute('loading', 'lazy');
             $el->setAttribute('decoding', 'async');
+            // The image's own size, so the browser reserves its space before it loads. Without it a lazy image
+            // starts at 0px and pushes the text down when it arrives; Safari on iPhone doesn't correct the scroll
+            // position for that, so the page jumped while reading.
+            if ($size = self::size($src)) {
+                $el->setAttribute('width', (string) $size[0]);
+                $el->setAttribute('height', (string) $size[1]);
+            }
         }
         if ($tag === 'iframe') {
             if (!preg_match(self::EMBEDS, trim($el->getAttribute('src')))) {
@@ -191,6 +198,24 @@ class BlogHtml
         }
         $url = preg_replace(self::OWN_SITE, '', $url);
         return $url === '' ? '/' : $url;
+    }
+
+    /** [width, height] of an image stored on this site (a site-relative address under public/), or null. */
+    private static function size(string $src): ?array
+    {
+        if (!str_starts_with($src, '/') || str_starts_with($src, '//')) {
+            return null;
+        }
+        $path = rawurldecode(parse_url($src, PHP_URL_PATH) ?: '');
+        if ($path === '' || in_array('..', explode('/', $path), true)) {
+            return null;
+        }
+        $file = public_path(ltrim($path, '/'));
+        if (!is_file($file)) {
+            return null;
+        }
+        $info = @getimagesize($file);
+        return $info && $info[0] > 0 && $info[1] > 0 ? [$info[0], $info[1]] : null;
     }
 
     private static function rename(DOMElement $el, string $tag): DOMElement
