@@ -72,6 +72,16 @@ class RouteServiceProvider extends ServiceProvider
     protected function configureRateLimiting()
     {
         RateLimiter::for('api', function (Request $request) {
+            /*
+             * The Next.js server's own calls (page data: blog posts, products, SEO) arrive through
+             * public_html/laravel-internal.php, which only this machine can reach and which flags them
+             * (deploy/remote.sh docroot_shims). They all come from the server's IP, so on the shared 60-a-minute
+             * counter a few visitors or a crawler on uncached pages used it up: 429 here, a 500 page there.
+             * They get a counter of their own, high enough for page rendering but still a ceiling.
+             */
+            if ($request->server('SHOPMAJAZI_INTERNAL') === '1') {
+                return Limit::perMinute(1200)->by('next-server');
+            }
             return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
         });
 
