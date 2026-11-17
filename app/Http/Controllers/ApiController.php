@@ -82,20 +82,6 @@ class ApiController extends Controller
         }
     }
 
-    /**/
-    public function blog_map()
-    {
-        $Blogs = Blog::where('status', 2)->where('type', 'blog')->get();
-        SiteMap($Blogs, 'blog/sitemap.xml');
-    }
-
-    /**/
-    public function news_map()
-    {
-        $Blogs = Blog::where('status', 2)->where('type', 'news')->get();
-        SiteMap($Blogs, 'news.xml');
-    }
-
     /* api */
     public function CheckApi(Request $request)
     {

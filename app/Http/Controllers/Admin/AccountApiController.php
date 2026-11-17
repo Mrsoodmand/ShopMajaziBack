@@ -104,6 +104,7 @@ class AccountApiController extends Controller
                 'name' => (string) $pl->name,
                 'enName' => (string) $pl->en_name,
                 'months' => $pl->months !== null ? (string) $pl->months : '',
+                'popular' => (bool) $pl->popular,
                 'price' => $pl->price !== null ? (string) $pl->price : '',
                 'discount' => $pl->discount !== null ? (string) $pl->discount : '',
                 'count' => $pl->count !== null ? (string) $pl->count : '',
@@ -162,6 +163,7 @@ class AccountApiController extends Controller
             'plans.*.discount' => 'nullable|numeric|min:0',
             'plans.*.count' => 'nullable|integer|min:0',
             'plans.*.live' => 'boolean',
+            'plans.*.popular' => 'boolean',
         ], $this->messages() + [
             'fields.*.name.regex' => 'نام فنی فقط حروف انگلیسی، عدد و _ (مثل email).',
             'color.regex' => 'رنگ را به شکل #10a37f بنویسید.',
@@ -221,7 +223,10 @@ class AccountApiController extends Controller
             ])->save();
 
             $keep = [];
+            $popularTaken = false; // «محبوب‌ترین»: one plan per product, the first one marked
             foreach (array_values($data['plans'] ?? []) as $i => $row) {
+                $popular = !$popularTaken && ($row['popular'] ?? false);
+                $popularTaken = $popularTaken || $popular;
                 $plan = !empty($row['id']) ? Plan::where('product_id', $p->id)->where('type', 'accounts')->find($row['id']) : null;
                 $plan ??= new Plan();
                 $plan->forceFill([
@@ -230,6 +235,7 @@ class AccountApiController extends Controller
                     'name' => $row['name'],
                     'en_name' => ($row['enName'] ?? '') === '' ? null : $row['enName'],
                     'months' => ($row['months'] ?? '') === '' ? null : (int) $row['months'],
+                    'popular' => $popular ? 1 : 0,
                     'price' => $row['price'],
                     'discount' => ($row['discount'] ?? '') === '' ? null : $row['discount'],
                     'count' => ($row['count'] ?? '') === '' ? null : $row['count'],

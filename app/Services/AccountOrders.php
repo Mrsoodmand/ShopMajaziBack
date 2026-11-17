@@ -127,6 +127,7 @@ class AccountOrders
                 // Latin words in the Persian name ("اکانت سه ماهه Pro Plus" → "Pro Plus"), for the English site.
                 'tier' => preg_match_all('/[A-Za-z][A-Za-z0-9+]*/', (string)$Plan->name, $m) ? ucwords(strtolower(implode(' ', $m[0]))) : null,
                 'months' => self::months($Plan),
+                'popular' => (bool)$Plan->popular, // the admin's «محبوب‌ترین» plan
                 'price' => $Price,
                 'was' => $Was,
             ];

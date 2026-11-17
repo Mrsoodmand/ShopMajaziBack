@@ -9,7 +9,7 @@ import { RichText } from '../../components/RichText';
 import { ErrorState, Panel } from '../../components/ui';
 import { EditorSkeleton, problemsFrom } from '../../components/list';
 
-type Plan = { id?: number; name: string; enName: string; months: string; price: string; discount: string; count: string; live: boolean };
+type Plan = { id?: number; name: string; enName: string; months: string; price: string; discount: string; count: string; live: boolean; popular: boolean };
 type OrderField = { name: string; title: string; type: 'text' | 'select'; options: string[]; width: string };
 type Account = {
     name: string;
@@ -215,12 +215,12 @@ export default function AccountEditor() {
                     <RowsEditor
                         rows={form.plans}
                         onChange={(plans) => set({ plans })}
-                        make={() => ({ name: '', enName: '', months: '', price: '', discount: '', count: '', live: true })}
+                        make={() => ({ name: '', enName: '', months: '', price: '', discount: '', count: '', live: true, popular: false })}
                         addLabel="افزودن پلن"
                         empty="هنوز پلنی ندارد."
                         removeLabel={(r, i) => `حذف پلن ${r.name || i + 1}`}
                         render={(row, update, i) => (
-                            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_80px_110px_110px_80px_auto] sm:items-end">
+                            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_80px_110px_110px_80px_auto_auto] sm:items-end">
                                 <Field label="نام پلن" error={err(`plans.${i}.name`)}>
                                     {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="یک ماهه" />}
                                 </Field>
@@ -240,6 +240,8 @@ export default function AccountEditor() {
                                     {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
                                 </Field>
                                 <Switch label="فعال" checked={row.live} onChange={(live) => update({ live })} />
+                                {/* One plan per product: marking this one clears the others. */}
+                                <Switch label="محبوب‌ترین" checked={!!row.popular} onChange={(popular) => set({ plans: form.plans.map((x, j) => ({ ...x, popular: j === i ? popular : popular ? false : x.popular })) })} />
                             </div>
                         )}
                     />

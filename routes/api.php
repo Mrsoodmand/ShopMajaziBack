@@ -65,8 +65,7 @@ Route::get('mailtest', 'ApiController@mailtest');
 Route::get('buyFromSpotPlayer', 'ApiController@buyFromSpotPlayer');
 Route::get('ishostingLogin', 'ApiController@ishostingLogin');
 
-Route::get('blogs-sitemap', [\App\Http\Controllers\ApiController::class, 'blog_map']);
-Route::get('news_map', [\App\Http\Controllers\ApiController::class, 'news_map']);
+// blogs-sitemap / news_map (public GETs that rewrote sitemap files) removed: the sitemaps come from Next.js (Front/src/app/sitemap.ts).
 Route::get('newJibitPayment', [\App\Http\Controllers\ApiController::class, 'newJibitPayment']);
 Route::get('checkBlogs', [\App\Http\Controllers\ApiController::class, 'checkBlogs']);
 
