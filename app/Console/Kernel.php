@@ -17,6 +17,8 @@ class Kernel extends ConsoleKernel
     {
         // Exchange rates from AriaPay into the `currency` table (App\Services\CurrencyRates).
         $schedule->command('currency:update')->everyThirtyMinutes()->withoutOverlapping();
+        // Paid Google Voice pre-orders, filled from Numberland when a number is available (App\Services\GoogleVoiceNumbers).
+        $schedule->command('gv:fill-preorders')->everyFiveMinutes()->withoutOverlapping();
     }
 
     /**

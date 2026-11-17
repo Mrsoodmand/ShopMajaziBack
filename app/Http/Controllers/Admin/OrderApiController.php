@@ -198,6 +198,7 @@ class OrderApiController extends Controller
             'payment' => $mainPayment ? $this->payment($jdf, $mainPayment, $refundedIds) : null,
             'payments' => $payments->map(fn ($p) => $this->payment($jdf, $p, $refundedIds))->values(),
             'items' => OrderItem::where('order_id', $order->id)->get()->map(fn ($i) => $this->item($order, $i))->values(),
+            'gvPreorder' => GoogleVoicePreorderApiController::info($order), // Google Voice waiting for a number, else null
             'history' => $history->map(function ($h) use ($jdf, $admins) {
                 $d = json_decode($h->detail, true) ?: [];
                 return [

@@ -37,6 +37,13 @@ return [
         'user_id'       => env('ZOOM_USER_ID', 'me'),
     ],
 
+    // The Next.js storefront: admin › Cache clears its data cache through Front's /api/revalidate (App\Services\CacheManager).
+    // internal_url: how this server reaches it (default STOREFRONT_URL); the secret must equal Front's REVALIDATE_SECRET.
+    'storefront' => [
+        'revalidate_secret' => env('STOREFRONT_REVALIDATE_SECRET'),
+        'internal_url' => env('STOREFRONT_INTERNAL_URL'),
+    ],
+
     // Numberland special (Google Voice) numbers, see App\Services\GoogleVoiceNumbers. Markup is on top of Numberland's price.
     'numberland' => [
         'key' => env('NUMBERLAND_API_KEY'),

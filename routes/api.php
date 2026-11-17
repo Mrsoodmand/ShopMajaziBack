@@ -32,6 +32,7 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::get('accounts', 'Api\StorefrontController@accounts');
     Route::get('accounts/{slug}', 'Api\StorefrontController@account');
     Route::get('google-voice', 'Api\StorefrontController@googleVoice');
+    Route::get('cache-times', 'Api\StorefrontController@cacheTimes'); // admin › Cache: seconds per section (Front/src/lib/backend.ts)
     Route::get('telegram-stars', 'Api\StorefrontController@telegramStars');
     Route::get('apple-id', 'Api\StorefrontController@appleId');
     Route::get('prices', 'Api\StorefrontController@prices');

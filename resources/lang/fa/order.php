@@ -15,6 +15,8 @@ return [
         'failed' => " لغو شده",
         'back money to wallet' => " عودت مبلغ به کیف پول",
         'suspended' => "معلق شده",
+        'review' => 'نیاز به بررسی',
+        'preorder' => 'پیش‌سفارش',
     ],
     'type' =>
     [

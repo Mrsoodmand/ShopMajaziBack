@@ -362,10 +362,15 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('google-voices/{id}', 'Admin\GoogleVoiceApiController@show')->whereNumber('id');
         Route::post('google-voices/{id}', 'Admin\GoogleVoiceApiController@update')->whereNumber('id');
         Route::post('google-voices/{id}/delete', 'Admin\GoogleVoiceApiController@delete')->whereNumber('id');
+        Route::post('orders/{id}/gv-preorder/retry', 'Admin\GoogleVoicePreorderApiController@retry')->whereNumber('id');
+        Route::post('orders/{id}/gv-preorder/deliver', 'Admin\GoogleVoicePreorderApiController@deliver')->whereNumber('id');
     });
 
     // ارزها و سود: market rates and profit percentages (App\Services\Pricing).
     Route::middleware('role_or_permission:super-admin')->group(function () {
+        Route::get('cache', 'Admin\CacheApiController@index')->name('cache');
+        Route::post('cache/clear', 'Admin\CacheApiController@clear');
+        Route::post('cache/times', 'Admin\CacheApiController@saveTimes');
         Route::get('pricing', 'Admin\PricingApiController@index')->name('pricing');
         Route::post('pricing', 'Admin\PricingApiController@save');
         Route::post('pricing/refresh', 'Admin\PricingApiController@refresh');

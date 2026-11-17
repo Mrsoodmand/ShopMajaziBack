@@ -144,6 +144,7 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
     Route::post('virtual-numbers/orders/{id}/cancel', 'StorefrontAccountController@cancel');
     Route::post('google-voice/buy', 'StorefrontAccountController@googleVoiceBuy')->middleware('throttle:storefront-buy');
     Route::post('google-voice/pay-card', 'StorefrontAccountController@googleVoicePayCard')->middleware('throttle:storefront-buy');
+    Route::post('google-voice/preorder', 'StorefrontAccountController@googleVoicePreorder')->middleware('throttle:storefront-buy');
     Route::get('google-voice/orders/{id}', 'StorefrontAccountController@googleVoiceOrder')->middleware('throttle:storefront-poll');
     Route::post('apple-id/buy', 'StorefrontAccountController@appleIdBuy')->middleware('throttle:storefront-buy');
     Route::post('apple-id/pay-card', 'StorefrontAccountController@appleIdPayCard')->middleware('throttle:storefront-buy');

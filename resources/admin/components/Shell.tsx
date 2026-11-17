@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
-import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent } from 'lucide-react';
+import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap } from 'lucide-react';
 import { useBoot, type MenuLink } from '../lib/boot';
 
 const icons: Record<string, LucideIcon> = {
@@ -27,6 +27,7 @@ const icons: Record<string, LucideIcon> = {
     admins: UserCog,
     partners: Handshake,
     pricing: BadgePercent,
+    cache: DatabaseZap,
 };
 
 // One easing for the rail: quick to start, soft to land.

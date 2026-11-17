@@ -358,6 +358,59 @@ class StorefrontAccountController extends Controller
         return $this->ok(['url' => $Url, 'order_id' => $Order->id]);
     }
 
+    /*
+     * A pre-order, for when Numberland can't sell right now: {pay: wallet|card, price, wanted?: {id, number}, return?}.
+     * `price` is the pre-order price the page showed; a different current price fails with price_changed.
+     */
+    public function googleVoicePreorder(Request $request, GoogleVoiceNumbers $Numbers): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        $Offer = $Numbers->preorderOffer();
+        if (!$Offer) {
+            return $this->fail('پیش‌سفارش گوگل ویس فعلا فعال نیست.', 'preorder_off', 503);
+        }
+        if (intval($request->input('price')) !== $Offer['price']) {
+            return $this->fail('قیمت پیش‌سفارش تغییر کرده است.', 'price_changed', 409, ['preorder' => $Offer]);
+        }
+        $Wanted = $request->input('wanted');
+        $Wanted = is_array($Wanted) && isset($Wanted['id'], $Wanted['number']) ? ['id' => intval($Wanted['id']), 'number' => mb_substr((string)$Wanted['number'], 0, 32)] : null;
+
+        if ($request->input('pay') === 'card') {
+            if ($User->bank_blocked != 0) {
+                return $this->fail('امکان پرداخت با درگاه بانک برای حساب شما وجود ندارد، لطفا با پشتیبانی تماس بگیرید.', 'bank_blocked', 403);
+            }
+            $Return = (string)$request->input('return');
+            $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : '/google-voice';
+            [$Order, $Payment] = $Numbers->preorderBankOrder($User, $Wanted);
+            $Url = app(BankController::class)->zarinPalStartUrl($Payment, $Order, StorefrontUrl(route('user.service-bank-callback', [], false)));
+            if (!$Url) {
+                $Order->status = $Order->pay_status = 'failed';
+                $Order->save();
+                return $this->fail('اتصال به درگاه پرداخت برقرار نشد. لطفا دوباره تلاش کنید.', 'bank_unavailable', 502);
+            }
+            $request->session()->put('storefront_return', $Return);
+            return $this->ok(['url' => $Url, 'order_id' => $Order->id]);
+        }
+
+        if ($User->wallet_blocked != 0) {
+            return $this->fail('شما مجاز به پرداخت این سفارش با کیف پول نیستید، لطفا با پشتیبانی تماس بگیرید', 'wallet_blocked', 403);
+        }
+        try {
+            return WalletPurchaseLock($User->id)->block(5, function () use ($Numbers, $User, $Offer, $Wanted) {
+                $User = $User->fresh();
+                if ($this->wallet($User) < $Offer['price']) {
+                    return $this->fail('موجودی کیف پول شما کافی نیست.', 'balance', 400, ['wallet' => $this->wallet($User), 'price' => $Offer['price']]);
+                }
+                $Order = $Numbers->preorderWithWallet($User, $Wanted);
+                return $this->googleVoiceResult($Order, $User);
+            });
+        } catch (LockTimeoutException $e) {
+            return $this->fail('لطفا چند لحظه دیگر دوباره تلاش کنید.', 'busy', 429);
+        }
+    }
+
     /* One of my Google Voice orders, with the login once delivered. */
     public function googleVoiceOrder($id, GoogleVoiceNumbers $Numbers): JsonResponse
     {
@@ -377,15 +430,17 @@ class StorefrontAccountController extends Controller
         if (!$Numbers->enabled()) { // switched off in admin › Google Voice
             return [null, $this->fail('فروش گوگل ویس موقتا متوقف است. لطفا کمی بعد دوباره تلاش کنید.', 'gv_paused', 503)];
         }
+        // When Numberland can't sell, the answer carries the pre-order offer (if on), so the page can offer it instead.
+        $Preorder = fn() => ($Offer = $Numbers->preorderOffer()) ? ['preorder' => $Offer] : [];
         try {
             $Number = $Numbers->find(intval($request->input('id')));
             // Our Numberland balance must cover it, or the buyer would pay for a number we can't get.
             if ($Number && !$Numbers->canAfford($Number['cost'])) {
-                return [null, $this->fail('فروش گوگل ویس موقتا متوقف است. لطفا کمی بعد دوباره تلاش کنید.', 'gv_paused', 503)];
+                return [null, $this->fail('فروش گوگل ویس موقتا متوقف است. لطفا کمی بعد دوباره تلاش کنید.', 'gv_paused', 503, $Preorder())];
             }
         } catch (\Throwable $e) {
             report($e);
-            return [null, $this->fail('ارتباط با سرور شماره‌ها برقرار نشد. لطفا دوباره تلاش کنید.', 'provider_unavailable', 502)];
+            return [null, $this->fail('ارتباط با سرور شماره‌ها برقرار نشد. لطفا دوباره تلاش کنید.', 'provider_unavailable', 502, $Preorder())];
         }
         if (is_null($Number)) {
             return [null, $this->fail('این شماره فروخته شده است. لطفا شماره دیگری انتخاب کنید.', 'sold', 404)];
@@ -399,6 +454,7 @@ class StorefrontAccountController extends Controller
         return match ($Order->status) {
             'complete' => $this->ok($Data, 'شماره گوگل ویس تحویل شد.'),
             'failed' => $this->fail('این شماره همین الان فروخته شد. مبلغ به کیف پول شما برگشت؛ شماره دیگری انتخاب کنید.', 'sold_refunded', 409, $Data),
+            'preorder' => $this->ok($Data, 'پیش‌سفارش ثبت شد؛ شماره به محض موجود شدن تحویل می‌شود.'),
             default => $this->ok($Data, 'سفارش ثبت شد و پشتیبانی در حال بررسی آن است.'),
         };
     }
@@ -411,6 +467,7 @@ class StorefrontAccountController extends Controller
             'complete' => 'delivered',
             'failed' => 'refunded',
             'waiting to pay' => 'unpaid',
+            'preorder' => 'preorder',
             default => 'review', // pending (being bought) or review (support checks)
         };
         return [

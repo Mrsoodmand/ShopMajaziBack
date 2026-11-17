@@ -65,6 +65,9 @@ class PageApiController extends Controller
                 'customPrice' => isset($detail['custom_price']) && $detail['custom_price'] !== null ? (int) $detail['custom_price'] : null,
                 'numberlandEnabled' => (int) ($detail['numberland_enabled'] ?? 1) === 1,
                 'numberlandMarkup' => (float) ($detail['numberland_markup'] ?? config('services.numberland.gv_markup', 20)),
+                'preorderEnabled' => (int) ($detail['preorder_enabled'] ?? 1) === 1,
+                'preorderPrice' => (int) ($detail['preorder_price'] ?? \App\Services\GoogleVoiceNumbers::PREORDER_PRICE),
+                'preorderAutofill' => (int) ($detail['preorder_autofill'] ?? 1) === 1,
             ],
         ]]);
     }
@@ -92,6 +95,9 @@ class PageApiController extends Controller
             'settings.customPrice' => [in_array($kind, ['apple-id', 'google-voice'], true) ? 'required' : 'nullable', 'integer', 'min:0'],
             'settings.numberlandEnabled' => 'boolean',
             'settings.numberlandMarkup' => 'nullable|numeric|min:0|max:500',
+            'settings.preorderEnabled' => 'boolean',
+            'settings.preorderPrice' => [$kind === 'google-voice' ? 'required' : 'nullable', 'integer', 'min:1000'],
+            'settings.preorderAutofill' => 'boolean',
         ], $this->messages());
 
         $seo = $this->decode($p->seo);
@@ -119,6 +125,9 @@ class PageApiController extends Controller
             $detail['custom_price'] = (string) $settings['customPrice'];
             $detail['numberland_enabled'] = ($settings['numberlandEnabled'] ?? true) ? 1 : 0;
             $detail['numberland_markup'] = (float) ($settings['numberlandMarkup'] ?? config('services.numberland.gv_markup', 20));
+            $detail['preorder_enabled'] = ($settings['preorderEnabled'] ?? true) ? 1 : 0;
+            $detail['preorder_price'] = (int) $settings['preorderPrice'];
+            $detail['preorder_autofill'] = ($settings['preorderAutofill'] ?? true) ? 1 : 0;
         }
         if ($detail) {
             $p->detail = json_encode($detail, JSON_UNESCAPED_UNICODE);

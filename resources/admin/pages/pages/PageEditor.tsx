@@ -10,7 +10,7 @@ import { RichText } from '../../components/RichText';
 import { ErrorState, Panel } from '../../components/ui';
 import { EditorSkeleton, FaqEditor, problemsFrom, type FaqRow } from '../../components/list';
 
-type Settings = { normalPrice: number | null; customPrice: number | null; numberlandEnabled: boolean; numberlandMarkup: number };
+type Settings = { normalPrice: number | null; customPrice: number | null; numberlandEnabled: boolean; numberlandMarkup: number; preorderEnabled: boolean; preorderPrice: number; preorderAutofill: boolean };
 type Page = {
     id: number;
     title: string;
@@ -27,11 +27,13 @@ type Page = {
     headHtml: string;
     settings: Settings;
 };
-type Form = Omit<Page, 'settings'> & { settings: { normalPrice: string; customPrice: string; numberlandEnabled: boolean; numberlandMarkup: string } };
+type Form = Omit<Page, 'settings'> & {
+    settings: { normalPrice: string; customPrice: string; numberlandEnabled: boolean; numberlandMarkup: string; preorderEnabled: boolean; preorderPrice: string; preorderAutofill: boolean };
+};
 
 const labels: Record<string, string> = {
     h1: 'عنوان H1', short: 'توضیح کوتاه', content: 'متن صفحه', image: 'تصویر', metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', faq: 'سؤالات متداول',
-    'settings.normalPrice': 'قیمت اپل آیدی آماده', 'settings.customPrice': 'قیمت', 'settings.numberlandMarkup': 'سود نامبرلند',
+    'settings.normalPrice': 'قیمت اپل آیدی آماده', 'settings.customPrice': 'قیمت', 'settings.numberlandMarkup': 'سود نامبرلند', 'settings.preorderPrice': 'قیمت پیش‌سفارش',
 };
 
 export default function PageEditor() {
@@ -50,6 +52,9 @@ export default function PageEditor() {
                 customPrice: s.customPrice == null ? '' : String(s.customPrice),
                 numberlandEnabled: s.numberlandEnabled,
                 numberlandMarkup: String(s.numberlandMarkup),
+                preorderEnabled: s.preorderEnabled,
+                preorderPrice: s.preorderPrice == null ? '' : String(s.preorderPrice),
+                preorderAutofill: s.preorderAutofill,
             },
         });
     }, [data]);
@@ -74,12 +79,15 @@ export default function PageEditor() {
                 customPrice: money(form.settings.customPrice),
                 numberlandEnabled: form.settings.numberlandEnabled,
                 numberlandMarkup: form.settings.numberlandMarkup === '' ? null : Number(form.settings.numberlandMarkup.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))),
+                preorderEnabled: form.settings.preorderEnabled,
+                preorderPrice: money(form.settings.preorderPrice),
+                preorderAutofill: form.settings.preorderAutofill,
             },
         });
         if (res) reload();
     }
 
-    const priceInput = (key: 'normalPrice' | 'customPrice', label: string, hint?: string) => (
+    const priceInput = (key: 'normalPrice' | 'customPrice' | 'preorderPrice', label: string, hint?: string) => (
         <Field label={label} error={err(`settings.${key}`)} hint={hint ?? (parseAmount(form.settings[key]) != null ? toman(parseAmount(form.settings[key])) : undefined)}>
             {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={form.settings[key]} onChange={(e) => setSettings({ [key]: e.target.value })} />}
         </Field>
@@ -132,6 +140,26 @@ export default function PageEditor() {
                                 onChange={(numberlandEnabled) => setSettings({ numberlandEnabled })}
                             />
                         </div>
+                    </div>
+                </Panel>
+            )}
+
+            {form.kind === 'google-voice' && (
+                <Panel title="پیش‌سفارش">
+                    <div className="grid gap-4">
+                        <Switch
+                            label="پذیرش پیش‌سفارش"
+                            hint="وقتی نامبرلند پاسخ نمی‌دهد، خطا می‌دهد یا شماره‌ای ندارد، مشتری می‌تواند با این قیمت پیش‌سفارش بدهد. سفارش پرداخت‌شده‌ای که نامبرلند تحویل نداد هم به جای برگشت وجه، پیش‌سفارش می‌شود."
+                            checked={form.settings.preorderEnabled}
+                            onChange={(preorderEnabled) => setSettings({ preorderEnabled })}
+                        />
+                        <div className="sm:max-w-sm">{priceInput('preorderPrice', 'قیمت پیش‌سفارش (تومان)')}</div>
+                        <Switch
+                            label="تکمیل خودکار"
+                            hint="هر ۵ دقیقه، برای قدیمی‌ترین پیش‌سفارش‌ها شماره‌ای از نامبرلند خریده می‌شود که قیمت فروشش از مبلغ پرداختی مشتری بیشتر نباشد."
+                            checked={form.settings.preorderAutofill}
+                            onChange={(preorderAutofill) => setSettings({ preorderAutofill })}
+                        />
                     </div>
                 </Panel>
             )}

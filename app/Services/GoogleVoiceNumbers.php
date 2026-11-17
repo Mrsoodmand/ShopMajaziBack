@@ -22,11 +22,22 @@ use Illuminate\Support\Facades\Log;
  *
  * Orders are type 6. OrderItem detail: {numberland_id, number, cost} until delivered, then also product_id (the
  * GoogleVoice row). Order status: complete = delivered, failed = Numberland refused (money back in the wallet),
- * review = Numberland gave no clear answer (the number may have been bought: support checks before refunding).
+ * review = Numberland gave no clear answer (the number may have been bought: support checks before refunding),
+ * preorder = paid and waiting for a number.
+ *
+ * Pre-orders: when Numberland can't sell (no answer, an error, our balance too low, nothing in stock) the buyer can
+ * pay the admin's pre-order price instead. A paid order Numberland then fails also becomes a pre-order (when
+ * pre-orders are on), instead of a refund or `review`. fillPreorders() (command gv:fill-preorders, every 5 minutes)
+ * buys a number for each, oldest first, when one sells at or under what the buyer paid. A pre-order made from an
+ * unclear Numberland answer has detail.unclear set: that number may already be ours, so it is never filled
+ * automatically; an admin checks Numberland first (admin › order). Pre-order detail: {preorder: true, wanted?,
+ * tries, unclear?}; once a number is picked for it, numberland_id/number/cost are added as for a normal order.
  */
 class GoogleVoiceNumbers
 {
     public const ORDER_TYPE = 6;
+    public const PREORDER_PRICE = 1500000; // Toman, until an admin sets one
+    private const PREORDER_TRIES = 20; // automatic fill attempts before only an admin retries
     private const LIST_SECONDS = 60;
     private const API = 'https://api.numberland.ir/v2.php/?';
 
@@ -96,7 +107,18 @@ class GoogleVoiceNumbers
         return [
             'enabled' => (int)($Detail['numberland_enabled'] ?? 1) === 1,
             'markup' => (float)($Detail['numberland_markup'] ?? config('services.numberland.gv_markup', 20)),
+            // Pre-orders: taken (paid) when Numberland can't sell right now; filled later (see fillPreorders()).
+            'preorder' => (int)($Detail['preorder_enabled'] ?? 1) === 1,
+            'preorder_price' => (int)($Detail['preorder_price'] ?? self::PREORDER_PRICE),
+            'preorder_autofill' => (int)($Detail['preorder_autofill'] ?? 1) === 1,
         ];
+    }
+
+    /* The pre-order offer the storefront shows, or null when pre-orders are off (or sales are switched off). */
+    public function preorderOffer(): ?array
+    {
+        $S = $this->settings();
+        return $S['enabled'] && $S['preorder'] && $S['preorder_price'] > 0 ? ['price' => $S['preorder_price']] : null;
     }
 
     public function enabled(): bool
@@ -111,10 +133,10 @@ class GoogleVoiceNumbers
     }
 
     /* A wallet purchase: takes the money, then buys from Numberland. Returns the order. */
-    public function buyWithWallet($User, array $Number): Order
+    public function buyWithWallet($User, array $Number, bool $Deliver = true): Order
     {
         $Order = DB::transaction(function () use ($User, $Number) {
-            $Order = $this->newOrder($User, $Number, 'pending', 'Complete');
+            $Order = $this->newOrder($User, $Number, empty($Number['preorder']) ? 'pending' : 'preorder', 'Complete');
             $Payment = new Payment();
             $Payment->order_id = $Order->id;
             $Payment->user_id = $User->id;
@@ -130,8 +152,141 @@ class GoogleVoiceNumbers
             DecrementWallet($Order->price, $User);
             return $Order;
         });
-        $this->deliver($Order);
+        if ($Deliver) {
+            $this->deliver($Order);
+        }
         return $Order->fresh();
+    }
+
+    /*
+     * A pre-order paid from the wallet. $Wanted: the number the buyer had picked when Numberland failed (a hint for
+     * support; any number may fill the order). Returns the order (status preorder).
+     */
+    public function preorderWithWallet($User, ?array $Wanted = null): Order
+    {
+        $Order = $this->buyWithWallet($User, $this->preorderItem($Wanted), false);
+        $this->notify($Order, 'پیش‌سفارش ثبت شد (پرداخت از کیف پول)');
+        return $Order;
+    }
+
+    /* A pre-order paid by card: the callback marks it paid (preorderPaid()). Returns [order, payment]. */
+    public function preorderBankOrder($User, ?array $Wanted = null): array
+    {
+        return $this->bankOrder($User, $this->preorderItem($Wanted));
+    }
+
+    /* The bank paid a pre-order: it now waits for a number. */
+    public function preorderPaid(Order $Order): void
+    {
+        if ($Order->status === 'waiting to pay') {
+            $Order->status = 'preorder';
+            $Order->save();
+            $this->notify($Order, 'پیش‌سفارش ثبت شد (درگاه بانک)');
+        }
+    }
+
+    public static function isPreorder(?OrderItem $Item): bool
+    {
+        return $Item && !empty((json_decode((string)$Item->detail, true) ?: [])['preorder']);
+    }
+
+    private function preorderItem(?array $Wanted): array
+    {
+        return [
+            'id' => 0,
+            'number' => null,
+            'cost' => null,
+            'price' => $this->settings()['preorder_price'],
+            'preorder' => true,
+            'wanted' => $Wanted ? ['id' => (int)$Wanted['id'], 'number' => (string)$Wanted['number']] : null,
+        ];
+    }
+
+    /*
+     * Fills pre-orders, oldest first: buys a number selling at or under what the buyer paid. Skips unclear ones
+     * (see the class comment) and stops when Numberland can't be reached or our balance is short. With $Only, just
+     * that order (admin › order › retry), unclear or not, however many tries it had. Returns [order id => result].
+     */
+    public function fillPreorders(?int $Only = null): array
+    {
+        $Results = [];
+        $Orders = Order::where('type', self::ORDER_TYPE)->where('status', 'preorder')
+            ->when($Only, fn($q) => $q->where('id', $Only))->orderBy('id')->limit(20)->get();
+        if ($Orders->isEmpty()) {
+            return $Results;
+        }
+        try {
+            $List = $this->list(true);
+        } catch (\Throwable $e) {
+            Log::info('Google Voice pre-orders: Numberland list unavailable', ['error' => $e->getMessage()]);
+            return $Only ? [$Only => 'unavailable'] : $Results;
+        }
+        usort($List, fn($a, $b) => $a['cost'] <=> $b['cost']);
+        $Used = [];
+        foreach ($Orders as $Order) {
+            $Item = OrderItem::where('order_id', $Order->id)->first();
+            $Detail = json_decode((string)optional($Item)->detail, true) ?: [];
+            if (!$Item || (!$Only && (!empty($Detail['unclear']) || ($Detail['tries'] ?? 0) >= self::PREORDER_TRIES))) {
+                continue;
+            }
+            // The number the buyer picked, if it is still for sale at their price; else the cheapest that fits.
+            $Pick = null;
+            $WantedId = (int)($Detail['wanted']['id'] ?? 0);
+            foreach ($WantedId ? array_merge(array_filter($List, fn($n) => $n['id'] === $WantedId), $List) : $List as $N) {
+                if (!in_array($N['id'], $Used, true) && $N['price'] <= (int)$Order->price) {
+                    $Pick = $N;
+                    break;
+                }
+            }
+            if (!$Pick) {
+                $Results[$Order->id] = 'no_number';
+                continue;
+            }
+            try {
+                if (!$this->canAfford($Pick['cost'])) {
+                    $Results[$Order->id] = 'balance';
+                    break; // the next ones won't fit either
+                }
+            } catch (\Throwable $e) {
+                $Results[$Order->id] = 'unavailable';
+                break;
+            }
+            $Used[] = $Pick['id'];
+            $Claimed = Cache::lock('gv-deliver:' . $Order->id, 60)->get(function () use ($Order, $Item, $Detail, $Pick) {
+                if ($Order->fresh()->status !== 'preorder') {
+                    return false;
+                }
+                unset($Detail['unclear']);
+                $Item->detail = json_encode(['numberland_id' => $Pick['id'], 'number' => $Pick['number'], 'cost' => $Pick['cost'], 'tries' => ($Detail['tries'] ?? 0) + 1] + $Detail);
+                $Item->save();
+                Order::where('id', $Order->id)->update(['status' => 'pending']);
+                return true;
+            });
+            $Results[$Order->id] = $Claimed ? $this->deliver($Order->fresh()) : 'busy';
+        }
+        return $Results;
+    }
+
+    /*
+     * Delivers a pre-order by hand (admin › order): a login the admin typed, e.g. from Numberland's panel or our
+     * own stock. Returns false when the order is no longer waiting.
+     */
+    public function deliverByHand(Order $Order, array $Login): bool
+    {
+        return (bool)Cache::lock('gv-deliver:' . $Order->id, 60)->block(10, function () use ($Order, $Login) {
+            $Order = $Order->fresh();
+            if (!in_array($Order->status, ['preorder', 'review', 'pending'], true)) {
+                return false;
+            }
+            $Item = OrderItem::where('order_id', $Order->id)->first();
+            $Detail = json_decode((string)$Item->detail, true) ?: [];
+            $Detail['number'] = $Login['number'];
+            $this->saveDelivered($Order, $Item, $Detail, [
+                'NUMBER' => $Login['number'], 'USERNAME' => $Login['email'], 'PASSWORD' => $Login['password'] ?? '', 'RECOVERY' => $Login['recovery'] ?? '',
+            ]);
+            $this->notify($Order, 'پیش‌سفارش به‌صورت دستی تحویل شد');
+            return true;
+        });
     }
 
     /* A card purchase: the order waits for the bank; the callback calls deliver(). Returns [order, payment]. */
@@ -156,7 +311,8 @@ class GoogleVoiceNumbers
 
     /*
      * Buys the order's number from Numberland (the order is already paid). Returns 'ok', 'refunded' (Numberland said
-     * no: the price went back to the wallet) or 'review' (no clear answer: nothing refunded, support checks).
+     * no: the price went back to the wallet), 'review' (no clear answer: nothing refunded, support checks) or, with
+     * pre-orders on, 'preorder' instead of either (the order waits for another number; see the class comment).
      * Runs once per order.
      */
     public function deliver(Order $Order): string
@@ -167,7 +323,7 @@ class GoogleVoiceNumbers
                 return 'ok';
             }
             if ($Order->status !== 'pending') {
-                return $Order->status === 'failed' ? 'refunded' : 'review';
+                return match ($Order->status) { 'failed' => 'refunded', 'preorder' => 'preorder', default => 'review' };
             }
             $Item = OrderItem::where('order_id', $Order->id)->first();
             $Detail = json_decode($Item->detail, true) ?: [];
@@ -184,6 +340,21 @@ class GoogleVoiceNumbers
                 $this->saveDelivered($Order, $Item, $Detail, $Bought);
                 $this->notify($Order, 'تحویل شد');
                 return 'ok';
+            }
+            if ($this->settings()['preorder']) {
+                // Pre-orders on: the buyer keeps a paid order and gets the next number that fits (fillPreorders()).
+                // Refused: that number is gone. Unclear: it may be ours, so an admin checks before any refill.
+                $Tried = ['id' => (int)$Detail['numberland_id'], 'number' => (string)($Detail['number'] ?? '')];
+                $Keep = array_diff_key($Detail, array_flip(['numberland_id', 'number', 'cost']));
+                $Item->detail = json_encode(['preorder' => true, 'wanted' => $Keep['wanted'] ?? $Tried, 'tries' => $Keep['tries'] ?? 0]
+                    + ($Result < 0 ? [] : ['unclear' => $Tried]) + $Keep);
+                $Item->save();
+                $Order->status = 'preorder';
+                $Order->detail = 'پیش‌سفارش: شماره شما به محض موجود شدن تحویل می‌شود.';
+                $Order->save();
+                Log::warning('Google Voice: Numberland ' . ($Result < 0 ? 'refused' : 'unclear') . ', now a pre-order', ['order' => $Order->id, 'response' => $Body]);
+                $this->notify($Order, $Result < 0 ? 'نامبرلند رد کرد؛ به پیش‌سفارش تبدیل شد' : 'پاسخ نامبرلند نامشخص؛ پیش‌سفارش (قبل از تحویل مجدد، خرید قبلی را در نامبرلند بررسی کنید)');
+                return 'preorder';
             }
             if ($Result < 0) {
                 // Numberland refused (sold to someone else, no balance, …): give the money back.
@@ -255,7 +426,9 @@ class GoogleVoiceNumbers
         $Item->user_id = $User->id;
         $Item->type = self::ORDER_TYPE;
         $Item->price = $Number['price'];
-        $Item->detail = json_encode(['numberland_id' => $Number['id'], 'number' => $Number['number'], 'cost' => $Number['cost']]);
+        $Item->detail = json_encode(empty($Number['preorder'])
+            ? ['numberland_id' => $Number['id'], 'number' => $Number['number'], 'cost' => $Number['cost']]
+            : ['preorder' => true, 'wanted' => $Number['wanted'], 'tries' => 0]);
         $Item->save();
         return $Order;
     }

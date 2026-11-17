@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ArrowRight, ExternalLink, Send, Trash2 } from 'lucide-react';
 import { NightCall } from './OrdersList';
-import { postForm, postJson, useQuery } from '../lib/api';
+import { postForm, postJson, useQuery, type ApiError } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman } from '../lib/format';
 import { OrderStatus, PayStatus } from '../components/Status';
@@ -49,6 +49,14 @@ export type Order = {
     items: { id: number; title: string | null; price: number; rows: { label: string; value: string | null; copy?: boolean; ltr?: boolean }[] }[];
     history: { id: number; from: string | null; to: string | null; reason: string | null; by: string | null; at: string | null }[];
     chats: { id: number; from: 'admin' | 'customer'; text: string; by: string | null; at: string | null; unread: boolean }[];
+    /** A Google Voice pre-order (or unclear Numberland order) and what it is waiting for; null for other orders. */
+    gvPreorder: {
+        waiting: boolean;
+        wanted: { id: number; number: string } | null;
+        unclear: { id: number; number: string } | null;
+        tries: number;
+        autofill: boolean;
+    } | null;
 };
 
 /** Order types whose full detail (credentials, IP config) still lives on the old page. */
@@ -611,10 +619,101 @@ function CustomerPanel({ order }: { order: Order }) {
 function ActionsPanel({ order, onChanged }: { order: Order; onChanged: () => void }) {
     return (
         <Panel title="اقدام روی سفارش">
+            {order.gvPreorder?.waiting && (
+                <>
+                    <GvPreorderForm order={order} onChanged={onChanged} />
+                    <div className="my-5 border-t border-stroke" />
+                </>
+            )}
             <StatusForm order={order} onChanged={onChanged} />
             <div className="my-5 border-t border-stroke" />
             <RefundForm order={order} onChanged={onChanged} />
         </Panel>
+    );
+}
+
+/** A paid Google Voice pre-order: buy from Numberland now, or hand over a login typed in by hand. */
+function GvPreorderForm({ order, onChanged }: { order: Order; onChanged: () => void }) {
+    const { csrfToken } = useBoot();
+    const info = order.gvPreorder!;
+    const [busy, setBusy] = useState<'retry' | 'deliver' | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [done, setDone] = useState<string | null>(null);
+    const [login, setLogin] = useState({ number: '', email: '', password: '', recovery: '' });
+    const id = useId();
+
+    async function run(kind: 'retry' | 'deliver') {
+        setBusy(kind);
+        setError(null);
+        setDone(null);
+        setFieldErrors({});
+        try {
+            const res = await postJson<{ success?: string }>(`/admin/api/orders/${order.id}/gv-preorder/${kind}`, csrfToken, kind === 'deliver' ? login : {});
+            setDone(res.success ?? 'انجام شد.');
+            onChanged();
+        } catch (e) {
+            const err = e as ApiError;
+            setFieldErrors(err.fields ?? {});
+            setError(err.fields && Object.keys(err.fields).length ? null : err.message);
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    const input = (key: keyof typeof login, label: string, optional = false) => (
+        <div>
+            <label htmlFor={`${id}-${key}`} className="mb-1 block font-medium">
+                {label}
+                {optional && <span className="font-normal text-muted"> (اختیاری)</span>}
+            </label>
+            <input
+                id={`${id}-${key}`}
+                dir="ltr"
+                className="field latin"
+                value={login[key]}
+                aria-invalid={fieldErrors[key] ? true : undefined}
+                onChange={(e) => setLogin({ ...login, [key]: e.target.value })}
+            />
+            {fieldErrors[key] && <FieldError id={`${id}-${key}-error`}>{fieldErrors[key]}</FieldError>}
+        </div>
+    );
+
+    return (
+        <div>
+            <h3 className="mb-1 font-bold">پیش‌سفارش گوگل ویس</h3>
+            <p className="text-[13px] text-muted">
+                مشتری پرداخت کرده و منتظر شماره است.
+                {info.autofill ? ' تکمیل خودکار روشن است و هر ۵ دقیقه امتحان می‌شود' : ' تکمیل خودکار خاموش است'}
+                {info.tries > 0 && <> · <span className="num">{info.tries}</span> بار تلاش شده</>}.
+                {info.wanted && (
+                    <>
+                        {' '}شماره‌ای که مشتری انتخاب کرده بود: <span dir="ltr" className="num">{info.wanted.number}</span>
+                    </>
+                )}
+            </p>
+            {info.unclear && (
+                <p className="mt-2 rounded-xl bg-warn-soft px-3 py-2.5 text-[13px]">
+                    پاسخ نامبرلند برای شماره <span dir="ltr" className="num">{info.unclear.number}</span> نامشخص بود؛ شاید این شماره خریده شده باشد. پیش از خرید دوباره، «شماره‌های من» را در پنل نامبرلند ببینید و اگر آنجاست، اطلاعاتش را پایین وارد کنید. تکمیل خودکار این سفارش را رد می‌کند.
+                </p>
+            )}
+            <button type="button" className="btn btn-secondary mt-3 w-full" onClick={() => run('retry')} disabled={busy !== null}>
+                {busy === 'retry' ? 'در حال خرید…' : 'خرید از نامبرلند همین حالا'}
+            </button>
+
+            <div className="mt-4 grid gap-3">
+                <p className="text-[13px] font-medium">یا تحویل دستی</p>
+                {input('number', 'شماره')}
+                {input('email', 'جیمیل')}
+                {input('password', 'رمز', true)}
+                {input('recovery', 'ایمیل بازیابی', true)}
+                <button type="button" className="btn btn-primary" onClick={() => run('deliver')} disabled={busy !== null}>
+                    {busy === 'deliver' ? 'در حال ثبت…' : 'تحویل به مشتری'}
+                </button>
+            </div>
+            {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+            {done && <Notice>{done}</Notice>}
+        </div>
     );
 }
 

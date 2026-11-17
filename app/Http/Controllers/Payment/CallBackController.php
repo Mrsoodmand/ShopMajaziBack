@@ -418,6 +418,12 @@ class CallBackController extends Controller
     {
         // Storefront orders for a Numberland number: buy it now that the bank has paid, then go back to the site.
         $Detail = json_decode(optional(OrderItem::where('order_id', $OrderId->id)->first())->detail, true) ?: [];
+        if (!empty($Detail['preorder']) && !isset($Detail['numberland_id'])) {
+            // A storefront pre-order (Numberland couldn't sell): paid now, filled when a number is available.
+            $Order = Order::find($OrderId->id);
+            app(\App\Services\GoogleVoiceNumbers::class)->preorderPaid($Order);
+            return $this->storefrontReturn('preorder', $Order->id) ?? redirect('google-voice');
+        }
         if (isset($Detail['numberland_id'])) {
             $Order = Order::find($OrderId->id);
             if ($Order->status === 'waiting to pay') {

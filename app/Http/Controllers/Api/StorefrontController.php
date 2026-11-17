@@ -411,6 +411,12 @@ class StorefrontController extends Controller
         return $this->success($Data ? ['enabled' => true] + $Data : ['enabled' => false]);
     }
 
+    /* Seconds the storefront caches each section for, where an admin changed them (admin › Cache); others keep Front's own. */
+    public function cacheTimes(\App\Services\CacheManager $Cache): JsonResponse
+    {
+        return $this->success(['times' => (object)$Cache->times()]);
+    }
+
     public function googleVoice(): JsonResponse
     {
         $Page = Pages::find(4);
@@ -438,6 +444,8 @@ class StorefrontController extends Controller
             'numbers' => $Numbers,
             'unavailable' => $Unavailable,
             'disabled' => $Disabled,
+            // {price} when the buyer may pre-order (offered when Numberland is down or has nothing to sell), else null.
+            'preorder' => $Service->preorderOffer(),
         ]);
     }
 
