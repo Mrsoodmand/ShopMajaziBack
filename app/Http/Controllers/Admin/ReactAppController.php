@@ -126,6 +126,7 @@ class ReactAppController extends Controller
                 $isSuper ? ['label' => 'ارزها و سود', 'icon' => 'pricing', 'to' => '/pricing'] : null,
                 $isSuper ? ['label' => 'درگاه‌های پرداخت', 'icon' => 'bank', 'to' => '/payment-gateways'] : null,
                 $isSuper ? ['label' => 'مدیریت کش', 'icon' => 'cache', 'to' => '/cache'] : null,
+                $isSuper ? ['label' => 'کپچا', 'icon' => 'captcha', 'to' => '/captcha'] : null,
                 $isSuper ? ['label' => 'نقش‌ها و دسترسی‌ها', 'icon' => 'roles', 'to' => '/roles'] : null,
                 $isSuper ? ['label' => 'مدیران', 'icon' => 'admins', 'to' => '/admins'] : null,
                 $can(['partner-list']) ? ['label' => 'همکاران', 'icon' => 'partners', 'to' => '/partners'] : null,

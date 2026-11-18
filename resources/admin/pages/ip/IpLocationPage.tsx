@@ -94,7 +94,7 @@ export default function IpLocationPage() {
                     className={`relative shrink-0 px-3 py-3 ${tab === t.id ? 'font-bold text-ink' : 'text-muted hover:text-ink'}`}
                 >
                     {t.label}
-                    {tab === t.id && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-ink" />}
+                    {tab === t.id && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
                 </button>
             ))}
         </nav>
@@ -317,7 +317,7 @@ function Servers({ location, servers, onChange, nav }: { location: Location & { 
                     ),
                 )}
                 {!servers.length && editing !== 'new' && (
-                    <div className="rounded-2xl border border-stroke bg-surface">
+                    <div className="rounded-xl border border-stroke bg-surface shadow-card">
                         <EmptyState>این کشور هنوز سروری ندارد.</EmptyState>
                     </div>
                 )}
@@ -349,7 +349,7 @@ function ServerCard({ server: s, onEdit, onMade }: { server: ServerRow; onEdit: 
     }
 
     return (
-        <section aria-label={`سرور ${s.name}`} className="rounded-2xl border border-stroke bg-surface p-5">
+        <section aria-label={`سرور ${s.name}`} className="rounded-xl border border-stroke bg-surface shadow-card p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <span className="grid size-10 place-items-center rounded-xl bg-surface-2">
@@ -440,7 +440,7 @@ function ServerEditor({ locationId, server, onCancel, onSaved }: { locationId: n
     );
 
     return (
-        <form onSubmit={submit} noValidate className="rounded-2xl border-2 border-primary/40 bg-surface p-5">
+        <form onSubmit={submit} noValidate className="rounded-xl border-2 border-primary/40 bg-surface p-5">
             <h2 className="mb-4 text-[16px] font-bold">{server ? `ویرایش سرور ${server.name}` : 'سرور جدید'}</h2>
             <div className="grid gap-4 sm:grid-cols-3">
                 {input('name', 'نام کوتاه', { ltr: true, placeholder: 'de1', hint: 'نام کلاینت‌ها: de1-1، de1-2، …' })}
@@ -532,7 +532,7 @@ function Clients({ location, servers, nav }: { location: Location & { id: number
                     <SearchField value={list.values.q} onSearch={(q) => list.update({ q })} label="جستجوی کلاینت" placeholder="نام کلاینت یا شماره سفارش" />
                 </div>
             </div>
-            <section aria-label="فهرست کلاینت‌ها" aria-busy={loading} className="overflow-hidden rounded-2xl border border-stroke bg-surface">
+            <section aria-label="فهرست کلاینت‌ها" aria-busy={loading} className="overflow-hidden rounded-xl border border-stroke bg-surface shadow-card">
                 {error ? (
                     <ErrorState error={error} onRetry={reload} />
                 ) : !data ? (

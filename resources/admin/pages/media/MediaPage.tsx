@@ -36,12 +36,12 @@ export default function MediaPage() {
                 </p>
             </div>
             {error ? (
-                <p role="alert" className="flex items-start gap-2 rounded-2xl border border-stroke bg-surface p-5 font-bold text-error">
+                <p role="alert" className="flex items-start gap-2 rounded-xl border border-stroke bg-surface shadow-card p-5 font-bold text-error">
                     <AlertTriangle aria-hidden size={18} className="mt-0.5 shrink-0" />
                     {error}
                 </p>
             ) : (
-                <div id="media-library" aria-label="کتابخانه رسانه" className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-stroke bg-surface" />
+                <div id="media-library" aria-label="کتابخانه رسانه" className="min-h-0 flex-1 overflow-hidden rounded-xl border border-stroke bg-surface shadow-card" />
             )}
         </div>
     );

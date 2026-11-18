@@ -20,8 +20,8 @@ Route::get('/faq', function () {
     return view('site-v2.faq', ['PageSeo' => app(\App\Services\PageSeo::class)->resolved('faq')]); // admin › SEO
 });
 Route::get('/contact-us', 'v2\HomeController@ContactUs');
-Route::post('/contact-us/submit', 'v2\HomeController@submitContactUs');
-Route::post('/send-comment', 'v2\HomeController@sendComment')->name('sendComment');
+Route::post('/contact-us/submit', 'v2\HomeController@submitContactUs')->middleware('captcha:contact');
+Route::post('/send-comment', 'v2\HomeController@sendComment')->name('sendComment')->middleware(['throttle:5,1', 'captcha:comment']);
 
 /* Factor */
 Route::group(['prefix' => 'wedding'], function () {
@@ -106,8 +106,9 @@ Route::group(['prefix' => 'virtual-service'], function () {
     Route::get('/{category}', 'v2\VirtualServiceController@ServiceCategory');
     Route::get('/{category}/{id}', 'v2\VirtualServiceController@SingleService')->name('virtual-service');
 });
-/* v2 */
-Route::group(['prefix' => 'login'], function () {
+/* v2: the old sign-in (footer modal), replaced by the Next.js /login page. Most of these send SMS, so they keep the
+   new sign-in's captcha and rate limit; the modal itself now sends people to /login (site-v2/layout/footer). */
+Route::group(['prefix' => 'login', 'middleware' => ['throttle:storefront-auth', 'captcha:login']], function () {
     Route::post('/check-user', 'v2\LoginAndRegisterController@CheckNumber')->name('CheckNumber');
     Route::post('/login', 'v2\LoginAndRegisterController@Login');
     Route::post('/register', 'v2\LoginAndRegisterController@NewRegister')->name('NewRegister');
@@ -129,7 +130,7 @@ Route::group(['prefix' => 'cart'], function () {
    through the Next.js /api/v1 rewrite. POSTs need the X-XSRF-TOKEN header (from the XSRF-TOKEN cookie). */
 Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], function () {
     Route::get('me', 'StorefrontAccountController@me');
-    Route::group(['middleware' => 'throttle:storefront-auth'], function () {
+    Route::group(['middleware' => ['throttle:storefront-auth', 'captcha:login']], function () {
         Route::post('start', 'StorefrontAccountController@start');
         Route::post('code', 'StorefrontAccountController@code');
         Route::post('login', 'StorefrontAccountController@login');
@@ -260,25 +261,30 @@ Route::group(['prefix' => 'admin-url-login-with-secure-path', 'namespace' => '\A
     Route::get('/logout', 'AdminAuth\LoginController@logout')->name('logout');
 });
 
-Route::group(['prefix' => 'user'], function () {
-    Route::get('/login', 'UserAuth\LoginController@showLoginForm')->name('login');
-    Route::post('/login', 'UserAuth\LoginController@login');
+/* The old user sign-in pages now go to the Next.js /login page (it handles sign-up and SMS codes too). Their POST
+   endpoints stay, behind the new sign-in's captcha and rate limit, since most send SMS. */
+$ToNewLogin = function (\Illuminate\Http\Request $request) {
+    $Next = parse_url((string)session()->pull('url.intended'), PHP_URL_PATH); // set by RedirectIfNotUser
+    $Ok = $Next && $Next !== '/' && !preg_match('#^/user/(login|register|password)#', $Next);
+    return redirect($Ok ? '/login?next=' . rawurlencode($Next) : '/login');
+};
+Route::group(['prefix' => 'user'], function () use ($ToNewLogin) {
+    Route::get('/login', $ToNewLogin)->name('login');
     Route::get('/logout', 'UserAuth\LoginController@logout')->name('logout');
+    Route::get('/password/reset', $ToNewLogin)->name('password.reset');
+    Route::get('/register', $ToNewLogin)->name('register');
+    Route::get('/password/reset/{token}', $ToNewLogin);
 
-    Route::post('/register/step1', 'Site\RegisterController@Step1');
-    Route::post('/register/step2', 'Site\RegisterController@step2');
-    Route::post('reset-password-v2', 'Site\RegisterController@resetPassword');
-
-    Route::get('/password/reset', 'UserAuth\ForgotPasswordController@showLinkRequestForm')->name('password.reset');
-    Route::post('/password/send-code', 'Site\RegisterController@SendCode')->name('send-code');
-
-    Route::get('/register', 'UserAuth\RegisterController@showRegistrationForm')->name('register');
-//  Route::post('/register', 'UserAuth\RegisterController@register');
-
-    Route::post('/password/email', 'UserAuth\ForgotPasswordController@sendResetLinkEmail')->name('password.request');
-    Route::post('/password/reset', 'UserAuth\ResetPasswordController@reset')->name('password.email');
-    Route::get('/password/reset', 'UserAuth\ForgotPasswordController@showLinkRequestForm')->name('user-password-reset');
-    Route::get('/password/reset/{token}', 'UserAuth\ResetPasswordController@showResetForm');
+    Route::group(['middleware' => ['throttle:storefront-auth', 'captcha:login']], function () {
+        Route::post('/login', 'UserAuth\LoginController@login');
+        Route::post('/register/step1', 'Site\RegisterController@Step1');
+        Route::post('/register/step2', 'Site\RegisterController@step2');
+        Route::post('reset-password-v2', 'Site\RegisterController@resetPassword');
+        Route::post('/password/send-code', 'Site\RegisterController@SendCode')->name('send-code');
+//      Route::post('/register', 'UserAuth\RegisterController@register');
+        Route::post('/password/email', 'UserAuth\ForgotPasswordController@sendResetLinkEmail')->name('password.request');
+        Route::post('/password/reset', 'UserAuth\ResetPasswordController@reset')->name('password.email');
+    });
 });
 
 
@@ -287,14 +293,14 @@ Route::get('ChargeForMom', [\App\Http\Controllers\Site\ShopController::class, 'C
 
 Route::group(['prefix' => 'partner'], function () {
   Route::get('/login', 'PartnerAuth\LoginController@showLoginForm')->name('login');
-  Route::post('/login', 'PartnerAuth\LoginController@login');
+  Route::post('/login', 'PartnerAuth\LoginController@login')->middleware('captcha:partner');
   Route::post('/logout', 'PartnerAuth\LoginController@logout')->name('logout');
 
   Route::get('/register', 'PartnerAuth\RegisterController@showRegistrationForm')->name('register');
-  Route::post('/register', 'PartnerAuth\RegisterController@register');
+  Route::post('/register', 'PartnerAuth\RegisterController@register')->middleware('captcha:partner');
 
-  Route::post('/password/email', 'PartnerAuth\ForgotPasswordController@sendResetLinkEmail')->name('password.request');
-  Route::post('/password/reset', 'PartnerAuth\ResetPasswordController@reset')->name('password.email');
+  Route::post('/password/email', 'PartnerAuth\ForgotPasswordController@sendResetLinkEmail')->name('password.request')->middleware('captcha:partner');
+  Route::post('/password/reset', 'PartnerAuth\ResetPasswordController@reset')->name('password.email')->middleware('captcha:partner');
   Route::get('/password/reset', 'PartnerAuth\ForgotPasswordController@showLinkRequestForm')->name('password.reset');
   Route::get('/password/reset/{token}', 'PartnerAuth\ResetPasswordController@showResetForm');
 });

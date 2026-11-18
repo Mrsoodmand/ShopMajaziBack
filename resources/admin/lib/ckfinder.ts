@@ -1,3 +1,4 @@
+import { isDark } from './theme';
 /*
  * CKFinder, the media library (files under public/upload, connector Admin › routes/admin.php `ckfinder/*`, behind the
  * admin login). Its script is loaded on first use, not with the admin bundle.
@@ -21,12 +22,12 @@ declare global {
 export const CKFINDER_CONNECTOR = '/admin/ckfinder/connector';
 const SCRIPT = '/js/ckfinder/ckfinder.js';
 
-// Persian (right to left), talking to the admin-only connector; dark like the admin when the device is dark
+// Persian (right to left), talking to the admin-only connector; dark when the admin is showing dark
 // (the jquery-mobile skin's "b" swatch; the default skin has no dark version).
 export const ckfinderBase = {
     connectorPath: CKFINDER_CONNECTOR,
     language: 'fa',
-    ...(window.matchMedia?.('(prefers-color-scheme: dark)').matches ? { skin: 'jquery-mobile', swatch: 'b' } : {}),
+    ...(isDark() ? { skin: 'jquery-mobile', swatch: 'b' } : {}),
 };
 
 let loading: Promise<CKFinderApi> | null = null;

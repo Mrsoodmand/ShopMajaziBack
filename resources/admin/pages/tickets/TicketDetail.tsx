@@ -88,14 +88,14 @@ export default function TicketDetail() {
 
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="min-w-0 space-y-6">
-                    <section aria-label="گفتگو" className="rounded-2xl border border-stroke bg-surface p-5">
+                    <section aria-label="گفتگو" className="rounded-xl border border-stroke bg-surface shadow-card p-5">
                         {messages.length === 0 ? (
                             <p className="text-muted">پیامی ندارد.</p>
                         ) : (
                             <ol className="space-y-4">
                                 {messages.map((m) => (
                                     <li key={m.id} className={`flex ${m.from === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${m.from === 'admin' ? 'rounded-ee-md bg-indigo-soft' : 'rounded-es-md bg-surface-2'}`}>
+                                        <div className={`max-w-[85%] rounded-xl px-4 py-3 ${m.from === 'admin' ? 'rounded-ee-md bg-indigo-soft' : 'rounded-es-md bg-surface-2'}`}>
                                             <p className="mb-1 flex flex-wrap gap-x-2 text-[12px] text-muted">
                                                 <span className="font-bold text-body">{m.from === 'admin' ? m.operator : ticket.user?.name || 'کاربر'}</span>
                                                 <span dir="ltr" className="num">{m.createdAt}</span>
@@ -121,7 +121,7 @@ export default function TicketDetail() {
                         )}
                     </section>
 
-                    <section aria-label="پاسخ" className="rounded-2xl border border-stroke bg-surface p-5">
+                    <section aria-label="پاسخ" className="rounded-xl border border-stroke bg-surface shadow-card p-5">
                         <label htmlFor="ticket-reply" className="mb-1 block font-medium">
                             پاسخ شما
                         </label>

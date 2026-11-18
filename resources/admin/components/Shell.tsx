@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
-import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap } from 'lucide-react';
+import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, ExternalLink, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot } from 'lucide-react';
 import { useBoot, type MenuLink } from '../lib/boot';
+import { useTheme, type ThemeChoice } from '../lib/theme';
 
 const icons: Record<string, LucideIcon> = {
     home: House,
@@ -28,14 +29,15 @@ const icons: Record<string, LucideIcon> = {
     partners: Handshake,
     pricing: BadgePercent,
     cache: DatabaseZap,
+    captcha: Bot,
 };
 
 // One easing for the rail: quick to start, soft to land.
 const EASE = 'ease-[cubic-bezier(0.16,1,0.3,1)]';
 
 const rowClass =
-    'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] text-rail-ink transition-colors duration-150 hover:bg-rail-hover hover:text-white focus-visible:outline-offset-0';
-const iconClass = 'shrink-0 text-rail-muted transition-colors duration-150 group-hover:text-rail-ink';
+    'group flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-[13.5px] text-rail-ink transition-colors duration-150 hover:bg-rail-hover hover:text-rail-strong focus-visible:outline-offset-0';
+const iconClass = 'shrink-0 text-rail-muted transition-colors duration-150 group-hover:text-rail-strong';
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -47,7 +49,7 @@ function MenuItem({ item }: { item: MenuLink }) {
     const Icon = item.icon ? icons[item.icon] : undefined;
     const childActive = !!item.children?.some((c) => c.to && isActive(c.to, location.pathname, location.search));
     const active = !!item.to && isActive(item.to, location.pathname, location.search);
-    const icon = Icon ? <Icon aria-hidden size={18} strokeWidth={1.75} className={`${iconClass} ${active ? '!text-white' : ''}`} /> : null;
+    const icon = Icon ? <Icon aria-hidden size={18} strokeWidth={1.75} className={`${iconClass} ${active ? '!text-rail-active-ink' : ''}`} /> : null;
     const group = useContext(OpenGroup);
     const open = group.open === item.label;
     const setOpen = (on: boolean) => group.setOpen(on ? item.label : null);
@@ -64,7 +66,7 @@ function MenuItem({ item }: { item: MenuLink }) {
             <li>
                 <button
                     type="button"
-                    className={`${rowClass} aria-expanded:text-white`}
+                    className={`${rowClass} ${childActive ? 'font-semibold !text-rail-strong' : ''}`}
                     aria-expanded={open}
                     onClick={() => {
                         opened.current = !open;
@@ -90,7 +92,7 @@ function MenuItem({ item }: { item: MenuLink }) {
                     }}
                 >
                     <div className="min-h-0 overflow-hidden">
-                        <ul className={`space-y-0.5 ps-9 pt-0.5 pb-1 transition-opacity ${EASE} ${open ? 'opacity-100 delay-75 duration-300' : 'opacity-0 duration-150'}`}>
+                        <ul className={`ms-[21px] my-1 space-y-0.5 border-s border-stroke ps-3 transition-opacity ${EASE} ${open ? 'opacity-100 delay-75 duration-300' : 'opacity-0 duration-150'}`}>
                             {item.children.map((child) => (
                                 <MenuItem key={child.label + (child.to ?? child.href)} item={child} />
                             ))}
@@ -105,7 +107,7 @@ function MenuItem({ item }: { item: MenuLink }) {
         // The highlight behind the active link is the rail's shared pill (see Sidebar), so it can glide.
         return (
             <li>
-                <Link to={item.to} aria-current={active ? 'page' : undefined} className={`${rowClass} ${active ? 'font-medium !text-white' : ''}`}>
+                <Link to={item.to} aria-current={active ? 'page' : undefined} className={`${rowClass} ${item.icon ? '' : '!px-2.5 !text-[13px]'} ${active ? 'font-semibold !text-rail-active-ink hover:!bg-transparent' : ''}`}>
                     {icon}
                     {item.label}
                 </Link>
@@ -220,21 +222,24 @@ function Sidebar() {
     }, []);
 
     return (
-        <nav aria-label="منوی اصلی" className="flex h-full flex-col border-e border-white/10 bg-rail">
-            <div className="flex h-14 shrink-0 items-center gap-2.5 px-5">
-                <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-primary text-[13px] font-bold text-primary-ink">
+        <nav aria-label="منوی اصلی" className="flex h-full flex-col border-e border-stroke bg-rail">
+            <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-stroke px-5">
+                <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-primary text-sm font-black text-primary-ink">
                     ش
                 </span>
-                <span className="font-bold text-white">مدیریت شاپ مجازی</span>
+                <span className="leading-tight">
+                    <span className="block text-[15px] font-bold text-ink">شاپ مجازی</span>
+                    <span className="block text-[11px] text-subtle">پنل مدیریت</span>
+                </span>
             </div>
-            <div ref={scroller} className="rail-scroll flex-1 overflow-y-auto overscroll-contain px-3 pb-6">
+            <div ref={scroller} className="rail-scroll flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-6">
                 <div ref={content} className="relative">
                     <span ref={pill} aria-hidden className="rail-pill pointer-events-none absolute top-0 left-0 rounded-lg bg-rail-active opacity-0" />
                     <OpenGroup.Provider value={{ open: openGroup, setOpen: setOpenGroup }}>
                     <div className="relative">
                         {menu.map((section, i) => (
-                            <div key={section.title ?? i} className="mt-4 first:mt-1">
-                                {section.title && <h2 className="px-3 pb-1.5 text-[12px] font-medium text-rail-muted">{section.title}</h2>}
+                            <div key={section.title ?? i} className="mt-3.5 first:mt-0">
+                                {section.title && <h2 className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-rail-muted">{section.title}</h2>}
                                 <ul className="space-y-0.5">
                                     {section.items.map((item) => (
                                         <MenuItem key={item.label} item={item} />
@@ -304,6 +309,34 @@ function HeaderClock() {
     );
 }
 
+const themeOptions: { value: ThemeChoice; label: string; icon: LucideIcon }[] = [
+    { value: 'light', label: 'روشن', icon: Sun },
+    { value: 'dark', label: 'تیره', icon: Moon },
+    { value: 'system', label: 'سیستم', icon: Monitor },
+];
+
+function ThemeSwitch() {
+    const { choice, setChoice } = useTheme();
+    return (
+        <div role="radiogroup" aria-label="حالت نمایش" className="flex items-center rounded-lg border border-stroke bg-surface-2 p-0.5">
+            {themeOptions.map(({ value, label, icon: Icon }) => (
+                <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={choice === value}
+                    aria-label={label}
+                    title={label}
+                    onClick={() => setChoice(value)}
+                    className={`grid size-7 place-items-center rounded-md transition-colors ${choice === value ? 'bg-surface text-ink shadow-card' : 'text-subtle hover:text-ink'}`}
+                >
+                    <Icon aria-hidden size={16} />
+                </button>
+            ))}
+        </div>
+    );
+}
+
 export default function Shell() {
     const { admin, links } = useBoot();
     const drawer = useRef<HTMLDialogElement>(null);
@@ -315,7 +348,7 @@ export default function Shell() {
     }, [location.pathname, location.search]);
 
     return (
-        <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
+        <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
             <aside className="sticky top-0 hidden h-dvh lg:block">
                 <Sidebar />
             </aside>
@@ -331,7 +364,7 @@ export default function Shell() {
                     <Sidebar />
                     <button
                         type="button"
-                        className="absolute top-3 end-3 grid size-9 place-items-center rounded-lg text-rail-ink hover:bg-rail-hover"
+                        className="absolute top-3.5 end-2 grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink"
                         onClick={() => drawer.current?.close()}
                         aria-label="بستن منو"
                     >
@@ -341,7 +374,7 @@ export default function Shell() {
             </dialog>
 
             <div className="flex min-w-0 flex-col">
-                <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-stroke bg-surface/90 px-4 backdrop-blur sm:px-6">
+                <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-stroke bg-surface/85 px-4 backdrop-blur sm:px-6">
                     <button
                         type="button"
                         className="btn btn-ghost -ms-2 lg:hidden"
@@ -352,16 +385,24 @@ export default function Shell() {
                     </button>
                     <HeaderClock />
                     <div className="flex-1" />
-                    <a href={links.legacyHome} className="btn btn-ghost hidden text-[13px] font-medium sm:inline-flex">
+                    <a href={links.legacyHome} className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted hover:bg-surface-2 hover:text-ink sm:inline-flex">
+                        <ExternalLink aria-hidden size={16} />
                         پنل قدیمی
                     </a>
-                    <span className="hidden h-5 w-px bg-stroke sm:block" aria-hidden />
-                    <span className="px-2 text-[13px] text-body">{admin.name}</span>
-                    <a href={links.logout} className="btn btn-ghost" aria-label="خروج" title="خروج">
-                        <LogOut aria-hidden size={18} className="rtl:-scale-x-100" />
-                    </a>
+                    <ThemeSwitch />
+                    <div className="flex items-center gap-1 border-s border-stroke ps-3">
+                        <span className="flex items-center gap-2 px-1">
+                            <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-[13px] font-bold text-indigo">
+                                {admin.name?.trim().charAt(0) || <UserRound size={16} />}
+                            </span>
+                            <span className="hidden text-[13px] font-semibold text-ink sm:block">{admin.name}</span>
+                        </span>
+                        <a href={links.logout} className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink" aria-label="خروج" title="خروج">
+                            <LogOut aria-hidden size={18} className="rtl:-scale-x-100" />
+                        </a>
+                    </div>
                 </header>
-                <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+                <main className="mx-auto w-full max-w-[1400px] flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:py-8">
                     <Outlet />
                 </main>
             </div>

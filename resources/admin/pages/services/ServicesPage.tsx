@@ -44,7 +44,7 @@ export default function ServicesPage() {
                 <ErrorState error={cats.error} onRetry={cats.reload} boxed />
             ) : (
                 <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-                    <nav aria-label="پلتفرم‌ها" className="rounded-2xl border border-stroke bg-surface p-2">
+                    <nav aria-label="پلتفرم‌ها" className="rounded-xl border border-stroke bg-surface shadow-card p-2">
                         {!cats.data ? (
                             <div className="space-y-2 p-2">
                                 {[0, 1, 2].map((i) => (
@@ -84,7 +84,7 @@ export default function ServicesPage() {
                         )}
                     </nav>
 
-                    <section aria-labelledby="platform-services" className="min-w-0 rounded-2xl border border-stroke bg-surface">
+                    <section aria-labelledby="platform-services" className="min-w-0 rounded-xl border border-stroke bg-surface shadow-card">
                         {selected && (
                             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stroke px-5 py-4">
                                 <div className="flex min-w-0 items-center gap-3">
@@ -152,7 +152,7 @@ const serviceViews = [
 
 function ServiceState({ live }: { live: boolean }) {
     return (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium ${live ? 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-300' : 'bg-surface-2 text-muted'}`}>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium ${live ? 'bg-success-soft text-success' : 'bg-surface-2 text-muted'}`}>
             {live ? 'فعال' : 'غیرفعال'}
         </span>
     );
@@ -225,7 +225,7 @@ function ServicesTable({
                                     type="button"
                                     aria-pressed={active}
                                     onClick={() => list.update({ live: t.id })}
-                                    className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[14px] transition-colors ${active ? 'bg-ink font-medium text-surface' : 'text-body hover:bg-surface-2'}`}
+                                    className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[14px] transition-colors ${active ? 'bg-primary-soft font-semibold text-indigo' : 'text-muted hover:bg-surface-2 hover:text-ink'}`}
                                 >
                                     {t.label}
                                     <span className={`num min-w-6 rounded-md px-1.5 text-center text-[12px] ${active ? 'bg-surface/20' : 'bg-surface-2 text-muted'}`}>{counts ? counts[t.id] : '…'}</span>

@@ -18,7 +18,7 @@ const toneClass: Record<Tone, string> = {
     info: 'bg-indigo-soft text-indigo',
     progress: 'bg-sky-500/12 text-sky-700 dark:text-sky-300',
     warn: 'bg-warn-soft text-warn',
-    success: 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-300',
+    success: 'bg-success-soft text-success',
     danger: 'bg-error-soft text-error',
 };
 

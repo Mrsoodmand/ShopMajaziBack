@@ -31,7 +31,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
     return (
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-                <h1 className="text-[22px] leading-tight font-bold">{title}</h1>
+                <h1 className="text-xl leading-tight font-bold tracking-tight">{title}</h1>
                 {subtitle && <p className="mt-1 text-muted">{subtitle}</p>}
             </div>
             {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -52,7 +52,7 @@ export function EmptyState({ children, action }: { children: ReactNode; action?:
 /** A bar above a list asking for attention (orders waiting for stock and the like). */
 export function AttentionBar({ children, action }: { children: ReactNode; action?: ReactNode }) {
     return (
-        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-warn-soft px-4 py-3 text-warn">
+        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-warn-soft px-4 py-3 text-warn">
             <p className="flex items-start gap-2 font-medium">
                 <AlertTriangle aria-hidden size={18} className="mt-0.5 shrink-0" />
                 <span>{children}</span>
@@ -133,7 +133,7 @@ export function FaqEditor({ rows, onChange, errors }: { rows: FaqRow[]; onChange
 
 /** A small count pill. */
 export function CountPill({ n, tone = 'neutral' }: { n: number; tone?: 'neutral' | 'warn' | 'success' }) {
-    const cls = tone === 'warn' ? 'bg-warn-soft text-warn' : tone === 'success' ? 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-300' : 'bg-surface-2 text-muted';
+    const cls = tone === 'warn' ? 'bg-warn-soft text-warn' : tone === 'success' ? 'bg-success-soft text-success' : 'bg-surface-2 text-muted';
     return <span className={`num inline-block min-w-6 rounded-md px-1.5 text-center text-[12px] font-medium ${cls}`}>{count(n)}</span>;
 }
 
@@ -152,7 +152,7 @@ export function EditorSkeleton() {
     return (
         <div className="mx-auto max-w-[1280px]" aria-label="در حال بارگذاری">
             <div className="skeleton mb-6 h-7 w-64" />
-            <div className="skeleton h-96 rounded-2xl" />
+            <div className="skeleton h-96 rounded-xl" />
         </div>
     );
 }

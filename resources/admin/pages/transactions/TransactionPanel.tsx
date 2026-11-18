@@ -47,7 +47,7 @@ export default function TransactionPanel({
             onKeyDown={(e) => {
                 if (e.key === 'Escape' && !(e.target as HTMLElement).closest('input, textarea, select')) onClose();
             }}
-            className="min-w-0 rounded-2xl border border-stroke bg-surface lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto"
+            className="min-w-0 rounded-xl border border-stroke bg-surface shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto"
         >
             <button type="button" onClick={onClose} className="flex items-center gap-1.5 px-5 pt-4 text-muted hover:text-ink lg:hidden">
                 <ArrowRight aria-hidden size={16} />

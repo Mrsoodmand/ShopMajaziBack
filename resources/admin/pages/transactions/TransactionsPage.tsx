@@ -120,7 +120,7 @@ export default function TransactionsPage() {
                 <section
                     aria-label="لیست تراکنش‌ها"
                     aria-busy={loading}
-                    className={`@container min-w-0 overflow-hidden rounded-2xl border border-stroke bg-surface ${openId ? 'hidden lg:block' : ''}`}
+                    className={`@container min-w-0 overflow-hidden rounded-xl border border-stroke bg-surface shadow-card ${openId ? 'hidden lg:block' : ''}`}
                 >
                     {error && !data ? (
                         <ErrorState error={error} onRetry={reload} />
@@ -295,7 +295,7 @@ function UserChip({ id, user, onClear }: { id: string; user: { id: number; name:
 function Placeholder({ view, reviewCount }: { view: View; reviewCount: number | null }) {
     const queue = view === 'review';
     return (
-        <aside className="hidden rounded-2xl border border-dashed border-field px-6 py-10 text-center xl:sticky xl:top-20 xl:block" aria-label="راهنما">
+        <aside className="hidden rounded-xl border border-dashed border-field px-6 py-10 text-center xl:sticky xl:top-20 xl:block" aria-label="راهنما">
             {queue ? <Scale aria-hidden size={26} className="mx-auto text-muted" /> : <MousePointerClick aria-hidden size={26} className="mx-auto text-muted" />}
             <h2 className="mt-3 font-bold">{queue ? 'مغایرت یعنی چه؟' : 'یک تراکنش را باز کنید'}</h2>
             <p className="mx-auto mt-2 max-w-[300px] text-body">

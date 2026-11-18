@@ -120,7 +120,7 @@ export default function ServiceEditor() {
         return (
             <div className="mx-auto max-w-[1280px]" aria-label="در حال بارگذاری">
                 <div className="skeleton mb-6 h-7 w-64" />
-                <div className="skeleton h-96 rounded-2xl" />
+                <div className="skeleton h-96 rounded-xl" />
             </div>
         );
     }
@@ -227,7 +227,7 @@ export default function ServiceEditor() {
                         ).map(([value, title, hint]) => (
                             <label
                                 key={value}
-                                className={`flex cursor-pointer gap-3 rounded-2xl border-2 p-3.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring ${
+                                className={`flex cursor-pointer gap-3 rounded-xl border-2 p-3.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring ${
                                     form.pricing === value ? 'border-primary' : 'border-stroke hover:border-field'
                                 }`}
                             >

@@ -70,7 +70,7 @@ function LoginPage({ boot }: { boot: LoginBoot }) {
                     <span className="text-[16px] font-bold">مدیریت شاپ مجازی</span>
                 </div>
 
-                <form noValidate onSubmit={submit} className="rounded-2xl border border-stroke bg-surface p-6 shadow-[0_12px_32px_-16px_rgb(15_23_42/0.18)] sm:p-8">
+                <form noValidate onSubmit={submit} className="rounded-xl border border-stroke bg-surface p-6 shadow-[0_12px_32px_-16px_rgb(15_23_42/0.18)] sm:p-8">
                     <h1 className="text-[20px] leading-tight font-bold">ورود</h1>
                     <p className="mt-1 text-muted">با ایمیل و کلمه عبور مدیر وارد شوید.</p>
 

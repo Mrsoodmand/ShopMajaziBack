@@ -88,7 +88,7 @@ export default function GatewaysPage() {
         return (
             <div className="mx-auto max-w-[1280px]" aria-label="در حال بارگذاری">
                 <div className="skeleton mb-6 h-7 w-64" />
-                <div className="skeleton h-96 rounded-2xl" />
+                <div className="skeleton h-96 rounded-xl" />
             </div>
         );
     }

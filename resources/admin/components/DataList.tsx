@@ -129,7 +129,7 @@ export function FilterBar({
                     >
                         <ListFilter aria-hidden size={16} />
                         فیلترها
-                        {chips.length > 0 && <span className="num grid min-w-5 place-items-center rounded-md bg-ink px-1 text-[12px] text-surface">{chips.length}</span>}
+                        {chips.length > 0 && <span className="num grid min-w-5 place-items-center rounded-md bg-primary px-1 text-[12px] text-primary-ink">{chips.length}</span>}
                         <ChevronDown aria-hidden size={15} className={`text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
                     </button>
                 )}
@@ -169,7 +169,7 @@ export function FilterBar({
                     className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
                 >
                     <div className="min-h-0 overflow-hidden">
-                        <div className={`rounded-2xl border border-stroke bg-surface p-4 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`rounded-xl border border-stroke bg-surface shadow-card p-4 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}>
                             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
                                 {filters.map((d) => (
                                     <FilterControl key={d.type === 'dates' ? (d.from ?? 'from') : d.type === 'range' ? (d.min ?? 'min') : d.key} def={d} values={values} onChange={onChange} />
@@ -454,7 +454,7 @@ export function DataTable<T>({
 
     return (
         <>
-            <section aria-label={label} aria-busy={loading} className="relative overflow-clip rounded-2xl border border-stroke bg-surface">
+            <section aria-label={label} aria-busy={loading} className="relative overflow-clip rounded-xl border border-stroke bg-surface shadow-card">
                 {loading && rows && <span aria-hidden className="list-progress absolute inset-x-0 top-0 z-[2] h-0.5" />}
                 {error && !rows ? (
                     <ErrorState error={error} onRetry={onRetry ?? (() => {})} />
@@ -466,9 +466,9 @@ export function DataTable<T>({
                     <div className={`transition-opacity ${loading ? 'opacity-60' : ''}`}>
                         <table className="hidden w-full md:table">
                             <thead>
-                                <tr className="text-[13px] text-muted">
+                                <tr className="text-[12.5px] text-muted">
                                     {selection && (
-                                        <th scope="col" className="sticky top-14 z-[3] w-10 border-b border-stroke bg-surface py-3 ps-5">
+                                        <th scope="col" className="sticky top-16 z-[3] w-10 border-b border-stroke bg-surface-2 py-2.5 ps-5">
                                             <input
                                                 type="checkbox"
                                                 className="size-4 accent-[var(--primary)]"
@@ -485,12 +485,12 @@ export function DataTable<T>({
                                         <th
                                             key={c.key}
                                             scope="col"
-                                            className={`sticky top-14 z-[3] border-b border-stroke bg-surface py-3 font-medium whitespace-nowrap ${c.align === 'end' ? 'text-end' : 'text-start'} ${i === 0 && !selection ? 'ps-5 pe-3' : 'px-3'} ${c.from ? showFrom[c.from] : ''}`}
+                                            className={`sticky top-16 z-[3] border-b border-stroke bg-surface-2 py-2.5 font-medium whitespace-nowrap ${c.align === 'end' ? 'text-end' : 'text-start'} ${i === 0 && !selection ? 'ps-5 pe-3' : 'px-3'} ${c.from ? showFrom[c.from] : ''}`}
                                         >
                                             {c.header}
                                         </th>
                                     ))}
-                                    <th scope="col" className="sticky top-14 z-[3] border-b border-stroke bg-surface py-3 ps-3 pe-5 text-end font-medium">
+                                    <th scope="col" className="sticky top-16 z-[3] border-b border-stroke bg-surface-2 py-2.5 ps-3 pe-5 text-end font-medium">
                                         <span className="sr-only">کارها</span>
                                     </th>
                                 </tr>
@@ -693,7 +693,7 @@ function QuickDrawer<T>({
 /** A titled group of facts inside a quick view. */
 export function QuickSection({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
     return (
-        <section className="mb-4 rounded-2xl border border-stroke bg-surface px-4 pt-3 pb-2 last:mb-0">
+        <section className="mb-4 rounded-xl border border-stroke bg-surface shadow-card px-4 pt-3 pb-2 last:mb-0">
             <div className="mb-1 flex items-center justify-between gap-3">
                 <h3 className="text-[13px] font-bold text-muted">{title}</h3>
                 {action}
@@ -707,7 +707,7 @@ export function QuickSkeleton() {
     return (
         <div className="space-y-4" aria-label="در حال بارگذاری">
             {[0, 1].map((i) => (
-                <div key={i} className="rounded-2xl border border-stroke bg-surface p-4">
+                <div key={i} className="rounded-xl border border-stroke bg-surface shadow-card p-4">
                     <div className="skeleton mb-4 h-3 w-24" />
                     {[0, 1, 2, 3].map((j) => (
                         <div key={j} className="flex justify-between py-2.5">
@@ -827,7 +827,7 @@ export function ListPager({
                                 aria-current={n === page ? 'page' : undefined}
                                 aria-label={`صفحه ${n}`}
                                 onClick={() => onPage(n)}
-                                className={`num grid h-9 min-w-9 place-items-center rounded-lg px-2 text-[14px] transition-colors ${n === page ? 'bg-ink font-bold text-surface' : 'text-body hover:bg-surface-2'}`}
+                                className={`num grid h-9 min-w-9 place-items-center rounded-lg px-2 text-[14px] transition-colors ${n === page ? 'bg-primary font-bold text-primary-ink' : 'text-body hover:bg-surface-2'}`}
                             >
                                 {n}
                             </button>

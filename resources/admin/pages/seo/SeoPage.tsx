@@ -133,7 +133,7 @@ export default function SeoPage() {
             </div>
 
             <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-                <nav aria-label="صفحه‌ها" className="rounded-2xl border border-stroke bg-surface p-2 lg:sticky lg:top-20">
+                <nav aria-label="صفحه‌ها" className="rounded-xl border border-stroke bg-surface shadow-card p-2 lg:sticky lg:top-20">
                     {!q.data ? (
                         <div className="space-y-2 p-2">
                             {[0, 1, 2, 3, 4].map((i) => (
@@ -172,7 +172,7 @@ export default function SeoPage() {
                 </nav>
 
                 {!page || !t ? (
-                    <div className="skeleton h-96 rounded-2xl" />
+                    <div className="skeleton h-96 rounded-xl" />
                 ) : (
                     <form
                         noValidate
@@ -230,7 +230,7 @@ export default function SeoPage() {
                             </div>
                         </Panel>
 
-                        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-stroke bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(15,23,42,.25)]">
+                        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-stroke bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(15,23,42,.25)]">
                             <button type="submit" className="btn btn-primary" disabled={saving || !dirty(page)}>
                                 <Save aria-hidden size={16} />
                                 {saving ? 'در حال ذخیره…' : 'ذخیره این صفحه'}

@@ -117,7 +117,7 @@ export default function CommentsPage() {
             )}
 
             {rows.length > 0 && (
-                <div className="sticky top-14 z-[5] mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-stroke bg-surface/95 px-4 py-2.5 backdrop-blur">
+                <div className="sticky top-16 z-[5] mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-stroke bg-surface/95 px-4 py-2.5 backdrop-blur">
                     <label className="flex cursor-pointer items-center gap-2 font-medium">
                         <input
                             type="checkbox"
@@ -155,11 +155,11 @@ export default function CommentsPage() {
                 {error ? (
                     <ErrorState error={error} onRetry={reload} boxed />
                 ) : !data ? (
-                    <div className="rounded-2xl border border-stroke bg-surface">
+                    <div className="rounded-xl border border-stroke bg-surface shadow-card">
                         <SkeletonRows />
                     </div>
                 ) : rows.length === 0 ? (
-                    <div className="rounded-2xl border border-stroke bg-surface">
+                    <div className="rounded-xl border border-stroke bg-surface shadow-card">
                         <ListEmpty filtered={isFiltered(list.values, ['status'])} onClear={() => list.update({ q: '', type: '', from: '', to: '', replied: '' })}>
                             {list.values.status === 'pending' ? 'نظری منتظر بررسی نیست.' : 'نظری در این فهرست نیست.'}
                         </ListEmpty>
@@ -214,7 +214,7 @@ function CommentCard({
     }
 
     return (
-        <li className={`rounded-2xl border bg-surface p-4 sm:p-5 ${selected ? 'border-primary' : 'border-stroke'}`}>
+        <li className={`rounded-xl border bg-surface p-4 sm:p-5 ${selected ? 'border-primary' : 'border-stroke'}`}>
             <div className="flex gap-3">
                 <input type="checkbox" className="mt-1 size-4 shrink-0 accent-[var(--primary)]" checked={selected} onChange={onToggle} aria-label={`انتخاب نظر ${c.name}`} />
                 <div className="min-w-0 flex-1">

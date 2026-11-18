@@ -5,6 +5,19 @@
     }
 </style>
 @if(!\Illuminate\Support\Facades\Auth::guard('user')->check())
+    <script>
+        // Sign-in moved to the new /login page (Next.js, with the captcha). Every way this page opens the old modal
+        // (header/toolbar buttons, $('#signin-modal').modal(...) in page scripts) goes there instead, and back here after.
+        (function () {
+            var go = function () { location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search); };
+            document.addEventListener('click', function (e) {
+                if (e.target.closest && e.target.closest('[data-bs-target="#signin-modal"]')) { e.preventDefault(); e.stopImmediatePropagation(); go(); }
+            }, true);
+            document.addEventListener('show.bs.modal', function (e) {
+                if (e.target.id === 'signin-modal') { e.preventDefault(); go(); }
+            });
+        })();
+    </script>
     <div class="modal fade" id="signin-modal" tabindex="-1" role="dialog">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">

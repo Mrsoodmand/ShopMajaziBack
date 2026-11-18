@@ -79,6 +79,7 @@
                         <input type="hidden" name="type" value="{{$Type}}">
                         <input type="hidden" name="post_id" value="{{$Id}}">
                     </div>
+                    @include('captcha.field', ['action' => 'comment'])
                     <button id="CommentBtn" data-text="ثبت نظر" data-form="CommentForm"
                             class="submit-comment btn btn-primary btn-shadow d-block w-100" type="submit">ثبت نظر
                     </button>

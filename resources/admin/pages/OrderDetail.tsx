@@ -196,7 +196,7 @@ type Tab = (typeof TABS)[number];
 function OrderTabs({ order, onChanged }: { order: Order; onChanged: () => void }) {
     const [tab, setTab] = useUrlTab(TABS, 'items');
     const unread = order.chats.filter((c) => c.unread).length;
-    const card = 'rounded-2xl border border-stroke bg-surface p-5';
+    const card = 'rounded-xl border border-stroke bg-surface shadow-card p-5';
     return (
         <div className="min-w-0">
             <PageTabs<Tab>
@@ -264,7 +264,7 @@ function OrderFacts({ order }: { order: Order }) {
         { label: 'موبایل', value: c?.mobile ? <span dir="ltr" className="num">{c.mobile}<CopyButton value={c.mobile} label="موبایل" /></span> : '—' },
     ];
     return (
-        <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-stroke bg-stroke sm:grid-cols-4">
+        <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-stroke bg-stroke sm:grid-cols-4">
             {facts.map((f) => (
                 <div key={f.label} className="bg-surface px-4 py-3">
                     <dt className="text-[12px] text-muted">{f.label}</dt>
@@ -309,7 +309,7 @@ function Chat({ order, onChanged }: { order: Order; onChanged: () => void }) {
                         return (
                             <li key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
                                 <div
-                                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 whitespace-pre-wrap ${
+                                    className={`max-w-[85%] rounded-xl px-4 py-2.5 whitespace-pre-wrap ${
                                         mine ? 'rounded-ee-md bg-indigo-soft text-ink' : 'rounded-es-md bg-surface-2 text-ink'
                                     } ${m.unread ? 'ring-2 ring-indigo/40' : ''}`}
                                 >
@@ -504,7 +504,7 @@ function Charges({ order, onChanged }: { order: Order; onChanged: () => void }) 
                             <div className="flex items-center gap-2">
                                 <span className="num font-bold whitespace-nowrap">{toman(c.price)}</span>
                                 {c.status === 'paid' ? (
-                                    <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[12px] font-medium text-emerald-800 dark:text-emerald-300">پرداخت شد</span>
+                                    <span className="rounded-full bg-success-soft px-2 py-0.5 text-[12px] font-medium text-success">پرداخت شد</span>
                                 ) : (
                                     <>
                                         <span className="rounded-full bg-warn-soft px-2 py-0.5 text-[12px] font-medium text-warn">در انتظار پرداخت</span>
@@ -936,8 +936,8 @@ function DetailSkeleton() {
             <div className="skeleton mb-2 h-7 w-56" />
             <div className="skeleton mb-6 h-4 w-80" />
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="skeleton h-72 rounded-2xl" />
-                <div className="skeleton h-96 rounded-2xl" />
+                <div className="skeleton h-72 rounded-xl" />
+                <div className="skeleton h-96 rounded-xl" />
             </div>
         </div>
     );

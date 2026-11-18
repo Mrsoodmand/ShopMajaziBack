@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>ورود به مدیریت شاپ مجازی</title>
+    <script>try{var t=localStorage.getItem('admin-theme');if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}</script>
     @viteReactRefresh
     @vite('resources/admin/login.tsx')
     <script src="/js/persian-digits.js?v=1"></script>

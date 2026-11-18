@@ -39,8 +39,11 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::get('seo', 'Api\StorefrontController@seo');
     // Customer comments (StorefrontCommentController): approved ones to read, new ones wait for the admin.
     Route::get('comments', 'Api\StorefrontCommentController@index');
-    Route::post('comments', 'Api\StorefrontCommentController@store')->middleware('throttle:5,1');
+    Route::post('comments', 'Api\StorefrontCommentController@store')->middleware(['throttle:5,1', 'captcha:comment']);
     Route::get('testimonials', 'Api\StorefrontCommentController@testimonials');
+    // Captcha for the public forms (App\Services\Captcha): the mode in use, and a new number picture.
+    Route::get('captcha', 'Api\StorefrontCaptchaController@config');
+    Route::get('captcha/number', 'Api\StorefrontCaptchaController@number')->middleware('throttle:30,1');
 });
 
 Route::get('generateZoomMetting', 'ApiController@generateZoomMetting');

@@ -66,8 +66,8 @@ export default function UserDetail() {
                     <div className="skeleton mb-2 h-7 w-56" />
                     <div className="skeleton mb-6 h-4 w-80" />
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-                        <div className="skeleton h-72 rounded-2xl" />
-                        <div className="skeleton h-96 rounded-2xl" />
+                        <div className="skeleton h-72 rounded-xl" />
+                        <div className="skeleton h-96 rounded-xl" />
                     </div>
                 </div>
             ) : (
@@ -298,7 +298,7 @@ function Activity({ user, onChanged }: { user: User; onChanged: () => void }) {
                                             key={i}
                                             className={
                                                 c.kind === 'credit'
-                                                    ? 'font-medium text-emerald-800 dark:text-emerald-300'
+                                                    ? 'font-medium text-success'
                                                     : c.kind === 'debit'
                                                       ? 'font-medium text-error'
                                                       : c.kind === 'reason'
@@ -425,7 +425,7 @@ function WalletForm({ user, onChanged }: { user: User; onChanged: () => void }) 
                         <label
                             key={value}
                             className={`flex h-[38px] cursor-pointer items-center justify-center rounded-[10px] border font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring ${
-                                direction === value ? 'border-ink bg-ink text-surface' : 'border-field hover:bg-surface-2'
+                                direction === value ? 'border-primary bg-primary-soft font-semibold text-indigo' : 'border-field hover:bg-surface-2'
                             }`}
                         >
                             <input type="radio" name={`${id}-dir`} value={value} checked={direction === value} onChange={() => setDirection(value)} className="sr-only" />

@@ -624,7 +624,7 @@
                 },
                 error: function (data) {
                     console.log('error')
-                    if (data.responseJSON.message) {
+                    if (data.responseJSON.message && !data.responseJSON.error) { // captcha errors carry both
                         error('');
                     } else {
                         data.responseJSON.error.forEach(function (value) {

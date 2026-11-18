@@ -18,7 +18,7 @@ class RedirectIfNotUser
 	public function handle($request, Closure $next, $guard = 'user')
 	{
 	    if (!Auth::guard($guard)->check()) {
-	        return redirect('user/login');
+	        return redirect()->guest('user/login'); // remembers the page, so /login (routes/web.php) can send them back
 	    }
 
 	    return $next($request);

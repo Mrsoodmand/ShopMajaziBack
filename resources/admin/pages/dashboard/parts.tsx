@@ -34,13 +34,13 @@ export function Block({
         </>
     );
     return (
-        <section aria-labelledby={id} className={`rounded-2xl border border-stroke bg-surface ${className}`}>
+        <section aria-labelledby={id} className={`rounded-xl border border-stroke bg-surface shadow-card ${className}`}>
             <div className="flex items-center gap-2 px-5 pt-4 pb-2">
                 <h2 id={id} className="text-[16px] font-bold">
                     {title}
                 </h2>
                 {total !== undefined && (
-                    <span className={`num rounded-md px-1.5 text-[12px] font-bold ${total > 0 ? 'bg-ink text-surface' : 'bg-surface-2 text-muted'}`}>{count(total)}</span>
+                    <span className={`num rounded-md px-1.5 text-[12px] font-bold ${total > 0 ? 'bg-primary text-primary-ink' : 'bg-surface-2 text-muted'}`}>{count(total)}</span>
                 )}
                 <span className="flex-1" />
                 {more?.to && (
@@ -88,7 +88,7 @@ function Delta({ now, before }: { now: number; before: number }) {
     const up = pct >= 0;
     const Icon = up ? ArrowUp : ArrowDown;
     return (
-        <span className={`num inline-flex items-center gap-0.5 text-[12px] font-medium ${up ? 'text-emerald-700 dark:text-emerald-300' : 'text-error'}`}>
+        <span className={`num inline-flex items-center gap-0.5 text-[12px] font-medium ${up ? 'text-success' : 'text-error'}`}>
             <Icon aria-hidden size={12} strokeWidth={2.5} />
             {Math.abs(pct)}٪ {up ? 'بیشتر' : 'کمتر'} از دیروز
         </span>
@@ -116,7 +116,7 @@ function figures(d: Dashboard): Figure[] {
 export function Pulse({ data }: { data: Dashboard }) {
     const items = figures(data);
     return (
-        <dl className="grid grid-cols-2 overflow-hidden rounded-2xl border border-stroke bg-surface lg:grid-cols-4">
+        <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-stroke bg-surface shadow-card lg:grid-cols-4">
             {items.map((f) => (
                 <div key={f.label} className="border-stroke px-5 py-4 [&:not(:first-child)]:border-s max-lg:[&:nth-child(3)]:border-s-0 max-lg:[&:nth-child(n+3)]:border-t">
                     <dt className="text-[13px] text-muted">{f.label}</dt>
@@ -370,10 +370,10 @@ export function CommentList({ items, link }: { items: Comment[]; link: string })
 export function DashboardSkeleton() {
     return (
         <div aria-busy="true" aria-label="در حال بارگذاری داشبورد" className="space-y-5">
-            <div className="skeleton h-24 rounded-2xl" />
+            <div className="skeleton h-24 rounded-xl" />
             <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-                <div className="skeleton h-80 rounded-2xl" />
-                <div className="skeleton h-80 rounded-2xl" />
+                <div className="skeleton h-80 rounded-xl" />
+                <div className="skeleton h-80 rounded-xl" />
             </div>
         </div>
     );

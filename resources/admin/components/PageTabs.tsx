@@ -76,7 +76,7 @@ export function PageTabs<T extends string>({
     }
 
     return (
-        <div className={`sticky top-14 z-[4] -mx-1 mb-5 bg-page/95 px-1 backdrop-blur ${className}`}>
+        <div className={`sticky top-16 z-[4] -mx-1 mb-5 bg-page/95 px-1 backdrop-blur ${className}`}>
             <div ref={list} role="tablist" aria-label={label} onKeyDown={onKeyDown} className="relative flex gap-1 overflow-x-auto border-b border-stroke [scrollbar-width:none]">
                 {tabs.map((t) => {
                     const selected = t.id === value;
@@ -112,7 +112,7 @@ export function PageTabs<T extends string>({
                 <span
                     ref={bar}
                     aria-hidden
-                    className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-ink transition-[translate,width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                    className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-primary transition-[translate,width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
                 />
             </div>
         </div>
@@ -148,7 +148,7 @@ export function TabbedSections<T extends string>({
         <div className="min-w-0">
             <PageTabs id={id} label={label} tabs={tabs} value={tab} onChange={setTab} />
             <TabPanel id={id} tab={tab}>
-                <section aria-label={current.label} className="rounded-2xl border border-stroke bg-surface p-5">
+                <section aria-label={current.label} className="rounded-xl border border-stroke bg-surface shadow-card p-5">
                     {render(tab)}
                 </section>
             </TabPanel>

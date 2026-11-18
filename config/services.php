@@ -44,6 +44,15 @@ return [
         'internal_url' => env('STOREFRONT_INTERNAL_URL'),
     ],
 
+    // Google reCAPTCHA v3 (App\Services\Captcha). Which captcha the forms use is chosen in admin › Captcha; without
+    // these keys the Google mode falls back to the number captcha. verify_url: www.google.com is filtered in some
+    // networks, so recaptcha.net (Google's own mirror) is the default.
+    'recaptcha' => [
+        'site_key' => env('RECAPTCHA_SITE_KEY'),
+        'secret' => env('RECAPTCHA_SECRET_KEY'),
+        'verify_url' => env('RECAPTCHA_VERIFY_URL', 'https://www.recaptcha.net/recaptcha/api/siteverify'),
+    ],
+
     // Numberland special (Google Voice) numbers, see App\Services\GoogleVoiceNumbers. Markup is on top of Numberland's price.
     'numberland' => [
         'key' => env('NUMBERLAND_API_KEY'),

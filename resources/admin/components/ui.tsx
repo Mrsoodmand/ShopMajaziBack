@@ -7,9 +7,9 @@ import { count } from '../lib/format';
 export function Panel({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
     const id = useId();
     return (
-        <section aria-labelledby={id} className="rounded-2xl border border-stroke bg-surface">
+        <section aria-labelledby={id} className="rounded-xl border border-stroke bg-surface shadow-card">
             <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-1">
-                <h2 id={id} className="text-[16px] font-bold">
+                <h2 id={id} className="text-[15px] font-semibold">
                     {title}
                 </h2>
                 {actions}
@@ -65,7 +65,7 @@ export function FieldError({ id, children }: { id: string; children: ReactNode }
 
 export function Notice({ children }: { children: ReactNode }) {
     return (
-        <p role="status" className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-500/10 px-3 py-2.5 text-[13px] font-medium text-emerald-800 dark:text-emerald-300">
+        <p role="status" className="mt-3 flex items-start gap-2 rounded-xl bg-success-soft px-3 py-2.5 text-[13px] font-medium text-success">
             <CircleCheck aria-hidden size={16} className="mt-0.5 shrink-0" />
             {children}
         </p>
@@ -75,7 +75,7 @@ export function Notice({ children }: { children: ReactNode }) {
 /** Failed load: the message, plus a retry unless the session ended. */
 export function ErrorState({ error, onRetry, boxed }: { error: ApiError; onRetry: () => void; boxed?: boolean }) {
     return (
-        <div className={`flex flex-col items-center gap-3 px-6 py-16 text-center ${boxed ? 'rounded-2xl border border-stroke bg-surface' : ''}`}>
+        <div className={`flex flex-col items-center gap-3 px-6 py-16 text-center ${boxed ? 'rounded-xl border border-stroke bg-surface shadow-card' : ''}`}>
             <AlertTriangle aria-hidden size={28} className="text-error" />
             <p className="font-medium">{error.message}</p>
             {!error.sessionExpired && (
@@ -116,13 +116,13 @@ export function FilterTabs<T extends string>({
                         aria-pressed={active}
                         onClick={() => onChange(v.id)}
                         className={`flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-[14px] transition-colors ${
-                            active ? 'bg-ink font-medium text-surface' : 'text-body hover:bg-surface-2'
+                            active ? 'bg-primary-soft font-semibold text-indigo' : 'text-muted hover:bg-surface-2 hover:text-ink'
                         }`}
                     >
                         {v.label}
                         <span
                             className={`num min-w-6 rounded-md px-1.5 text-center text-[12px] ${
-                                active ? 'bg-surface/20' : v.id === attention && n ? 'bg-indigo-soft font-bold text-indigo' : 'bg-surface-2 text-muted'
+                                active ? 'bg-surface text-indigo' : v.id === attention && n ? 'bg-indigo-soft font-bold text-indigo' : 'bg-surface-2 text-muted'
                             }`}
                         >
                             {n == null ? '…' : count(n)}

@@ -27,6 +27,7 @@ import AccountsList from './pages/accounts/AccountsList';
 import AccountEditor from './pages/accounts/AccountEditor';
 import PricingPage from './pages/pricing/PricingPage';
 import CachePage from './pages/cache/CachePage';
+import CaptchaPage from './pages/captcha/CaptchaPage';
 import GatewaysPage from './pages/gateways/GatewaysPage';
 import IpLocations from './pages/ip/IpLocations';
 import IpLocationPage from './pages/ip/IpLocationPage';
@@ -99,6 +100,7 @@ if (root) {
                     { path: 'accounts/:id', element: <AccountEditor /> },
                     { path: 'pricing', element: <PricingPage /> },
                     { path: 'cache', element: <CachePage /> },
+                    { path: 'captcha', element: <CaptchaPage /> },
                     { path: 'payment-gateways', element: <GatewaysPage /> },
                     { path: 'ip', element: <IpLocations /> },
                     { path: 'ip/:id', element: <IpLocationPage /> },

@@ -48,6 +48,12 @@
                             </div>
                         </div>
 
+                        <div class="form-group{{ $errors->has('captcha') ? ' has-error' : '' }}">
+                            <div class="col-md-6 col-md-offset-4">
+                                @include('captcha.field', ['action' => 'partner', 'lang' => 'en'])
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <div class="col-md-8 col-md-offset-4">
                                 <button type="submit" class="btn btn-primary">

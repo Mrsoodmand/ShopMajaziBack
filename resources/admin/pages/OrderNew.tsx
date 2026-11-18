@@ -148,7 +148,7 @@ export default function OrderNew() {
                     </label>
                 </Panel>
 
-                <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stroke bg-surface px-5 py-4">
+                <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-surface shadow-card px-5 py-4">
                     <div>
                         <div className="text-[13px] text-muted">جمع سفارش</div>
                         <div className="num text-[20px] font-bold">{toman(total)}</div>

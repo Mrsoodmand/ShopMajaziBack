@@ -371,6 +371,9 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('cache', 'Admin\CacheApiController@index')->name('cache');
         Route::post('cache/clear', 'Admin\CacheApiController@clear');
         Route::post('cache/times', 'Admin\CacheApiController@saveTimes');
+        // کپچا: which captcha the public forms use (App\Services\Captcha).
+        Route::get('captcha', 'Admin\CaptchaApiController@index')->name('captcha');
+        Route::post('captcha', 'Admin\CaptchaApiController@save');
         Route::get('pricing', 'Admin\PricingApiController@index')->name('pricing');
         Route::post('pricing', 'Admin\PricingApiController@save');
         Route::post('pricing/refresh', 'Admin\PricingApiController@refresh');

@@ -93,7 +93,7 @@ export function EditorLayout({
                 {backLabel}
             </Link>
             <header className="mb-6">
-                <h1 className="text-[22px] leading-tight font-bold">{title}</h1>
+                <h1 className="text-xl leading-tight font-bold tracking-tight">{title}</h1>
                 {subtitle && <p className="mt-1.5 text-body">{subtitle}</p>}
             </header>
             {nav}
@@ -132,7 +132,7 @@ export function EditorLayout({
                         <div className="space-y-6">{children}</div>
                     )}
                 </div>
-                <aside className="space-y-4 rounded-2xl border border-stroke bg-surface p-5 lg:sticky lg:top-20">
+                <aside className="space-y-4 rounded-xl border border-stroke bg-surface shadow-card p-5 lg:sticky lg:top-20">
                     {side}
                     {problems && problems.length > 0 && (
                         <div ref={summary} tabIndex={-1} role="alert" className="rounded-xl bg-error-soft px-4 py-3 text-error">

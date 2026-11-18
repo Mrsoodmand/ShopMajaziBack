@@ -68,6 +68,18 @@
                                  <label class="form-label" for="cf-message">پیام:&nbsp;<span class="text-danger">*</span></label>
                                  <textarea class="form-control" name="message" id="cf-message" rows="6" placeholder="لطفاً درخواست خود را با جزئیات شرح دهید" required></textarea>
                                  <div class="invalid-feedback">متن را بنویسید</div>
+                                 {{-- Captcha (App\Services\Captcha, admin › Captcha): filled in by the script below. --}}
+                                 <input type="hidden" name="captcha_token" id="cf-captcha-token">
+                                 <input type="hidden" name="captcha_id" id="cf-captcha-id" disabled>
+                                 <div id="cf-captcha-number" class="mt-3" style="display:none">
+                                     <label class="form-label" for="cf-captcha-answer">اعداد داخل تصویر را وارد کنید:&nbsp;<span class="text-danger">*</span></label>
+                                     <div class="d-flex align-items-center gap-2">
+                                         <img id="cf-captcha-img" alt="تصویر کد امنیتی" width="176" height="56" style="border-radius:.5rem;background:#f8fafc">
+                                         <input class="form-control" name="captcha_answer" id="cf-captcha-answer" type="text" inputmode="numeric" autocomplete="off" dir="ltr" maxlength="5" style="max-width:10rem;letter-spacing:.3em;text-align:center" disabled>
+                                         <button type="button" class="btn btn-link btn-sm" id="cf-captcha-refresh">تصویر جدید</button>
+                                     </div>
+                                 </div>
+                                 <p id="cf-captcha-google" class="small text-muted mt-3 mb-0" style="display:none">این فرم با reCAPTCHA گوگل محافظت می‌شود. <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">حریم خصوصی</a> · <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">شرایط</a></p>
                                  <button id="ContactUsBtn" data-text="ارسال پیام" data-form="ContactUs" class="submit-btn btn btn-primary mt-4" type="submit">ارسال پیام</button>
                              </div>
                          </div>
@@ -85,6 +97,42 @@
 
 @section('footer')
     <script>
+        // Captcha: the mode comes from the backend (admin › Captcha). Google v3 adds a token on submit; the number
+        // mode (or Google blocked, with the fallback on) shows a picture to type. See App\Services\Captcha.
+        var Captcha = {cfg: @json(app(\App\Services\Captcha::class)->publicConfig()), mode: 'off', google: null};
+        Captcha.number = function () {
+            Captcha.mode = 'number';
+            $('#cf-captcha-google').hide();
+            $('#cf-captcha-number').show();
+            $('#cf-captcha-id, #cf-captcha-answer').prop('disabled', false);
+            $('#cf-captcha-answer').val('');
+            $.getJSON('/api/v1/storefront/captcha/number', function (r) {
+                $('#cf-captcha-id').val(r.data.id);
+                $('#cf-captcha-img').attr('src', r.data.image);
+            });
+        };
+        Captcha.apply = function (cfg) {
+            Captcha.cfg = cfg;
+            if (cfg.driver === 'number') return Captcha.number();
+            if (cfg.driver !== 'google' || !cfg.site_key) { Captcha.mode = 'off'; return; }
+            Captcha.mode = 'google';
+            $('#cf-captcha-google').show();
+            $('head').append('<style>.grecaptcha-badge{visibility:hidden}</style>');
+            var s = document.createElement('script');
+            s.src = 'https://www.recaptcha.net/recaptcha/api.js?render=' + encodeURIComponent(cfg.site_key);
+            s.onload = function () { grecaptcha.ready(function () { Captcha.google = grecaptcha; }); };
+            s.onerror = function () { if (cfg.fallback) Captcha.number(); };
+            document.head.appendChild(s);
+            setTimeout(function () { if (!Captcha.google && cfg.fallback && Captcha.mode === 'google') Captcha.number(); }, 8000);
+        };
+        Captcha.token = function (done) {
+            $('#cf-captcha-token').val('');
+            if (Captcha.mode !== 'google' || !Captcha.google) return done();
+            Captcha.google.execute(Captcha.cfg.site_key, {action: 'contact'}).then(function (t) { $('#cf-captcha-token').val(t); done(); }, function () { done(); });
+        };
+        Captcha.apply(Captcha.cfg);
+        $('#cf-captcha-refresh').click(Captcha.number);
+
         $('.submit-btn').click(function () {
             var BtnId = $(this).attr('id');
             var text = $(this).data('text');
@@ -92,7 +140,7 @@
             $('#' + BtnId).html('لطفا صبر کنید...');
             $('#' + BtnId).attr('disabled', true);
             form = document.querySelector('#' + form);
-            $(form).ajaxSubmit({
+            Captcha.token(function () { $(form).ajaxSubmit({
                 dataType: 'json',
                 beforeSend: function () {
                     $('#' + BtnId).html('لطفا صبر کنید');
@@ -106,19 +154,24 @@
                     }, 2000);
                 },
                 error: function (data) {
-                    console.log('error')
-                    if (data.responseJSON.message) {
-                        error('');
-                    } else {
-                        data.responseJSON.error.forEach(function (value) {
+                    var json = data.responseJSON || {};
+                    if (json.data && json.data.captcha) { // a captcha error: show the picture (one try each)
+                        if (json.code === 'captcha_number' || json.data.captcha.driver === 'number') Captcha.number(); else Captcha.apply(json.data.captcha);
+                    } else if (Captcha.mode === 'number') {
+                        Captcha.number();
+                    }
+                    if (json.error) {
+                        json.error.forEach(function (value) {
                             error(value);
                         });
+                    } else {
+                        error(json.message || 'خطایی رخ داد. دوباره تلاش کنید.');
                     }
                     $('#' + BtnId).html(text);
                     $('#' + BtnId).attr('disabled', false);
 
                 }
-            });
+            }); });
 
             return false;
         });
