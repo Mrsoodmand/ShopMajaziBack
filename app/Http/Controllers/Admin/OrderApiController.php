@@ -85,13 +85,13 @@ class OrderApiController extends Controller
             'failed' => $list->whereIn('status', ['failed', 'back money to wallet']),
             default => null,
         };
-        // The queue is worked oldest first; every other view is newest first, unless the admin picked an order.
+        // Every view, the queue included, is newest first unless the admin picked a sort.
         match ((string) $request->input('sort', '')) {
             'newest' => $list->orderByDesc('id'),
             'oldest' => $list->orderBy('id'),
             'price_desc' => $list->orderByDesc('price')->orderByDesc('id'),
             'price_asc' => $list->orderBy('price')->orderByDesc('id'),
-            default => $view === 'action' ? $list->orderBy('created_at')->orderBy('id') : $list->orderByDesc('id'),
+            default => $list->orderByDesc('id'),
         };
         $page = $list->paginate($this->perPage($request, self::PER_PAGE));
 

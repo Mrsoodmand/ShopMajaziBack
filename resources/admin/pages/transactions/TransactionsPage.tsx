@@ -89,7 +89,7 @@ export default function TransactionsPage() {
                 <header className="mb-5">
                     <h1 className="text-[22px] leading-tight font-bold">تراکنش‌ها</h1>
                     <p className="mt-1 text-muted">
-                        {view === 'review' ? 'قدیمی‌ترین مورد بالای صف است.' : 'جدیدترین تراکنش‌ها اول.'}
+                        جدیدترین تراکنش‌ها اول.
                         {limited && (
                             <>
                                 {' '}

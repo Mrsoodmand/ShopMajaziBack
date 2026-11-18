@@ -143,7 +143,7 @@ export default function OrdersList() {
         <div className="mx-auto max-w-[1280px]">
             <PageHeader
                 title={typeLabel ? `سفارش‌های ${typeLabel}` : 'سفارش‌ها'}
-                subtitle={queue ? 'قدیمی‌ترین سفارش بالای صف است.' : 'جدیدترین سفارش‌ها اول، مگر ترتیب دیگری انتخاب کنید.'}
+                subtitle="جدیدترین سفارش‌ها اول، مگر ترتیب دیگری انتخاب کنید."
                 actions={
                     <Link to="/orders/new" className="btn btn-primary">
                         <Plus aria-hidden size={16} />

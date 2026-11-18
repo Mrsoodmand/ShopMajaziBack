@@ -30,7 +30,7 @@ class TransactionApiController extends Controller
 {
     use AdminApi;
 
-    /** Statuses an admin has to look at; the list opens on these, oldest first. -3 = card mismatch, -2 = under review. */
+    /** Statuses an admin has to look at; the list opens on these, newest first. -3 = card mismatch, -2 = under review. */
     const REVIEW = ['-3', '-2'];
 
     /** -4 = the bank refused to verify the payment. */
@@ -104,13 +104,13 @@ class TransactionApiController extends Controller
             'failed' => $list->whereIn('status', self::FAILED),
             default => null,
         };
-        // The review queue is worked oldest first; every other view is newest first.
+        // Every view, the review queue included, is newest first unless the admin picked a sort.
         match ((string) $request->input('sort', '')) {
             'newest' => $list->orderByDesc('id'),
             'oldest' => $list->orderBy('id'),
             'price_desc' => $list->orderByRaw('CAST(price AS DECIMAL(15,2)) DESC')->orderByDesc('id'),
             'price_asc' => $list->orderByRaw('CAST(price AS DECIMAL(15,2)) ASC')->orderByDesc('id'),
-            default => $view === 'review' ? $list->orderBy('created_at')->orderBy('id') : $list->orderByDesc('id'),
+            default => $list->orderByDesc('id'),
         };
         $page = $list->paginate($this->perPage($request, self::PER_PAGE));
 
