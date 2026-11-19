@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Check, CircleCheck, CircleX, Clock, Link2, MessageSquareReply, Trash2, X } from 'lucide-react';
+import { Link } from 'react-router';
+import { BadgeCheck, Check, CircleCheck, CircleX, Clock, Link2, MessageSquareReply, Trash2, X } from 'lucide-react';
 import { ApiError, postJson, useQuery } from '../../lib/api';
 import { useBoot } from '../../lib/boot';
 import { Badge } from '../../components/Status';
@@ -12,6 +13,8 @@ type Comment = {
     id: number;
     name: string;
     mobile: string | null;
+    // Written by the buyer from this delivered order (their order page); null from the public form.
+    orderId: number | null;
     text: string;
     status: Status;
     type: string;
@@ -223,6 +226,12 @@ function CommentCard({
                             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className="font-bold">{c.name || 'بی‌نام'}</span>
                                 {c.mobile && <span dir="ltr" className="num text-[13px] text-muted">{c.mobile}</span>}
+                                {c.orderId && (
+                                    <Link to={`/orders/${c.orderId}`} className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[12px] font-medium text-success hover:underline">
+                                        <BadgeCheck aria-hidden size={12} />
+                                        خریدار · سفارش <span className="num">{c.orderId}</span>
+                                    </Link>
+                                )}
                                 {c.hasLink && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-warn-soft px-2 py-0.5 text-[12px] font-medium text-warn">
                                         <Link2 aria-hidden size={12} />

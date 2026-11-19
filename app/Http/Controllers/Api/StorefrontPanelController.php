@@ -19,6 +19,7 @@ use App\Services\AccountOrders;
 use App\Services\AppleIds;
 use App\Services\GoogleVoiceNumbers;
 use App\Services\OrderCharges;
+use App\Services\OrderReviews;
 use App\Services\VirtualServiceOrders;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -484,6 +485,8 @@ class StorefrontPanelController extends Controller
             'countries' => Virtual_Country::whereIn('id', $Numbers->pluck('country_id'))->get()->keyBy('id'),
             'products' => $Products,
             'platforms' => Category::whereIn('id', $Products->pluck('country_id'))->get()->keyBy('id'),
+            // Delivered orders the buyer already wrote a comment for (OrderReviews).
+            'reviewed' => app(OrderReviews::class)->reviewed($Orders->where('status', 'complete')->pluck('id')),
         ];
     }
 
@@ -564,7 +567,45 @@ class StorefrontPanelController extends Controller
         } elseif ($Type === 6) {
             $Data['number'] = $Detail['number'] ?? null;
         }
+        // Delivered: may the buyer write a comment on what they bought (null: not asked), or did they already.
+        $ProductId = $Item && in_array($Type, [2, 7]) ? (int)$Item->product_id : null;
+        $Data['product_id'] = $ProductId;
+        $Data['review'] = app(OrderReviews::class)->state($Order, $ProductId, $ProductId ? $L['products']->get($ProductId) : null, $L['reviewed'] ?? []);
         return $Data;
+    }
+
+    /*
+     * The buyer's comment on a delivered order {text, name?}: one per order, saved as Pending on the page of what was
+     * bought, with the buyer's account and the order (OrderReviews). No captcha: only a signed-in buyer's own
+     * delivered order can be commented on, once.
+     */
+    public function review(Request $request, $id, OrderReviews $Reviews): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        $Order = $this->visible(Order::where('id', intval($id))->where('user_id', $User->id))->first();
+        if (is_null($Order)) {
+            return $this->fail('سفارش یافت نشد.', 'not_found', 404);
+        }
+        $Name = trim(strip_tags((string)($request->input('name') ?: $User->name)));
+        $Text = trim(strip_tags((string)$request->input('text')));
+        if (mb_strlen($Name) < 2 || mb_strlen($Name) > 60) {
+            return $this->fail('نام خود را بنویسید.', 'name', 422);
+        }
+        if (mb_strlen($Text) < 10) {
+            return $this->fail($Text === '' ? 'متن دیدگاه را بنویسید.' : 'دیدگاه باید دست‌کم ۱۰ حرف باشد.', 'text', 422);
+        }
+        if (mb_strlen($Text) > 1000) {
+            return $this->fail('دیدگاه حداکثر ۱۰۰۰ حرف می‌تواند باشد.', 'text', 422);
+        }
+        $Item = OrderItem::where('order_id', $Order->id)->orderBy('id')->first();
+        $ProductId = $Item && in_array((int)$Order->type, [2, 7]) ? (int)$Item->product_id : null;
+        [$Ok, $Code, $Message] = $Reviews->save($User, $Order, $ProductId, $ProductId ? Product::find($ProductId) : null, $Name, $Text);
+        if (!$Ok) {
+            return $this->fail($Message, $Code, $Code === 'already' ? 409 : 400, ['review' => $Code === 'already' ? ['state' => 'sent'] : null]);
+        }
+        return $this->ok(['review' => ['state' => 'sent']], $Message);
     }
 
     // What the order hands over, as label/value rows (secret: hidden until the buyer shows it).

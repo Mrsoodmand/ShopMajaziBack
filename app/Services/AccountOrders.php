@@ -318,6 +318,10 @@ class AccountOrders
             'price' => (int)$Order->price,
             'paid_with' => ($Order->pay_id && Payment::where('id', $Order->pay_id)->value('gate') === 'Bank') ? 'card' : 'wallet',
             'created_at' => Carbon::parse($Order->created_at)->toIso8601String(),
+            // Done: the buyer may write a comment on the product (posted to panel/orders/{id}/review), or already did.
+            'review' => $Order->status === 'complete' && $Product
+                ? app(OrderReviews::class)->state($Order, (int)$Product->id, $Product, app(OrderReviews::class)->reviewed([$Order->id]))
+                : null,
         ];
     }
 

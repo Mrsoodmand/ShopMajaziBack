@@ -168,6 +168,7 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
         Route::post('panel/password', 'StorefrontPanelController@password');
         Route::post('panel/top-up', 'StorefrontPanelController@topUp');
         Route::post('panel/orders/{id}/pay', 'StorefrontPanelController@payOrder')->middleware('throttle:storefront-buy');
+        Route::post('panel/orders/{id}/review', 'StorefrontPanelController@review'); // a buyer's comment (OrderReviews)
         Route::post('panel/orders/{id}/cancel', 'StorefrontPanelController@cancelOrder')->middleware('throttle:storefront-buy');
     });
     // Shopping cart (StorefrontCartController): guests may fill it; paying needs sign-in.

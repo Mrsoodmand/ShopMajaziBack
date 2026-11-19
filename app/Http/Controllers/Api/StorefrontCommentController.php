@@ -49,7 +49,7 @@ class StorefrontCommentController extends Controller
         }
         [$type, $id] = $target;
         $rows = Comment::where('type', $type)->where('post_id', (string) $id)->where('status', '1')
-            ->orderByDesc('id')->get(['id', 'parent_id', 'name', 'text', 'created_at']);
+            ->orderByDesc('id')->get(['id', 'parent_id', 'name', 'text', 'order_id', 'created_at']);
         return $this->success(['comments' => $this->threads($rows)]);
     }
 
@@ -61,7 +61,7 @@ class StorefrontCommentController extends Controller
     {
         $pages = array_flip(self::PAGES);
         $rows = Comment::whereIn('type', ['page', 'service'])->where('parent_id', 0)->where('status', '1')
-            ->orderByDesc('id')->get(['id', 'type', 'post_id', 'name', 'text', 'created_at'])
+            ->orderByDesc('id')->get(['id', 'type', 'post_id', 'name', 'text', 'order_id', 'created_at'])
             ->filter(fn (Comment $c) => $this->isExperience((string) $c->text))
             ->take(12);
         $products = Product::whereIn('id', $rows->where('type', 'service')->pluck('post_id'))->pluck('faName', 'id');
@@ -70,6 +70,7 @@ class StorefrontCommentController extends Controller
             'name' => $this->name($c->name),
             'text' => trim((string) $c->text),
             'date' => optional($c->created_at)->toIso8601String(),
+            'verified' => !is_null($c->order_id), // written from the buyer's delivered order (App\Services\OrderReviews)
             // What it is about: a page name (translated by the storefront) or a product's title.
             'about' => $c->type === 'page' ? ($pages[(int) $c->post_id] ?? null) : null,
             'product' => $c->type === 'service' ? ($products[(int) $c->post_id] ?? null) : null,
@@ -138,6 +139,7 @@ class StorefrontCommentController extends Controller
             'name' => $this->name($c->name),
             'text' => trim((string) $c->text),
             'date' => optional($c->created_at)->toIso8601String(),
+            'verified' => !is_null($c->order_id), // written from the buyer's delivered order (App\Services\OrderReviews)
             'replies' => ($replies[$c->id] ?? collect())->sortBy('id')->map(fn (Comment $r) => [
                 'text' => trim((string) $r->text),
                 'date' => optional($r->created_at)->toIso8601String(),

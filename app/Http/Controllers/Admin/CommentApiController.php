@@ -180,6 +180,8 @@ class CommentApiController extends Controller
             'id' => $c->id,
             'name' => (string) $c->name,
             'mobile' => $c->mobile,
+            // Written by the buyer from this delivered order (App\Services\OrderReviews); null from the public form.
+            'orderId' => $c->order_id ? (int) $c->order_id : null,
             'text' => (string) $c->text,
             'status' => $this->label($c->status),
             'type' => $c->type,
