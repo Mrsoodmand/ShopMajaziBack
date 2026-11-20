@@ -40,6 +40,10 @@ class StorefrontCommentController extends Controller
         'telegram-stars' => 9,
     ];
 
+    // Newer storefront pages whose `pages` row is found by its slug (the row admin › SEO also uses; ids differ
+    // between databases). Created by migration 2026_11_20_120000_add_telegram_ads_page when missing.
+    public const SLUG_PAGES = ['telegram-ads'];
+
     /** GET comments?key=page:virtual-number — the approved comments, newest first, each with the shop's reply. */
     public function index(Request $request): JsonResponse
     {
@@ -120,6 +124,10 @@ class StorefrontCommentController extends Controller
         [, $type, $ref] = $m;
         if ($type === 'page') {
             $id = self::PAGES[$ref] ?? null;
+            if (!$id && in_array($ref, self::SLUG_PAGES, true)) {
+                $id = Pages::where('slug', $ref)->value('id');
+                return $id ? ['page', (int) $id] : null;
+            }
             return $id && Pages::whereKey($id)->exists() ? ['page', $id] : null;
         }
         if (!ctype_digit($ref)) {
