@@ -34,7 +34,7 @@ class CacheManager
         'accounts' => ['اکانت‌ها و تلگرام پریمیوم', 60, null],
         'telegram-stars' => ['استارز تلگرام', 60, null],
         'prices' => ['قیمت‌ها (هدر و صفحه اصلی)', 600, null],
-        'blog' => ['بلاگ', 60, null],
+        'blog' => ['بلاگ', 3600, null],
         'comments' => ['نظرات', 120, null],
         'testimonials' => ['نظرات صفحه اصلی', 600, null],
         'seo' => ['سئوی صفحه‌ها', 60, null],
@@ -128,8 +128,20 @@ class CacheManager
         return [true, 'کش پاک شد.'];
     }
 
+    /*
+     * Drops one storefront section's cached data after its content changed (a post saved in admin). Never in the
+     * way of the save itself: a storefront that doesn't answer is logged, and the section's time still applies.
+     */
+    public function refreshStorefront(string $Section): void
+    {
+        [$Ok, $Message] = $this->revalidate("storefront:$Section", 3);
+        if (!$Ok) {
+            Log::warning('Storefront cache not refreshed', ['section' => $Section, 'reason' => $Message]);
+        }
+    }
+
     /* Asks the storefront (Next.js) to drop its cached data with this tag: [ok, message]. */
-    private function revalidate(string $Tag): array
+    private function revalidate(string $Tag, int $Timeout = 10): array
     {
         $Secret = config('services.storefront.revalidate_secret');
         if (!$Secret) {
@@ -137,7 +149,7 @@ class CacheManager
         }
         $Url = rtrim(config('services.storefront.internal_url') ?: StorefrontUrl(), '/') . '/api/revalidate';
         try {
-            $Res = Http::timeout(10)->withHeaders(['X-Revalidate-Secret' => $Secret])->post($Url, ['tag' => $Tag]);
+            $Res = Http::timeout($Timeout)->withHeaders(['X-Revalidate-Secret' => $Secret])->post($Url, ['tag' => $Tag]);
         } catch (\Throwable $e) {
             return [false, 'سایت (Next.js) پاسخ نداد: ' . $e->getMessage()];
         }
