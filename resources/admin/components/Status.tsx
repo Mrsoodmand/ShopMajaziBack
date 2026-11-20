@@ -43,11 +43,25 @@ const payStatus: Record<string, { tone: Tone; icon: LucideIcon }> = {
 
 export function Badge({ tone, icon: Icon, label }: { tone: Tone; icon: LucideIcon; label: string }) {
     return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium whitespace-nowrap ${toneClass[tone]}`}>
+        <span className={`status-badge inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium whitespace-nowrap ${toneClass[tone]}`}>
             <Icon aria-hidden size={14} strokeWidth={2.25} />
             {label}
         </span>
     );
+}
+
+/** The colour of a table row's status bar, one per tone. */
+export const toneRail: Record<Tone, string> = {
+    neutral: 'var(--stroke-field)',
+    info: 'var(--primary)',
+    progress: 'oklch(0.62 0.14 235)',
+    warn: 'oklch(0.72 0.15 75)',
+    success: 'oklch(0.62 0.15 152)',
+    danger: 'oklch(0.6 0.2 27)',
+};
+
+export function orderTone(status: string): Tone {
+    return orderStatus[status]?.tone ?? 'neutral';
 }
 
 export function OrderStatus({ status }: { status: string }) {

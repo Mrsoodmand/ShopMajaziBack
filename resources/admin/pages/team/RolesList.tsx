@@ -82,6 +82,7 @@ export default function RolesList() {
             />
             <FilterBar search={{ label: 'جستجوی نقش', placeholder: 'نام نقش' }} filters={filters} sort={{ options: sorts }} values={v} onChange={list.update} total={shown?.total} noun="نقش" loading={loading} onRefresh={reload} />
             <DataTable
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="فهرست نقش‌ها"
                 rows={shown?.rows}
                 loading={loading}

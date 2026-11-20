@@ -3,6 +3,7 @@ import { CircleCheck, Clock, FileText, Lock, MessageCircleReply } from 'lucide-r
 import { useQuery } from '../../lib/api';
 import { waited } from '../../lib/format';
 import { Badge } from '../../components/Status';
+import { dayGroup } from '../../lib/dates';
 import { FilterTabs, Row } from '../../components/ui';
 import { PageHeader, useListParams } from '../../components/list';
 import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, QuickSkeleton, isFiltered, type Column, type FilterDef } from '../../components/DataList';
@@ -146,6 +147,9 @@ export default function TicketsPage() {
                 onRefresh={reload}
             />
             <DataTable
+                rowStatus={(t) => (t.status === 'waiting' ? 'info' : t.status === 'answered' ? 'success' : 'neutral')}
+                groupBy={v.sort.startsWith('updated') ? (t) => dayGroup(t.updatedAt) : ['newest', 'oldest'].includes(v.sort) ? (t) => dayGroup(t.createdAt) : undefined}
+                offset={data ? (data.page - 1) * data.perPage : 0}
                 label="فهرست تیکت‌ها"
                 rows={data?.tickets}
                 loading={loading}

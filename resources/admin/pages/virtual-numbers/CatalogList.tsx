@@ -171,6 +171,10 @@ export default function CatalogList({ kind }: { kind: Kind }) {
             )}
 
             <DataTable
+
+                rowStatus={(r) => (r.live ? 'success' : 'neutral')}
+
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label={n.plural}
                 rows={shown?.rows}
                 loading={query.loading}

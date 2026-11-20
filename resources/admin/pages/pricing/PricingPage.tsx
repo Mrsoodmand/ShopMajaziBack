@@ -153,7 +153,7 @@ export default function PricingPage() {
             <Panel title="ارزها">
                 <p className="mb-3 text-muted">سود دلار برای همه اشتراک‌ها و خدمات مجازی است، مگر اکانتی که در ویرایشگرش «سود اختصاصی» داشته باشد. سود شماره مجازی جداست (پایین).</p>
                 <div className="relative -mx-5 overflow-x-auto">
-                    <table className="w-full min-w-[720px]">
+                    <table className="grid-table w-full min-w-[720px]">
                         <thead>
                             <tr className="border-y border-stroke text-[13px] text-muted">
                                 <th scope="col" className="py-2.5 ps-5 pe-3 text-start font-medium">ارز</th>
@@ -242,7 +242,7 @@ export default function PricingPage() {
             <Panel title="سود شماره مجازی (هر سرور)">
                 <p className="mb-3 text-muted">قیمت هر شماره = هزینه سرور × نرخ بازار ارز آن سرور × (۱ + سود). با ذخیره، قیمت همه شماره‌های آن سرور همان لحظه دوباره حساب می‌شود.</p>
                 <div className="relative -mx-5 overflow-x-auto">
-                    <table className="w-full min-w-[720px]">
+                    <table className="grid-table w-full min-w-[720px]">
                         <thead>
                             <tr className="border-y border-stroke text-[13px] text-muted">
                                 <th scope="col" className="py-2.5 ps-5 pe-3 text-start font-medium">سرور</th>

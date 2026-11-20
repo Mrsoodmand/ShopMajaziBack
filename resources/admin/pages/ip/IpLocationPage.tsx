@@ -541,7 +541,7 @@ function Clients({ location, servers, nav }: { location: Location & { id: number
                     <EmptyState>کلاینتی در این فهرست نیست.</EmptyState>
                 ) : (
                     <div className={`overflow-x-auto transition-opacity ${loading ? 'opacity-60' : ''}`}>
-                        <table className="w-full min-w-[820px]">
+                        <table className="grid-table w-full min-w-[820px]">
                             <thead>
                                 <tr className="border-b border-stroke text-[13px] text-muted">
                                     <th scope="col" className="py-3 ps-5 pe-3 text-start font-medium">کلاینت</th>

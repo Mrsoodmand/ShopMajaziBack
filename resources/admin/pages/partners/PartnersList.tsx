@@ -125,6 +125,7 @@ export default function PartnersList() {
                 onRefresh={reload}
             />
             <DataTable
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="فهرست همکاران"
                 rows={shown?.rows}
                 loading={loading}

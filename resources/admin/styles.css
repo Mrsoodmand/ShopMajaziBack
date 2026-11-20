@@ -263,3 +263,65 @@
     .skeleton { background: var(--surface-3); border-radius: 6px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
     @keyframes skeleton-pulse { 50% { opacity: 0.5; } }
 }
+
+/*
+ * Admin tables: a spreadsheet grid. Compact rows, a line between columns, striped rows, a tinted header.
+ * Not in a layer on purpose, so it wins over the padding utilities the tables still carry.
+ * Status badges inside a table show as a coloured dot and text; rows can carry a status bar on their start edge.
+ */
+.grid-table { border-collapse: collapse; font-size: 13.5px; }
+.grid-table :where(th, td) { padding-top: 6px; padding-bottom: 6px; vertical-align: middle; }
+.grid-table thead th {
+    background: var(--surface-2);
+    color: var(--ink-muted);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid var(--stroke-field);
+    white-space: nowrap;
+}
+.grid-table tr > :where(th, td) + :where(th, td) { border-inline-start: 1px solid var(--stroke); }
+.grid-table tbody tr { border-bottom: 1px solid var(--stroke); }
+.grid-table tbody tr:last-child { border-bottom: 0; }
+.grid-table tbody tr:nth-child(even of :not(.grid-group)) > * { background: color-mix(in oklch, var(--surface-2) 50%, var(--surface)); }
+.grid-table tbody tr:not(.grid-group):hover > * { background: color-mix(in oklch, var(--primary-soft) 70%, var(--surface)); }
+.grid-table tbody tr[data-tone='warn'] > * { background: color-mix(in oklch, var(--warn-soft) 60%, var(--surface)); }
+.grid-table tbody tr[data-tone='muted'] > * { color: var(--ink-muted); }
+.grid-table tbody tr[aria-selected='true'] > * { background: color-mix(in oklch, var(--primary-soft) 85%, var(--surface)); }
+.grid-table tr[data-rail] > :first-child { box-shadow: inset 3px 0 0 var(--rail); }
+[dir='rtl'] .grid-table tr[data-rail] > :first-child { box-shadow: inset -3px 0 0 var(--rail); }
+.grid-table .grid-group > * {
+    background: var(--surface-2);
+    color: var(--ink-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+.grid-gutter { width: 44px; text-align: center; color: var(--ink-subtle); font-size: 12px; }
+.grid-table tbody .grid-gutter { background: var(--surface-2) !important; position: relative; }
+/* The whole gutter cell ticks the row, above the row's stretched link. */
+.grid-table tbody .grid-gutter label { position: absolute; inset: 0; z-index: 1; }
+/* Row number, turning into a checkbox on hover, focus or once anything is ticked. */
+.grid-gutter .grid-check { display: none; }
+.grid-table tr:is(:hover, :focus-within, [aria-selected='true']) .grid-gutter .grid-check,
+.grid-table[data-picking] .grid-gutter .grid-check { display: inline-block; }
+.grid-table tr:is(:hover, :focus-within, [aria-selected='true']) .grid-gutter .grid-num,
+.grid-table[data-picking] .grid-gutter .grid-num { display: none; }
+.grid-table .status-badge, .grid-list .status-badge { background: none; padding: 0; gap: 7px; }
+.grid-table .status-badge svg, .grid-list .status-badge svg { display: none; }
+.grid-table .status-badge::before, .grid-list .status-badge::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+.grid-list li[data-rail] { box-shadow: inset -3px 0 0 var(--rail); }
+[dir='ltr'] .grid-list li[data-rail] { box-shadow: inset 3px 0 0 var(--rail); }
+
+/* Floating bar for the rows ticked in a list. */
+.bulk-bar { animation: bulk-in 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes bulk-in { from { opacity: 0; translate: 0 12px; } }

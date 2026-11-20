@@ -96,6 +96,7 @@ export default function PagesList() {
                 onRefresh={reload}
             />
             <DataTable
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="فهرست صفحه‌ها"
                 rows={shown?.rows}
                 loading={loading}

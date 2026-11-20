@@ -3,6 +3,7 @@ import { CircleCheck, PackageCheck, Plus, Settings2 } from 'lucide-react';
 import { useQuery } from '../../lib/api';
 import { count } from '../../lib/format';
 import { Badge } from '../../components/Status';
+import { dayGroup } from '../../lib/dates';
 import { CopyButton, FilterTabs, Notice, Row } from '../../components/ui';
 import { AttentionBar, PageHeader, useListParams } from '../../components/list';
 import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, QuickSkeleton, isFiltered, type Column, type FilterDef } from '../../components/DataList';
@@ -120,6 +121,12 @@ export default function StockList({ kind }: { kind: StockKind }) {
             />
 
             <DataTable
+
+                rowStatus={(r) => (r.delivered ? 'success' : 'info')}
+
+                groupBy={['', 'oldest'].includes(v.sort) ? (r) => dayGroup(r.createdAt) : undefined}
+
+                offset={data ? (data.page - 1) * data.perPage : 0}
                 label={`فهرست ${kind.title}`}
                 rows={data?.items}
                 loading={loading}

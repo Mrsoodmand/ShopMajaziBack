@@ -108,6 +108,7 @@ export default function AdminsList() {
             />
             <FilterBar search={{ label: 'جستجوی مدیر', placeholder: 'نام، ایمیل یا موبایل' }} filters={filters} sort={{ options: sorts }} values={v} onChange={list.update} total={shown?.total} noun="مدیر" loading={loading} onRefresh={reload} />
             <DataTable
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="فهرست مدیران"
                 rows={shown?.rows}
                 loading={loading}

@@ -137,6 +137,8 @@ export default function AccountsList() {
                 onRefresh={reload}
             />
             <DataTable
+                rowStatus={(a) => (a.live ? 'success' : 'neutral')}
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="فهرست اکانت‌ها"
                 rows={shown?.rows}
                 loading={loading}

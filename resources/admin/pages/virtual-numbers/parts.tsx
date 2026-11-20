@@ -133,7 +133,7 @@ export function OffersPanel({ kind, offers, error, onRetry }: { kind: Kind; offe
                         <span className="block text-[13px]">قیمت‌ها را بررسی خودکار قیمت سرورها به‌روز می‌کند و با همان گرد کردن سایت نمایش داده می‌شوند.</span>
                     </p>
                     <div className="relative -mx-5 overflow-x-auto">
-                        <table className="w-full min-w-[560px]">
+                        <table className="grid-table w-full min-w-[560px]">
                             <thead>
                                 <tr className="border-y border-stroke text-[13px] text-muted">
                                     <th scope="col" className="py-2.5 ps-5 pe-3 text-start font-medium">{other}</th>

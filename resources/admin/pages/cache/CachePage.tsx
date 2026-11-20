@@ -167,7 +167,7 @@ export default function CachePage() {
                     سایت پاسخ هر بخش را این مدت (ثانیه) نگه می‌دارد و بعد دوباره از بک‌اند می‌گیرد. خالی = زمان پیش‌فرض. ۰ = بدون کش (هر بازدید تازه، کندتر). تغییرها تا یک دقیقه بعد اعمال می‌شوند.
                 </p>
                 <div className="relative -mx-5 overflow-x-auto">
-                    <table className="w-full min-w-[640px]">
+                    <table className="grid-table w-full min-w-[640px]">
                         <thead>
                             <tr className="border-y border-stroke text-[13px] text-muted">
                                 <th scope="col" className="py-2.5 ps-5 pe-3 text-start font-medium">بخش</th>

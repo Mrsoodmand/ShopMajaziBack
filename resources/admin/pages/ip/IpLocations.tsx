@@ -140,6 +140,10 @@ export default function IpLocations() {
             />
 
             <DataTable
+
+                rowStatus={(l) => (l.live && l.free === 0 ? 'warn' : l.live ? 'success' : 'neutral')}
+
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="فهرست کشورها"
                 rows={shown?.rows}
                 loading={loading}

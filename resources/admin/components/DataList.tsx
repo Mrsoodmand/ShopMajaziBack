@@ -1,15 +1,17 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useHref } from 'react-router';
-import { ArrowUpLeft, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Eye, ListFilter, RotateCw, X } from 'lucide-react';
+import { ArrowUpLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, Link2, ListFilter, MoreVertical, RotateCw, X, type LucideIcon } from 'lucide-react';
 import type { ApiError } from '../lib/api';
 import { count, parseAmount } from '../lib/format';
 import { matchPreset, normalizeJalali, presetRange, presets, type RangePreset } from '../lib/dates';
 import { ErrorState, SearchField, SkeletonRows } from './ui';
+import { toneRail, type Tone } from './Status';
 
 /*
  * The admin's one list kit. A list page is: a toolbar (status tabs, search, filters, sort), active filter chips,
- * a table whose rows are real links (open in a new tab, copy link) with «نمایش سریع» and «صفحه کامل» buttons,
- * a side drawer for the quick view, and a pager. Filters live in the address, so a filtered list can be shared.
+ * a spreadsheet-style table whose rows are real links (a click opens the quick view, a ⋯ menu holds the rest),
+ * a side drawer for the quick view, a floating bar for ticked rows, and a pager. Filters live in the address, so a filtered list can be shared.
  */
 
 /* ---------- Filters ---------- */
@@ -391,19 +393,18 @@ export type QuickView<T> = {
     body: (row: T) => ReactNode;
 };
 
-export type Selection<T> = {
-    isSelected: (row: T) => boolean;
-    toggle: (row: T) => void;
-    toggleAll: () => void;
-    all: boolean;
-    some: boolean;
-};
+/** Something to do with the rows ticked in a list, shown in the floating bar. */
+export type BulkAction<T> = { label: string; icon?: LucideIcon; run: (rows: T[]) => void | Promise<void> };
 
 const showFrom = { lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell' };
 
 /**
- * Rows are real links: a plain click opens the record in the app, ctrl/middle click or «باز کردن در زبانه جدید»
- * opens a new tab, and right-click copies the address. Each row also has «نمایش سریع» (side drawer) and «صفحه کامل».
+ * A list as a spreadsheet grid: compact striped rows with a line between columns, a row number that turns into a
+ * checkbox, an optional status bar on each row's start edge and day headers when the list is sorted by date.
+ *
+ * Rows are real links. With a quick view, a plain click on a row opens the side drawer; ctrl/middle click opens the
+ * record in a new tab and right-click copies its address. The ⋯ menu at the end of the row holds «صفحه کامل»,
+ * «زبانه جدید» and «کپی پیوند». Ticked rows get a floating bar (copy links, plus the page's own `bulk` actions).
  */
 export function DataTable<T>({
     label,
@@ -420,7 +421,10 @@ export function DataTable<T>({
     mobile,
     empty,
     rowTone,
-    selection,
+    rowStatus,
+    groupBy,
+    offset = 0,
+    bulk = [],
     skeleton = 8,
 }: {
     label: string;
@@ -438,19 +442,61 @@ export function DataTable<T>({
     mobile: (row: T) => ReactNode;
     empty: ReactNode;
     rowTone?: (row: T) => 'warn' | 'muted' | undefined;
-    selection?: Selection<T>;
+    /** Colours the bar on the row's start edge. */
+    rowStatus?: (row: T) => Tone | undefined;
+    /** The day header a row falls under; pass it only while the list is sorted by date. */
+    groupBy?: (row: T) => string | null;
+    /** Rows on the pages before this one, so row numbers carry on across pages. */
+    offset?: number;
+    bulk?: BulkAction<T>[];
     skeleton?: number;
 }) {
     const [peek, setPeek] = useState<number | null>(null);
+    const [picked, setPicked] = useState<Set<string | number>>(() => new Set());
     const rowsKey = rows?.map(rowKey).join(',');
+    const base = useHref('/').replace(/\/$/, '');
 
-    // A new page or filter closes the drawer.
-    useEffect(() => setPeek(null), [rowsKey]);
+    // A new page or filter closes the drawer and drops the ticks.
+    useEffect(() => {
+        setPeek(null);
+        setPicked(new Set());
+    }, [rowsKey]);
 
-    const tone = (r: T) => {
-        const t = rowTone?.(r);
-        return t === 'warn' ? 'bg-warn-soft/60' : t === 'muted' ? 'text-muted' : '';
+    const pickedRows = rows?.filter((r) => picked.has(rowKey(r))) ?? [];
+    const all = !!rows?.length && pickedRows.length === rows.length;
+    const toggle = (r: T) =>
+        setPicked((p) => {
+            const next = new Set(p);
+            const k = rowKey(r);
+            if (next.has(k)) next.delete(k);
+            else next.add(k);
+            return next;
+        });
+    const toggleAll = () => setPicked(all || !rows ? new Set() : new Set(rows.map(rowKey)));
+    const fullUrl = (r: T) => new URL(base + href(r), window.location.origin).href;
+
+    const groups = new Map<string, number>();
+    if (groupBy && rows) for (const r of rows) {
+        const g = groupBy(r);
+        if (g) groups.set(g, (groups.get(g) ?? 0) + 1);
+    }
+    const groupAt = (index: number) => {
+        if (!groupBy || !rows) return null;
+        const g = groupBy(rows[index]);
+        return g && (index === 0 || groupBy(rows[index - 1]) !== g) ? g : null;
     };
+    const span = columns.length + 2;
+
+    const rail = (r: T) => {
+        const s = rowStatus?.(r);
+        return s ? ({ 'data-rail': s, style: { '--rail': toneRail[s] } as CSSProperties } as const) : {};
+    };
+
+    function onRowLink(e: MouseEvent, index: number) {
+        if (!quick || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        setPeek(index);
+    }
 
     return (
         <>
@@ -464,94 +510,124 @@ export function DataTable<T>({
                     empty
                 ) : (
                     <div className={`transition-opacity ${loading ? 'opacity-60' : ''}`}>
-                        <table className="hidden w-full md:table">
+                        <table className="grid-table hidden w-full md:table" data-picking={pickedRows.length ? '' : undefined}>
                             <thead>
-                                <tr className="text-[12.5px] text-muted">
-                                    {selection && (
-                                        <th scope="col" className="sticky top-16 z-[3] w-10 border-b border-stroke bg-surface-2 py-2.5 ps-5">
-                                            <input
-                                                type="checkbox"
-                                                className="size-4 accent-[var(--primary)]"
-                                                aria-label="انتخاب همه ردیف‌های این صفحه"
-                                                checked={selection.all}
-                                                ref={(el) => {
-                                                    if (el) el.indeterminate = selection.some && !selection.all;
-                                                }}
-                                                onChange={selection.toggleAll}
-                                            />
-                                        </th>
-                                    )}
-                                    {columns.map((c, i) => (
-                                        <th
-                                            key={c.key}
-                                            scope="col"
-                                            className={`sticky top-16 z-[3] border-b border-stroke bg-surface-2 py-2.5 font-medium whitespace-nowrap ${c.align === 'end' ? 'text-end' : 'text-start'} ${i === 0 && !selection ? 'ps-5 pe-3' : 'px-3'} ${c.from ? showFrom[c.from] : ''}`}
-                                        >
+                                <tr>
+                                    <th scope="col" className="grid-gutter sticky top-16 z-[3]">
+                                        <input
+                                            type="checkbox"
+                                            className="size-4 align-middle accent-[var(--primary)]"
+                                            aria-label="انتخاب همه ردیف‌های این صفحه"
+                                            checked={all}
+                                            ref={(el) => {
+                                                if (el) el.indeterminate = pickedRows.length > 0 && !all;
+                                            }}
+                                            onChange={toggleAll}
+                                        />
+                                    </th>
+                                    {columns.map((c) => (
+                                        <th key={c.key} scope="col" className={`sticky top-16 z-[3] px-3 ${c.align === 'end' ? 'text-end' : 'text-start'} ${c.from ? showFrom[c.from] : ''}`}>
                                             {c.header}
                                         </th>
                                     ))}
-                                    <th scope="col" className="sticky top-16 z-[3] border-b border-stroke bg-surface-2 py-2.5 ps-3 pe-5 text-end font-medium">
+                                    <th scope="col" className="sticky top-16 z-[3] w-12 px-2">
                                         <span className="sr-only">کارها</span>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map((r, index) => (
-                                    <tr key={rowKey(r)} className={`data-row group border-b border-stroke last:border-0 hover:bg-surface-2 ${tone(r)} ${selection?.isSelected(r) ? 'bg-indigo-soft/60' : ''}`}>
-                                        {selection && (
-                                            <td className="py-3 ps-5">
-                                                <input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label={`انتخاب ${rowLabel(r)}`} checked={selection.isSelected(r)} onChange={() => selection.toggle(r)} />
-                                            </td>
-                                        )}
-                                        {columns.map((c, i) => (
-                                            <td
-                                                key={c.key}
-                                                className={`py-3 ${c.align === 'end' ? 'text-end' : ''} ${i === 0 && !selection ? 'ps-5 pe-3' : 'px-3'} ${c.from ? showFrom[c.from] : ''} ${c.className ?? ''}`}
-                                            >
-                                                {c.primary ? (
-                                                    <Link to={href(r)} state={linkState} className="row-link block">
-                                                        {c.cell(r)}
-                                                    </Link>
-                                                ) : (
-                                                    c.cell(r)
-                                                )}
-                                            </td>
-                                        ))}
-                                        <td className="py-2 ps-3 pe-4 text-end whitespace-nowrap">
-                                            <RowActions label={rowLabel(r)} to={href(r)} state={linkState} onQuick={quick ? () => setPeek(index) : undefined} />
-                                        </td>
-                                    </tr>
-                                ))}
+                                {rows.map((r, index) => {
+                                    const g = groupAt(index);
+                                    const on = picked.has(rowKey(r));
+                                    return (
+                                        <Fragment key={rowKey(r)}>
+                                            {g && (
+                                                <tr className="grid-group">
+                                                    <th scope="colgroup" colSpan={span} className="px-4 text-start">
+                                                        {g}
+                                                        <span className="num ms-2 font-normal text-subtle">{count(groups.get(g) ?? 0)}</span>
+                                                    </th>
+                                                </tr>
+                                            )}
+                                            <tr className="data-row group" data-tone={rowTone?.(r)} aria-selected={on || undefined} {...rail(r)}>
+                                                <td className="grid-gutter">
+                                                    <label className="flex cursor-pointer items-center justify-center">
+                                                        <span className="grid-num num">{count(offset + index + 1)}</span>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="grid-check size-4 align-middle accent-[var(--primary)]"
+                                                            aria-label={`انتخاب ${rowLabel(r)}`}
+                                                            checked={on}
+                                                            onChange={() => toggle(r)}
+                                                        />
+                                                    </label>
+                                                </td>
+                                                {columns.map((c) => (
+                                                    <td key={c.key} className={`px-3 ${c.align === 'end' ? 'text-end' : ''} ${c.from ? showFrom[c.from] : ''} ${c.className ?? ''}`}>
+                                                        {c.primary ? (
+                                                            <Link to={href(r)} state={linkState} className="row-link block" onClick={(e) => onRowLink(e, index)}>
+                                                                {c.cell(r)}
+                                                            </Link>
+                                                        ) : (
+                                                            c.cell(r)
+                                                        )}
+                                                    </td>
+                                                ))}
+                                                <td className="px-2 text-center whitespace-nowrap">
+                                                    <RowMenu label={rowLabel(r)} to={href(r)} url={fullUrl(r)} state={linkState} onQuick={quick ? () => setPeek(index) : undefined} />
+                                                </td>
+                                            </tr>
+                                        </Fragment>
+                                    );
+                                })}
                             </tbody>
                         </table>
 
-                        <ul className="divide-y divide-stroke md:hidden">
-                            {rows.map((r, index) => (
-                                <li key={rowKey(r)} className={`flex items-stretch ${tone(r)}`}>
-                                    {selection && (
-                                        <label className="grid place-items-center ps-4">
-                                            <input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label={`انتخاب ${rowLabel(r)}`} checked={selection.isSelected(r)} onChange={() => selection.toggle(r)} />
-                                        </label>
-                                    )}
-                                    <Link to={href(r)} state={linkState} className="block min-w-0 flex-1 px-4 py-3 hover:bg-surface-2">
-                                        {mobile(r)}
-                                    </Link>
-                                    {quick && (
-                                        <button
-                                            type="button"
-                                            className="grid w-12 shrink-0 place-items-center border-s border-stroke text-muted hover:bg-surface-2 hover:text-ink"
-                                            aria-label={`نمایش سریع ${rowLabel(r)}`}
-                                            onClick={() => setPeek(index)}
-                                        >
-                                            <Eye aria-hidden size={18} />
-                                        </button>
-                                    )}
-                                </li>
-                            ))}
+                        <ul className="grid-list divide-y divide-stroke md:hidden">
+                            {rows.map((r, index) => {
+                                const g = groupAt(index);
+                                const t = rowTone?.(r);
+                                return (
+                                    <Fragment key={rowKey(r)}>
+                                        {g && (
+                                            <li className="bg-surface-2 px-4 py-1.5 text-[12px] font-semibold text-muted">
+                                                {g}
+                                                <span className="num ms-2 font-normal text-subtle">{count(groups.get(g) ?? 0)}</span>
+                                            </li>
+                                        )}
+                                        <li className={`flex items-stretch ${t === 'warn' ? 'bg-warn-soft/60' : t === 'muted' ? 'text-muted' : ''}`} {...rail(r)}>
+                                            <Link to={href(r)} state={linkState} className="block min-w-0 flex-1 px-4 py-3 hover:bg-surface-2">
+                                                {mobile(r)}
+                                            </Link>
+                                            {quick && (
+                                                <button
+                                                    type="button"
+                                                    className="grid w-12 shrink-0 place-items-center border-s border-stroke text-muted hover:bg-surface-2 hover:text-ink"
+                                                    aria-label={`نمایش سریع ${rowLabel(r)}`}
+                                                    onClick={() => setPeek(index)}
+                                                >
+                                                    <Eye aria-hidden size={18} />
+                                                </button>
+                                            )}
+                                        </li>
+                                    </Fragment>
+                                );
+                            })}
                         </ul>
                     </div>
                 )}
             </section>
+            {pickedRows.length > 0 && (
+                <BulkBar
+                    n={pickedRows.length}
+                    onClear={() => setPicked(new Set())}
+                    actions={[
+                        { label: 'کپی پیوندها', icon: Link2, run: (sel: T[]) => navigator.clipboard?.writeText(sel.map(fullUrl).join('\n')) },
+                        ...bulk,
+                    ]}
+                    rows={pickedRows}
+                />
+            )}
             {quick && rows && (
                 <QuickDrawer rows={rows} index={peek} onIndex={setPeek} quick={quick} href={href} linkState={linkState} rowLabel={rowLabel} rowKey={rowKey} />
             )}
@@ -559,22 +635,146 @@ export function DataTable<T>({
     );
 }
 
-/** «نمایش سریع» and «صفحه کامل» at the end of a row; icons only until there is room for the words. */
-export function RowActions({ label, to, state, onQuick }: { label: string; to: string; state?: unknown; onQuick?: () => void }) {
-    const cls =
-        'inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-muted transition-colors hover:bg-surface hover:text-ink focus-visible:text-ink group-hover:text-body';
+/** The ⋯ menu at the end of a row: quick view, full page, new tab, copy link. Drawn over the page so the list's rounded corners don't clip it. */
+export function RowMenu({ label, to, url, state, onQuick }: { label: string; to: string; url: string; state?: unknown; onQuick?: () => void }) {
+    const [at, setAt] = useState<{ top: number; left: number; up: boolean } | null>(null);
+    const [copied, setCopied] = useState(false);
+    const button = useRef<HTMLButtonElement>(null);
+    const menu = useRef<HTMLDivElement>(null);
+    const id = useId();
+
+    useEffect(() => {
+        if (!at) return;
+        menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+        const close = (e: Event) => {
+            if (e.type === 'scroll' || e.type === 'resize' || !(menu.current?.contains(e.target as Node) || button.current?.contains(e.target as Node))) setAt(null);
+        };
+        const key = (e: globalThis.KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setAt(null);
+                button.current?.focus();
+            }
+        };
+        document.addEventListener('pointerdown', close);
+        document.addEventListener('keydown', key);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            document.removeEventListener('pointerdown', close);
+            document.removeEventListener('keydown', key);
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
+        };
+    }, [at]);
+
+    useEffect(() => {
+        if (!copied) return;
+        const t = setTimeout(() => {
+            setCopied(false);
+            setAt(null);
+        }, 900);
+        return () => clearTimeout(t);
+    }, [copied]);
+
+    function open() {
+        if (at) return setAt(null);
+        const r = button.current!.getBoundingClientRect();
+        const up = r.bottom + 190 > window.innerHeight;
+        setAt({ top: up ? r.top - 4 : r.bottom + 4, left: r.left, up });
+    }
+
+    function onMenuKey(e: KeyboardEvent) {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        e.preventDefault();
+        const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+        const i = items.indexOf(document.activeElement as HTMLElement);
+        items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+    }
+
+    const item = 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-start text-[13px] text-body hover:bg-surface-2 hover:text-ink focus-visible:bg-surface-2 focus-visible:outline-none';
     return (
-        <div className="inline-flex items-center gap-0.5">
-            {onQuick && (
-                <button type="button" className={cls} onClick={onQuick} aria-label={`نمایش سریع ${label}`} title="نمایش سریع">
-                    <Eye aria-hidden size={16} />
-                    <span className="hidden 2xl:inline">نمایش سریع</span>
+        <>
+            <button
+                ref={button}
+                type="button"
+                className={`inline-grid size-8 place-items-center rounded-lg border text-muted transition-colors hover:bg-surface hover:text-ink ${at ? 'border-stroke bg-surface text-ink' : 'border-transparent group-hover:border-stroke group-hover:bg-surface'}`}
+                aria-label={`کارهای ${label}`}
+                aria-haspopup="menu"
+                aria-expanded={!!at}
+                aria-controls={at ? id : undefined}
+                onClick={open}
+            >
+                <MoreVertical aria-hidden size={16} />
+            </button>
+            {at &&
+                createPortal(
+                    <div
+                        ref={menu}
+                        id={id}
+                        role="menu"
+                        aria-label={`کارهای ${label}`}
+                        dir="rtl"
+                        onKeyDown={onMenuKey}
+                        className="fixed z-50 min-w-48 rounded-xl border border-stroke bg-surface p-1 shadow-pop"
+                        style={{ top: at.top, left: at.left, translate: at.up ? '0 -100%' : undefined }}
+                    >
+                        {onQuick && (
+                            <button type="button" role="menuitem" className={item} onClick={() => (setAt(null), onQuick())}>
+                                <Eye aria-hidden size={15} />
+                                نمایش سریع
+                            </button>
+                        )}
+                        <Link to={to} state={state} role="menuitem" className={item} onClick={() => setAt(null)}>
+                            <ArrowUpLeft aria-hidden size={15} />
+                            صفحه کامل
+                        </Link>
+                        <a href={url} target="_blank" rel="noopener" role="menuitem" className={item} onClick={() => setAt(null)}>
+                            <ExternalLink aria-hidden size={15} />
+                            باز کردن در زبانه جدید
+                        </a>
+                        <button type="button" role="menuitem" className={item} onClick={() => navigator.clipboard?.writeText(url).then(() => setCopied(true))}>
+                            {copied ? <Check aria-hidden size={15} className="text-primary" /> : <Copy aria-hidden size={15} />}
+                            {copied ? 'پیوند کپی شد' : 'کپی پیوند'}
+                        </button>
+                    </div>,
+                    document.body,
+                )}
+        </>
+    );
+}
+
+/** Floating bar while rows are ticked: how many, what to do with them, and a way to untick. */
+function BulkBar<T>({ n, rows, actions, onClear }: { n: number; rows: T[]; actions: BulkAction<T>[]; onClear: () => void }) {
+    const [done, setDone] = useState<string | null>(null);
+    useEffect(() => {
+        if (!done) return;
+        const t = setTimeout(() => setDone(null), 1500);
+        return () => clearTimeout(t);
+    }, [done]);
+    return (
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 hidden justify-center px-4 md:flex">
+            <div role="region" aria-label="ردیف‌های انتخاب‌شده" className="bulk-bar pointer-events-auto flex items-center gap-2 rounded-xl bg-ink py-1.5 ps-4 pe-1.5 text-[13px] text-page shadow-pop">
+                <span className="num me-2 font-medium" aria-live="polite">
+                    {done ?? `${count(n)} ردیف انتخاب شد`}
+                </span>
+                {actions.map((a) => (
+                    <button
+                        key={a.label}
+                        type="button"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-page/25 px-3 hover:bg-page/10"
+                        onClick={async () => {
+                            await a.run(rows);
+                            setDone(`${a.label}: انجام شد`);
+                        }}
+                    >
+                        {a.icon && <a.icon aria-hidden size={15} />}
+                        {a.label}
+                    </button>
+                ))}
+                <button type="button" className="inline-grid size-8 place-items-center rounded-lg hover:bg-page/10" onClick={onClear} aria-label="لغو انتخاب" title="لغو انتخاب">
+                    <X aria-hidden size={16} />
                 </button>
-            )}
-            <Link to={to} state={state} className={cls} aria-label={`صفحه کامل ${label}`} title="صفحه کامل">
-                <ArrowUpLeft aria-hidden size={16} />
-                <span className="hidden 2xl:inline">صفحه کامل</span>
-            </Link>
+            </div>
         </div>
     );
 }

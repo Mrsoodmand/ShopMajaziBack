@@ -211,7 +211,7 @@ function Earnings({ part, data, onChanged }: { part: 'wallet' | 'profits'; tabLa
                     <p className="text-muted">هنوز سهمی ثبت نشده است.</p>
                 ) : (
                     <div className="-mx-5 overflow-x-auto">
-                        <table className="w-full min-w-[560px]">
+                        <table className="grid-table w-full min-w-[560px]">
                             <thead>
                                 <tr className="border-b border-stroke text-[13px] text-muted">
                                     <th scope="col" className="ps-5 pe-3 pb-2 text-start font-medium">سفارش</th>

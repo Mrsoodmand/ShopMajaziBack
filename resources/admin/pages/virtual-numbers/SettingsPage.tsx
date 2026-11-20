@@ -105,7 +105,7 @@ export default function SettingsPage() {
                     <Link to="/pricing" className="font-medium text-primary underline-offset-4 hover:underline">ارزها و سود</Link> تنظیم می‌شود.
                 </p>
                 <div className="relative -mx-5 overflow-x-auto">
-                    <table className="w-full min-w-[640px]">
+                    <table className="grid-table w-full min-w-[640px]">
                         <thead>
                             <tr className="border-y border-stroke text-[13px] text-muted">
                                 <th scope="col" className="py-2.5 ps-5 pe-3 text-start font-medium">سرور</th>

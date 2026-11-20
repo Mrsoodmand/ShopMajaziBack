@@ -106,6 +106,8 @@ export default function PostsList({ kind }: { kind: PostKind }) {
                 onRefresh={reload}
             />
             <DataTable
+                rowStatus={(p) => (p.status === 'published' ? 'success' : p.status === 'draft' ? 'warn' : 'neutral')}
+                offset={data ? (data.page - 1) * data.perPage : 0}
                 label={`فهرست ${k.title}`}
                 rows={data?.posts}
                 loading={loading}

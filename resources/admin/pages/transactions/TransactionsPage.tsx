@@ -131,7 +131,7 @@ export default function TransactionsPage() {
                     ) : (
                         <div className={`transition-opacity ${loading ? 'opacity-60' : ''}`}>
                             {/* Sized by the list's own width (container query), so it fits beside an open panel too. */}
-                            <table className="hidden w-full text-start @min-[600px]:table">
+                            <table className="grid-table hidden w-full text-start @min-[600px]:table">
                                 <thead>
                                     <tr className="border-b border-stroke text-[13px] text-muted">
                                         <th scope="col" className="py-3 ps-5 pe-3 text-start font-medium">{view === 'review' ? 'تراکنش · در صف' : 'تراکنش · ثبت'}</th>
@@ -217,7 +217,7 @@ function Row({
     onOpen: (id: number) => void;
 }) {
     return (
-        <tr className={`data-row border-b border-stroke last:border-0 ${selected ? 'bg-indigo-soft' : 'hover:bg-surface-2'}`}>
+        <tr aria-selected={selected || undefined} className={`data-row border-b border-stroke last:border-0 ${selected ? 'bg-indigo-soft' : 'hover:bg-surface-2'}`}>
             <td className="py-3 ps-5 pe-3 whitespace-nowrap">
                 <Link
                     to={{ pathname: `/transactions/${t.id}`, search }}

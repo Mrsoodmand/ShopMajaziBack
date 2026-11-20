@@ -54,3 +54,17 @@ export function normalizeJalali(raw: string): string | null {
     if (y < 1300 || y > 1500 || mo < 1 || mo > 12 || d < 1 || d > (mo <= 6 ? 31 : 30)) return null;
     return `${y}/${String(mo).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
 }
+
+/**
+ * The day a list row belongs to, for the day headers in a list sorted by date: «امروز», «دیروز» or the date.
+ * Takes the API's «1404/08/07 14:30» (Persian or Latin digits); null when there is no date.
+ */
+export function dayGroup(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const day = value.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).trim().split(/\s+/)[0];
+    if (!/^\d{4}\/\d{2}\/\d{2}$/.test(day)) return null;
+    const now = new Date();
+    if (day === jalali(now)) return 'امروز';
+    if (day === jalali(new Date(now.getTime() - 86_400_000))) return 'دیروز';
+    return day;
+}

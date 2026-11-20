@@ -152,7 +152,7 @@ const serviceViews = [
 
 function ServiceState({ live }: { live: boolean }) {
     return (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium ${live ? 'bg-success-soft text-success' : 'bg-surface-2 text-muted'}`}>
+        <span className={`status-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium ${live ? 'bg-success-soft text-success' : 'bg-surface-2 text-muted'}`}>
             {live ? 'فعال' : 'غیرفعال'}
         </span>
     );
@@ -245,6 +245,8 @@ function ServicesTable({
                 onRefresh={onRetry}
             />
             <DataTable
+                rowStatus={(s) => (s.live ? 'success' : 'neutral')}
+                offset={shown ? (shown.page - 1) * shown.perPage : 0}
                 label="سرویس‌های پلتفرم"
                 rows={shown?.rows}
                 loading={loading}

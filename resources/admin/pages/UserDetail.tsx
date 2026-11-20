@@ -204,7 +204,7 @@ function Activity({ user, onChanged }: { user: User; onChanged: () => void }) {
                     if (!user.payments.length) return <p className="text-muted">تراکنشی ثبت نشده است.</p>;
                     return (
                         <div className="-mx-5 overflow-x-auto">
-                            <table className="w-full min-w-[600px]">
+                            <table className="grid-table w-full min-w-[600px]">
                                 <thead>
                                     <tr className="border-b border-stroke text-[13px] text-muted">
                                         <th scope="col" className="ps-5 pe-3 pb-2 text-start font-medium">شناسه</th>

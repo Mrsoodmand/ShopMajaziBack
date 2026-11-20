@@ -3,7 +3,8 @@ import { AlertTriangle, MessageSquare, Moon, Plus } from 'lucide-react';
 import { useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman, waited } from '../lib/format';
-import { OrderStatus, PayStatus } from '../components/Status';
+import { OrderStatus, PayStatus, orderTone } from '../components/Status';
+import { dayGroup } from '../lib/dates';
 import { CopyButton, FilterTabs, Row, gateLabel } from '../components/ui';
 import { PageHeader, useListParams } from '../components/list';
 import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, QuickSkeleton, filterDefaults, type Column, type FilterDef } from '../components/DataList';
@@ -166,6 +167,12 @@ export default function OrdersList() {
             />
 
             <DataTable
+
+                rowStatus={(o) => orderTone(o.status)}
+
+                groupBy={!queue && ['', 'newest', 'oldest'].includes(v.sort) ? (o) => dayGroup(o.createdAt) : undefined}
+
+                offset={data ? (data.page - 1) * data.perPage : 0}
                 label="لیست سفارش‌ها"
                 rows={data?.orders}
                 loading={loading}

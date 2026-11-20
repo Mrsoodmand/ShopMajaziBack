@@ -4,6 +4,7 @@ import { useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman } from '../lib/format';
 import { OrderStatus } from '../components/Status';
+import { dayGroup } from '../lib/dates';
 import { CopyButton, FilterTabs, Row } from '../components/ui';
 import { PageHeader, useListParams } from '../components/list';
 import { DataTable, FilterBar, ListEmpty, ListPager, QuickSection, QuickSkeleton, filterDefaults, isFiltered, type Column, type FilterDef } from '../components/DataList';
@@ -79,7 +80,7 @@ export function BlockedPill({ flags }: { flags: UserFlags }) {
     const blocks = blockLabels(flags);
     if (!blocks.length) return null;
     return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-error-soft px-2.5 py-0.5 text-[13px] font-medium whitespace-nowrap text-error" title={`مسدود: ${blocks.join('، ')}`}>
+        <span className="status-badge inline-flex items-center gap-1.5 rounded-full bg-error-soft px-2.5 py-0.5 text-[13px] font-medium whitespace-nowrap text-error" title={`مسدود: ${blocks.join('، ')}`}>
             <Ban aria-hidden size={14} strokeWidth={2.25} />
             مسدود: {blocks.join('، ')}
         </span>
@@ -141,6 +142,12 @@ export default function UsersList() {
             />
 
             <DataTable
+
+                rowStatus={(u) => (blockLabels(u.flags).length ? 'danger' : undefined)}
+
+                groupBy={['', 'newest', 'oldest'].includes(v.sort) ? (u) => dayGroup(u.createdAt) : undefined}
+
+                offset={data ? (data.page - 1) * data.perPage : 0}
                 label="لیست کاربران"
                 rows={data?.users}
                 loading={loading}
