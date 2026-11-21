@@ -6,6 +6,7 @@ import { useSave } from '../../lib/useSave';
 import { EditorLayout } from '../../components/EditorLayout';
 import { Field, ImageField, RowsEditor, Switch } from '../../components/form';
 import { RichText } from '../../components/RichText';
+import { PriceReceipt, usd } from '../../components/PriceReceipt';
 import { ErrorState, Panel } from '../../components/ui';
 import { EditorSkeleton, problemsFrom } from '../../components/list';
 
@@ -229,33 +230,44 @@ export default function AccountEditor() {
                         empty="هنوز پلنی ندارد."
                         removeLabel={(r, i) => `حذف پلن ${r.name || i + 1}`}
                         render={(row, update, i) => (
-                            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_70px_110px_110px_90px_70px_auto_auto] sm:items-end">
-                                <Field label="نام پلن" error={err(`plans.${i}.name`)}>
-                                    {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="یک ماهه" />}
-                                </Field>
-                                <Field label="نام انگلیسی" optional error={err(`plans.${i}.enName`)}>
-                                    {(p) => <input {...p} dir="ltr" className="field latin" value={row.enName ?? ''} onChange={(e) => update({ enName: e.target.value })} placeholder="Pro · 1 month" />}
-                                </Field>
-                                <Field label="ماه" optional error={err(`plans.${i}.months`)}>
-                                    {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.months ?? ''} onChange={(e) => update({ months: e.target.value })} placeholder={guessMonths(row.name)} />}
-                                </Field>
-                                <Field label={`قیمت (${unit})`} error={err(`plans.${i}.price`)}>
-                                    {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" value={row.price} onChange={(e) => update({ price: e.target.value })} />}
-                                </Field>
-                                <Field label="با تخفیف" optional error={err(`plans.${i}.discount`)}>
-                                    {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" value={row.discount} onChange={(e) => update({ discount: e.target.value })} />}
-                                </Field>
-                                {form.currency === 'dollar' && (
-                                    <Field label="سود (٪)" optional error={err(`plans.${i}.profit`)} hint={planPriceHint(form, row)}>
-                                        {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={String(inheritedProfit(form))} value={row.profit ?? ''} onChange={(e) => update({ profit: e.target.value })} />}
-                                    </Field>
-                                )}
-                                <Field label="تعداد" optional error={err(`plans.${i}.count`)}>
-                                    {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
-                                </Field>
-                                <Switch label="فعال" checked={row.live} onChange={(live) => update({ live })} />
-                                {/* One plan per product: marking this one clears the others. */}
-                                <Switch label="محبوب‌ترین" checked={!!row.popular} onChange={(popular) => set({ plans: form.plans.map((x, j) => ({ ...x, popular: j === i ? popular : popular ? false : x.popular })) })} />
+                            // Design 3: the plan's fields beside a small receipt of how its site price is worked out.
+                            // Optional fields carry no "(اختیاری)": an empty one shows its default greyed in the box.
+                            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
+                                <div className="grid gap-3">
+                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_72px] sm:items-end">
+                                        <Field label="نام پلن" error={err(`plans.${i}.name`)}>
+                                            {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="یک ماهه" />}
+                                        </Field>
+                                        <Field label="نام انگلیسی" error={err(`plans.${i}.enName`)}>
+                                            {(p) => <input {...p} dir="ltr" className="field latin" value={row.enName ?? ''} onChange={(e) => update({ enName: e.target.value })} placeholder="Pro · 1 month" />}
+                                        </Field>
+                                        <Field label="ماه" error={err(`plans.${i}.months`)}>
+                                            {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.months ?? ''} onChange={(e) => update({ months: e.target.value })} placeholder={guessMonths(row.name)} />}
+                                        </Field>
+                                    </div>
+                                    <div className={`grid grid-cols-2 gap-3 sm:items-end ${form.currency === 'dollar' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+                                        <Field label={form.currency === 'dollar' ? 'قیمت $' : 'قیمت (تومان)'} error={err(`plans.${i}.price`)}>
+                                            {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" value={row.price} onChange={(e) => update({ price: e.target.value })} />}
+                                        </Field>
+                                        <Field label={form.currency === 'dollar' ? 'با تخفیف $' : 'با تخفیف'} error={err(`plans.${i}.discount`)}>
+                                            {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" value={row.discount} onChange={(e) => update({ discount: e.target.value })} placeholder="—" />}
+                                        </Field>
+                                        {form.currency === 'dollar' && (
+                                            <Field label="سود ٪" error={err(`plans.${i}.profit`)}>
+                                                {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={String(inheritedProfit(form))} value={row.profit ?? ''} onChange={(e) => update({ profit: e.target.value })} />}
+                                            </Field>
+                                        )}
+                                        <Field label="تعداد" error={err(`plans.${i}.count`)}>
+                                            {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
+                                        </Field>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                                        <Switch label="فعال" checked={row.live} onChange={(live) => update({ live })} />
+                                        {/* One plan per product: marking this one clears the others. */}
+                                        <Switch label="محبوب‌ترین" checked={!!row.popular} onChange={(popular) => set({ plans: form.plans.map((x, j) => ({ ...x, popular: j === i ? popular : popular ? false : x.popular })) })} />
+                                    </div>
+                                </div>
+                                <PlanReceipt form={form} row={row} />
                             </div>
                         )}
                     />
@@ -466,14 +478,31 @@ function inheritedProfit(form: Account): number {
     return form.profit.trim() === '' || own === null ? (form.pricing?.dollarProfit ?? 0) : own;
 }
 
-// What the plan sells for with its profit (empty = the account's), as the storefront rounds it roughly.
-function planPriceHint(form: Account, row: Plan): string | undefined {
-    if (!form.pricing) return undefined;
+// The plan's site price as a receipt: dollar price (discount first) × market dollar × (1 + its profit, empty = the account's).
+// Rough: the storefront rounds the same way but reads the dollar at request time. Toman plans just show what is charged.
+function PlanReceipt({ form, row }: { form: Account; row: Plan }) {
+    const sale = parseDecimal(row.discount) || 0;
+    const base = parseDecimal(row.price) || 0;
+    const amount = sale > 0 ? sale : base;
+    if (form.currency === 'toman') {
+        return <PriceReceipt lines={[sale > 0 && base > 0 && { label: 'قیمت اصلی', value: `${count(base)} ت`, strike: true }]} total={amount > 0 ? Math.round(amount) : null} />;
+    }
+    if (!form.pricing) return <PriceReceipt lines={[]} total={null} empty="نرخ دلار در دسترس نیست" />;
     const own = parseDecimal(row.profit ?? '');
-    const profit = (row.profit ?? '').trim() === '' || own === null ? inheritedProfit(form) : own;
-    const dollars = parseDecimal(row.discount) || parseDecimal(row.price) || 0;
-    if (dollars <= 0) return (row.profit ?? '').trim() === '' ? 'خالی = سود اکانت' : undefined;
-    return `≈ ${count(Math.round(dollars * form.pricing.marketDollar * (1 + profit / 100)))} ت`;
+    const inherited = (row.profit ?? '').trim() === '' || own === null;
+    const profit = inherited ? inheritedProfit(form) : own;
+    return (
+        <PriceReceipt
+            approx
+            lines={[
+                sale > 0 && base > 0 && { label: 'قیمت اصلی', value: usd(base), strike: true },
+                { label: sale > 0 ? 'قیمت با تخفیف' : 'قیمت دلاری', value: amount > 0 ? usd(amount) : '—' },
+                { label: 'دلار بازار', value: `${count(Math.round(form.pricing.marketDollar))} ت` },
+                { label: inherited ? 'سود (اکانت)' : 'سود (این پلن)', value: `${profit}٪` },
+            ]}
+            total={amount > 0 ? Math.round(amount * Math.round(form.pricing.marketDollar * (1 + profit / 100))) : null}
+        />
+    );
 }
 
 // Roughly what a dollar add-on adds in Toman at the account's rate (a plan with its own profit differs a little).

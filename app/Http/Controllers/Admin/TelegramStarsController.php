@@ -23,6 +23,9 @@ class TelegramStarsController extends Controller
         $rate = Pricing::servicesRate();
         return response()->json([
             'rate' => $rate > 0 ? $rate : null,
+            // For a plan's own profit: its price = dollars × market dollar × (1 + profit). Empty = the services rate.
+            'marketDollar' => (int)round(Pricing::market(Pricing::DOLLAR)),
+            'dollarProfit' => (float)Pricing::currencyProfit(Pricing::DOLLAR),
             'platform' => (bool)$Stars->platform(),
             'stars' => $p ? [
                 'live' => (int)$p->status === 1,
@@ -31,6 +34,7 @@ class TelegramStarsController extends Controller
                 'maxCount' => (int)$p->max_count,
                 'plans' => Plan::where('product_id', $p->id)->orderBy('count')->get()->map(fn(Plan $pl) => [
                     'id' => $pl->id, 'name' => (string)$pl->name, 'count' => (int)$pl->count, 'live' => (int)$pl->status === 1,
+                    'profit' => $pl->profit_percent !== null ? rtrim(rtrim((string)$pl->profit_percent, '0'), '.') : '',
                 ])->values(),
             ] : null,
         ]);
@@ -48,6 +52,7 @@ class TelegramStarsController extends Controller
             'plans.*.name' => 'nullable|string|max:255',
             'plans.*.count' => 'required|integer|min:1|max:10000000',
             'plans.*.live' => 'boolean',
+            'plans.*.profit' => 'nullable|numeric|min:-50|max:1000',
         ], [
             'dollarPerStar.required' => 'قیمت هر استار را وارد کنید.',
             'dollarPerStar.gt' => 'قیمت هر استار باید بیشتر از صفر باشد.',
@@ -57,6 +62,9 @@ class TelegramStarsController extends Controller
             'maxCount.gte' => 'حداکثر باید از حداقل بیشتر باشد.',
             'plans.*.count.required' => 'تعداد استار پلن را وارد کنید.',
             'plans.*.count.min' => 'تعداد استار پلن باید دست‌کم ۱ باشد.',
+            'plans.*.profit.numeric' => 'سود پلن باید عدد باشد (یا خالی بماند).',
+            'plans.*.profit.min' => 'سود پلن نمی‌تواند کمتر از ۵۰- درصد باشد.',
+            'plans.*.profit.max' => 'سود پلن حداکثر ۱۰۰۰ درصد است.',
         ]);
         $Platform = $Stars->platform();
         if (!$Platform) {
@@ -95,6 +103,7 @@ class TelegramStarsController extends Controller
                     'status' => ($row['live'] ?? true) ? 1 : 0,
                     'sort' => $i,
                     'type' => $plan->type ?? 'social',
+                    'profit_percent' => ($row['profit'] ?? '') === '' ? null : $row['profit'], // Pricing::planRate
                 ])->save();
                 $keep[] = $plan->id;
             }

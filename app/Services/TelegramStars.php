@@ -14,7 +14,8 @@ use App\Models\Product;
  * What makes it different (detail.stars = true): the admin sets a dollar price per Star (kept in `price` as dollars
  * per 1,000, like every service), ready plans (packs of Stars), and the customer may also type any amount between
  * min_count and max_count. Every price is per Star × amount, converted at the services rate and rounded as the site
- * rounds (VirtualServiceOrders::dollarPrice). Admin: Admin\TelegramStarsController (React admin › تلگرام استارز).
+ * rounds (VirtualServiceOrders::dollarPrice); a plan may carry its own profit (plans.profit_percent, Pricing::planRate)
+ * instead of the services one. Admin: Admin\TelegramStarsController (React admin › تلگرام استارز).
  */
 class TelegramStars
 {
@@ -65,7 +66,8 @@ class TelegramStars
                 'id' => $p->id,
                 'count' => (int)$p->count,
                 'name' => (string)$p->name,
-                'price' => self::price($Product, (int)$p->count, $Rate),
+                // A plan with its own profit sells at its own rate (VirtualServiceOrders charges it the same way).
+                'price' => self::price($Product, (int)$p->count, $p->profit_percent !== null ? Pricing::planRate($p, $Product) : $Rate),
             ])->values(),
         ];
     }

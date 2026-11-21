@@ -6,6 +6,7 @@ import { count, parseAmount, parseDecimal, roundToman, toman } from '../../lib/f
 import { EditorLayout } from '../../components/EditorLayout';
 import { Field, ImageField, RowsEditor, Switch, slugify } from '../../components/form';
 import { ErrorState, Panel } from '../../components/ui';
+import { PriceReceipt, usd } from '../../components/PriceReceipt';
 import { UPLOAD_URL, type Platform, type ServiceForm } from './types';
 
 const blank: ServiceForm = {
@@ -65,6 +66,27 @@ export default function ServiceEditor() {
         const own = parseDecimal(pl.profit ?? '');
         const r = (pl.profit ?? '').trim() !== '' && own !== null && marketDollar ? marketDollar * (1 + own / 100) : rate;
         return d && n && r ? roundToman((d / 1000) * n * r) : null;
+    };
+    // The plan's receipt: its dollars (per 1,000 × count), the dollar it is converted at, the profit, the site price.
+    const PlanReceipt = ({ row }: { row: { count: number | string; profit?: string } }) => {
+        const d = parseDecimal(form.dollarPer1000 ?? '');
+        const n = Number(String(row.count).replace(/[^\d]/g, '')) || 0;
+        const own = parseDecimal(row.profit ?? '');
+        const inherited = (row.profit ?? '').trim() === '' || own === null;
+        const dollars = d && n ? Math.round((d / 1000) * n * 10000) / 10000 : null;
+        return (
+            <PriceReceipt
+                approx
+                lines={[
+                    { label: 'قیمت هر ۱۰۰۰', value: d ? usd(d) : '—' },
+                    { label: 'قیمت دلاری پلن', value: dollars !== null ? usd(dollars) : '—' },
+                    marketDollar ? { label: 'دلار بازار', value: `${count(Math.round(marketDollar))} ت` } : null,
+                    { label: inherited ? 'سود (دلار خدمات)' : 'سود (این پلن)', value: inherited ? (dollarProfit !== null ? `${dollarProfit}٪` : '—') : `${own}٪` },
+                ]}
+                total={planToman(row)}
+                empty={d ? 'تعداد را وارد کنید' : 'قیمت هر ۱۰۰۰ را وارد کنید'}
+            />
+        );
     };
 
     const [form, setForm] = useState<ServiceForm>(() => ({ ...blank, categoryId: Number(params.get('platform')) || '' }));
@@ -296,17 +318,23 @@ export default function ServiceEditor() {
                         empty="هنوز پلنی ندارد."
                         removeLabel={(r, i) => `حذف پلن ${r.name || i + 1}`}
                         render={(row, update, i) => (
-                            <div className="grid gap-3 sm:grid-cols-[1fr_140px_120px_auto] sm:items-end">
-                                <Field label="نام پلن" error={err(`plans.${i}.name`)}>
-                                    {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="۵۰۰ ممبر تلگرام" />}
-                                </Field>
-                                <Field label="تعداد" error={err(`plans.${i}.count`)}>
-                                    {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
-                                </Field>
-                                <Field label="سود (٪)" optional error={err(`plans.${i}.profit`)} hint={planToman(row) ? `≈ ${toman(planToman(row)!)}` : 'خالی = سود دلار'}>
-                                    {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={dollarProfit !== null ? String(dollarProfit) : ''} value={row.profit ?? ''} onChange={(e) => update({ profit: e.target.value })} />}
-                                </Field>
-                                <Switch label="فعال" checked={row.live} onChange={(v) => update({ live: v })} />
+                            // Same card as account plans: the fields beside a receipt of how the site price is worked out.
+                            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start">
+                                <div className="grid gap-3">
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_120px_100px] sm:items-end">
+                                        <Field label="نام پلن" className="col-span-2 sm:col-span-1" error={err(`plans.${i}.name`)}>
+                                            {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="۵۰۰ ممبر تلگرام" />}
+                                        </Field>
+                                        <Field label="تعداد" error={err(`plans.${i}.count`)}>
+                                            {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
+                                        </Field>
+                                        <Field label="سود ٪" error={err(`plans.${i}.profit`)}>
+                                            {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={dollarProfit !== null ? String(dollarProfit) : ''} value={row.profit ?? ''} onChange={(e) => update({ profit: e.target.value })} />}
+                                        </Field>
+                                    </div>
+                                    <Switch label="فعال" checked={row.live} onChange={(v) => update({ live: v })} />
+                                </div>
+                                <PlanReceipt row={row} />
                             </div>
                         )}
                     />
