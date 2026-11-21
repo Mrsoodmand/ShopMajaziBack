@@ -139,12 +139,12 @@ class AccountOrders
         return null;
     }
 
-    // "خرید اشتراک اسپاتیفای" → "اسپاتیفای": the old admin names products like page titles.
+    // The account's name on the site: the admin's «نام» exactly as entered (the owner asked for nothing to be cut,
+    // so «خرید اشتراک …» stays whole).
     public static function shortName(Product $Product, array $Info): string
     {
-        $Name = trim((string)($Info['name'] ?? $Product->faName));
-        $Short = trim((string)preg_replace('/^(خرید\s+)?((اشتراک|اکانت)(\s+های)?\s+)?/u', '', $Name));
-        return $Short !== '' ? $Short : $Name;
+        $Name = trim((string)($Info['name'] ?? ''));
+        return $Name !== '' ? $Name : trim((string)$Product->faName);
     }
 
     /*
