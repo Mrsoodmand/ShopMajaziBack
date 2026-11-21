@@ -128,6 +128,9 @@ class ServiceApiController extends Controller
 
         return response()->json([
             'rate' => $this->rate(),
+            // For a plan's own profit: its price = dollars × market dollar × (1 + profit). '' profit = the dollar's.
+            'marketDollar' => (int) round(\App\Services\Pricing::market(\App\Services\Pricing::DOLLAR)),
+            'dollarProfit' => (float) \App\Services\Pricing::currencyProfit(\App\Services\Pricing::DOLLAR),
             'service' => [
                 'id' => $p->id,
                 'categoryId' => (int) $p->country_id,
@@ -151,6 +154,7 @@ class ServiceApiController extends Controller
                     'id' => $pl->id,
                     'name' => $pl->name,
                     'count' => (int) $pl->count,
+                    'profit' => $pl->profit_percent !== null ? rtrim(rtrim((string) $pl->profit_percent, '0'), '.') : '',
                     'live' => (int) $pl->status === 1,
                 ])->values(),
                 'fields' => collect($this->decode($p->filds))->map(fn ($f) => [
@@ -194,6 +198,7 @@ class ServiceApiController extends Controller
             'plans.*.id' => 'nullable|integer',
             'plans.*.name' => 'required|string|max:255',
             'plans.*.count' => 'required|integer|min:1',
+            'plans.*.profit' => 'nullable|numeric|min:-50|max:1000',
             'plans.*.live' => 'boolean',
             'fields' => 'array',
             'fields.*.name' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z_][A-Za-z0-9_]*$/'],
@@ -258,6 +263,7 @@ class ServiceApiController extends Controller
                     'product_id' => (string) $p->id,
                     'name' => $row['name'],
                     'count' => $row['count'],
+                    'profit_percent' => ($row['profit'] ?? '') === '' ? null : $row['profit'], // Pricing::planRate
                     'status' => ($row['live'] ?? true) ? 1 : 0,
                     'sort' => $i,
                     'type' => $plan->type ?? 'social',

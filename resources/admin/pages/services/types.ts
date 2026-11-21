@@ -51,7 +51,8 @@ export type ServiceForm = {
     minCount: number | string;
     maxCount: number | string;
     commission: number | string | null;
-    plans: { id?: number; name: string; count: number | string; live: boolean }[];
+    // profit: the plan's own profit percent on the market dollar ('' = the dollar's; Pricing::planRate).
+    plans: { id?: number; name: string; count: number | string; profit?: string; live: boolean }[];
     fields: { name: string; title: string; type: 'text' | 'select'; options: string[] }[];
     notes: { label: string; value: string }[];
     faq: { q: string; a: string }[];

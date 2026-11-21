@@ -103,7 +103,7 @@ class VirtualServiceOrders
                 return [null, ['این بسته دیگر ارائه نمی شود. لطفا بسته دیگری انتخاب کنید.', 'plan_invalid', 422, []]];
             }
             $Count = (int)$Plan->count;
-            $Price = self::dollarPrice($Product->price, $Count, $this->rate());
+            $Price = self::dollarPrice($Product->price, $Count, Pricing::planRate($Plan, $Product)); // the plan's own profit, if any
         }
         if ($Price <= 0) {
             return [null, ['این سرویس در حال حاضر در دسترس نیست.', 'service_unavailable', 404, []]];

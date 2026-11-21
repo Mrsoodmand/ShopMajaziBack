@@ -28,6 +28,8 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderCharges
 {
+    // Customer methods take either user class: the storefront's signed-in user is App\Models\User, admin and
+    // callbacks load App\User (same table).
     public const TYPE = 9;
     public const MAX_LINES = 20;
     public const MAX_PRICE = 500000000; // Toman, per line or charge
@@ -135,7 +137,7 @@ class OrderCharges
     /**
      * Pay every unpaid charge from the wallet. [ok, code, message]; codes: paid, nothing, balance, wallet_blocked, busy.
      */
-    public function pay(User $User, Order $Order): array
+    public function pay(User|\App\Models\User $User, Order $Order): array
     {
         if ($User->wallet_blocked != 0) {
             return [false, 'wallet_blocked', 'شما مجاز به پرداخت با کیف پول نیستید، لطفا با پشتیبانی تماس بگیرید'];
@@ -195,7 +197,7 @@ class OrderCharges
     /**
      * The customer cancels a pending order: everything paid on it goes back to the wallet. [ok, code, message, refunded].
      */
-    public function cancel(User $User, Order $Order): array
+    public function cancel(User|\App\Models\User $User, Order $Order): array
     {
         try {
             return $this->locked($Order, fn () => DB::transaction(function () use ($User, $Order) {
@@ -244,7 +246,7 @@ class OrderCharges
     /* ---------- Card payments (wallet top-up, then pay()) ---------- */
 
     /* A type-3 top-up for what the wallet is short of (at least the gateway minimum), linked to the unpaid charges. */
-    public function startTopUp(User $User, Order $Order, int $Minimum): ?Payment
+    public function startTopUp(User|\App\Models\User $User, Order $Order, int $Minimum): ?Payment
     {
         $Due = $this->due($Order);
         if ($Due <= 0) {

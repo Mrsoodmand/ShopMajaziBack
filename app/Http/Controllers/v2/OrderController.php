@@ -218,7 +218,7 @@ class OrderController extends Controller
                         if (!is_null($CheckPlan)) {
                             $ProductDetail = json_decode($CheckProduct->detail, true);
                             $Price = $CheckPlan->price;
-                            $Currency = \App\Services\Pricing::productRate($CheckProduct);
+                            $Currency = \App\Services\Pricing::planRate($CheckPlan, $CheckProduct); // plan profit ?? product's ?? dollar's
 
                             $Price = $Currency * $Price;
                             if ($CheckPlan->discount != null && $CheckPlan->discount != 0) {
@@ -457,7 +457,7 @@ $Name = $ProductDetail['name'];
 
                             $Price = $CheckPlan->price;
 
-                            $Currency = \App\Services\Pricing::productRate($CheckProduct);
+                            $Currency = \App\Services\Pricing::planRate($CheckPlan, $CheckProduct); // plan profit ?? product's ?? dollar's
 
                             $Price = $Currency * $Price;
 

@@ -114,9 +114,8 @@ class AccountOrders
         $Short = self::shortName($Product, $Info);
         $Fields = $this->fields($Product);
         $PlanRows = [];
-        $Rate = Pricing::productRate($Product); // its own profit, if it has one
         foreach ($Plans as $Plan) {
-            [$Price, $Was] = self::planPrices($Plan, $Info, $Rate);
+            [$Price, $Was] = self::planPrices($Plan, $Info, Pricing::planRate($Plan, $Product)); // the plan's own profit, if any
             if ($Price <= 0) {
                 continue;
             }
@@ -199,7 +198,7 @@ class AccountOrders
             return [null, ['این پلن دیگر ارائه نمی شود. لطفا پلن دیگری انتخاب کنید.', 'plan_invalid', 422, []]];
         }
         $Info = $this->decode($Product->detail);
-        [$Price] = self::planPrices($Plan, $Info, $this->rate($Product));
+        [$Price] = self::planPrices($Plan, $Info, Pricing::planRate($Plan, $Product));
         if ($Price <= 0) {
             return [null, ['این اشتراک در حال حاضر در دسترس نیست.', 'unavailable', 404, []]];
         }

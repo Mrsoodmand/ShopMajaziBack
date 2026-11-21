@@ -9,7 +9,8 @@ import { RichText } from '../../components/RichText';
 import { ErrorState, Panel } from '../../components/ui';
 import { EditorSkeleton, problemsFrom } from '../../components/list';
 
-type Plan = { id?: number; name: string; enName: string; months: string; price: string; discount: string; count: string; live: boolean; popular: boolean };
+// profit: the plan's own profit ('' = the account's, else the dollar's; Pricing::planRate).
+type Plan = { id?: number; name: string; enName: string; months: string; price: string; discount: string; profit: string; count: string; live: boolean; popular: boolean };
 type OrderField = { name: string; title: string; type: 'text' | 'select'; options: string[]; width: string };
 type Account = {
     name: string;
@@ -76,7 +77,7 @@ const labels: Record<string, string> = {
     name: 'نام', slug: 'نامک', currency: 'واحد قیمت', commission: 'پورسانت', profit: 'سود اختصاصی', short: 'توضیح کوتاه', content: 'متن صفحه', image: 'تصویر',
     metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', fields: 'فیلدهای سفارش', notes: 'نکات', plans: 'پلن‌ها',
     enName: 'نام انگلیسی', tagline: 'شعار فارسی', taglineEn: 'شعار انگلیسی', category: 'دسته', color: 'رنگ', activation: 'نحوه تحویل', delivery: 'زمان تحویل', deliveryEn: 'زمان تحویل انگلیسی', sort: 'ترتیب',
-    'plans.name': 'نام', 'plans.enName': 'نام انگلیسی', 'plans.months': 'مدت', 'plans.price': 'قیمت', 'plans.discount': 'قیمت با تخفیف', 'plans.count': 'تعداد',
+    'plans.name': 'نام', 'plans.enName': 'نام انگلیسی', 'plans.months': 'مدت', 'plans.price': 'قیمت', 'plans.discount': 'قیمت با تخفیف', 'plans.profit': 'سود پلن', 'plans.count': 'تعداد',
     'fields.name': 'نام فنی', 'fields.title': 'عنوان', 'fields.options': 'گزینه‌ها', 'notes.label': 'عنوان', 'notes.value': 'مقدار',
 };
 
@@ -215,12 +216,12 @@ export default function AccountEditor() {
                     <RowsEditor
                         rows={form.plans}
                         onChange={(plans) => set({ plans })}
-                        make={() => ({ name: '', enName: '', months: '', price: '', discount: '', count: '', live: true, popular: false })}
+                        make={() => ({ name: '', enName: '', months: '', price: '', discount: '', profit: '', count: '', live: true, popular: false })}
                         addLabel="افزودن پلن"
                         empty="هنوز پلنی ندارد."
                         removeLabel={(r, i) => `حذف پلن ${r.name || i + 1}`}
                         render={(row, update, i) => (
-                            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_80px_110px_110px_80px_auto_auto] sm:items-end">
+                            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_70px_110px_110px_90px_70px_auto_auto] sm:items-end">
                                 <Field label="نام پلن" error={err(`plans.${i}.name`)}>
                                     {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="یک ماهه" />}
                                 </Field>
@@ -236,6 +237,11 @@ export default function AccountEditor() {
                                 <Field label="با تخفیف" optional error={err(`plans.${i}.discount`)}>
                                     {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" value={row.discount} onChange={(e) => update({ discount: e.target.value })} />}
                                 </Field>
+                                {form.currency === 'dollar' && (
+                                    <Field label="سود (٪)" optional error={err(`plans.${i}.profit`)} hint={planPriceHint(form, row)}>
+                                        {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={String(inheritedProfit(form))} value={row.profit ?? ''} onChange={(e) => update({ profit: e.target.value })} />}
+                                    </Field>
+                                )}
                                 <Field label="تعداد" optional error={err(`plans.${i}.count`)}>
                                     {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
                                 </Field>
@@ -390,4 +396,20 @@ function profitHint(form: Account): string {
     const rate = Math.round(form.pricing.marketDollar * (1 + profit / 100));
     const source = form.profit.trim() === '' ? `سود دلار، ${profit}٪` : `${profit}٪`;
     return `خالی = سود دلار. هر دلار این اکانت: ${count(rate)} تومان (${source}).`;
+}
+
+// The profit a plan without its own uses: the account's, else the dollar's.
+function inheritedProfit(form: Account): number {
+    const own = parseDecimal(form.profit);
+    return form.profit.trim() === '' || own === null ? (form.pricing?.dollarProfit ?? 0) : own;
+}
+
+// What the plan sells for with its profit (empty = the account's), as the storefront rounds it roughly.
+function planPriceHint(form: Account, row: Plan): string | undefined {
+    if (!form.pricing) return undefined;
+    const own = parseDecimal(row.profit ?? '');
+    const profit = (row.profit ?? '').trim() === '' || own === null ? inheritedProfit(form) : own;
+    const dollars = parseDecimal(row.discount) || parseDecimal(row.price) || 0;
+    if (dollars <= 0) return (row.profit ?? '').trim() === '' ? 'خالی = سود اکانت' : undefined;
+    return `≈ ${count(Math.round(dollars * form.pricing.marketDollar * (1 + profit / 100)))} ت`;
 }

@@ -53,9 +53,19 @@ export default function ServiceEditor() {
     const navigate = useNavigate();
     const { csrfToken } = useBoot();
     const cats = useQuery<{ categories: Platform[] }>('/admin/api/service-categories');
-    const existing = useQuery<{ service: ServiceForm & { id: number }; rate: number | null }>(isNew ? null : `/admin/api/services/${id}`);
+    const existing = useQuery<{ service: ServiceForm & { id: number }; rate: number | null; marketDollar?: number; dollarProfit?: number }>(isNew ? null : `/admin/api/services/${id}`);
     const rateQuery = useQuery<{ rate: number | null }>(isNew ? '/admin/api/services?category=0' : null);
     const rate = existing.data?.rate ?? rateQuery.data?.rate ?? null;
+    const marketDollar = existing.data?.marketDollar ?? null;
+    const dollarProfit = existing.data?.dollarProfit ?? null;
+    // What one plan sells for: dollars per 1,000 × count × (its own profit's rate, else the services rate).
+    const planToman = (pl: { count: number | string; profit?: string }) => {
+        const d = parseDecimal(form.dollarPer1000 ?? '');
+        const n = Number(String(pl.count).replace(/[^\d]/g, '')) || 0;
+        const own = parseDecimal(pl.profit ?? '');
+        const r = (pl.profit ?? '').trim() !== '' && own !== null && marketDollar ? marketDollar * (1 + own / 100) : rate;
+        return d && n && r ? roundToman((d / 1000) * n * r) : null;
+    };
 
     const [form, setForm] = useState<ServiceForm>(() => ({ ...blank, categoryId: Number(params.get('platform')) || '' }));
     const [slugTouched, setSlugTouched] = useState(!isNew);
@@ -281,17 +291,20 @@ export default function ServiceEditor() {
                     <RowsEditor
                         rows={form.plans}
                         onChange={(plans) => set({ plans })}
-                        make={() => ({ name: '', count: '', live: true })}
+                        make={() => ({ name: '', count: '', profit: '', live: true })}
                         addLabel="افزودن پلن"
                         empty="هنوز پلنی ندارد."
                         removeLabel={(r, i) => `حذف پلن ${r.name || i + 1}`}
                         render={(row, update, i) => (
-                            <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto] sm:items-end">
+                            <div className="grid gap-3 sm:grid-cols-[1fr_140px_120px_auto] sm:items-end">
                                 <Field label="نام پلن" error={err(`plans.${i}.name`)}>
                                     {(p) => <input {...p} className="field" value={row.name} onChange={(e) => update({ name: e.target.value })} placeholder="۵۰۰ ممبر تلگرام" />}
                                 </Field>
                                 <Field label="تعداد" error={err(`plans.${i}.count`)}>
                                     {(p) => <input {...p} inputMode="numeric" dir="ltr" className="field num text-end" value={row.count} onChange={(e) => update({ count: e.target.value })} />}
+                                </Field>
+                                <Field label="سود (٪)" optional error={err(`plans.${i}.profit`)} hint={planToman(row) ? `≈ ${toman(planToman(row)!)}` : 'خالی = سود دلار'}>
+                                    {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" placeholder={dollarProfit !== null ? String(dollarProfit) : ''} value={row.profit ?? ''} onChange={(e) => update({ profit: e.target.value })} />}
                                 </Field>
                                 <Switch label="فعال" checked={row.live} onChange={(v) => update({ live: v })} />
                             </div>

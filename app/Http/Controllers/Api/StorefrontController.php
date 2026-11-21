@@ -469,7 +469,7 @@ class StorefrontController extends Controller
                 'token' => Encode($plan->id), // OrderController::SubmitVirtualService expects the encoded id
                 'name' => $plan->name,
                 'count' => (int)$plan->count,
-                'price' => $this->servicePrice($product->price, $plan->count, $Currency),
+                'price' => $this->servicePrice($product->price, $plan->count, $plan->profit_percent !== null ? \App\Services\Pricing::planRate($plan, $product) : $Currency),
             ])->values(),
             'fields' => collect($this->decode($product->filds) ?? [])->map(fn($field) => [
                 'name' => $field['filed_name'],

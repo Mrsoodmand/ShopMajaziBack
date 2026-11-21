@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Currency;
+use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Virtual_Products;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\DB;
  * (App\Services\CurrencyRates → currency.sell); the profits are set in the admin (ارزها و سود, the account editor,
  * virtual numbers › settings). Only one profit applies to a price, the most specific one:
  *
- *   subscriptions, social services:  dollar price × market dollar × (1 + product profit ?? dollar profit)
+ *   subscriptions:    dollar price × market dollar × (1 + plan profit ?? product profit ?? dollar profit)
+ *   social services:  dollar price × market dollar × (1 + plan profit ?? dollar profit)   (any-amount: dollar profit)
  *   virtual numbers:                 provider cost × operator's market rate × (1 + operator profit)
  *
  * Numbers keep a stored price (virtual__products.toman_price) for the catalog; repriceNumbers() rewrites it from
@@ -77,6 +79,18 @@ class Pricing
             return self::market(self::DOLLAR) * (1 + (float) $product->profit_percent / 100);
         }
         return self::servicesRate();
+    }
+
+    /**
+     * Toman per dollar for one plan: the plan's own profit when it has one; else, for a subscription, its product's
+     * profit; else the dollar's. Social services have no product profit (their admin doesn't set one).
+     */
+    public static function planRate(?Plan $plan, ?Product $product = null): float
+    {
+        if ($plan && $plan->profit_percent !== null && $plan->profit_percent !== '') {
+            return self::market(self::DOLLAR) * (1 + (float) $plan->profit_percent / 100);
+        }
+        return $product && $product->type === 'accounts' ? self::productRate($product) : self::servicesRate();
     }
 
     /** Profit (percent) per operator. */

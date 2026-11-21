@@ -107,6 +107,7 @@ class AccountApiController extends Controller
                 'popular' => (bool) $pl->popular,
                 'price' => $pl->price !== null ? (string) $pl->price : '',
                 'discount' => $pl->discount !== null ? (string) $pl->discount : '',
+                'profit' => $pl->profit_percent !== null ? rtrim(rtrim((string) $pl->profit_percent, '0'), '.') : '', // '' = the account's, else the dollar's
                 'count' => $pl->count !== null ? (string) $pl->count : '',
                 'live' => (int) $pl->status === 1,
             ])->values(),
@@ -161,6 +162,7 @@ class AccountApiController extends Controller
             'plans.*.months' => 'nullable|integer|min:1|max:120',
             'plans.*.price' => 'required|numeric|min:0',
             'plans.*.discount' => 'nullable|numeric|min:0',
+            'plans.*.profit' => 'nullable|numeric|min:-50|max:1000',
             'plans.*.count' => 'nullable|integer|min:0',
             'plans.*.live' => 'boolean',
             'plans.*.popular' => 'boolean',
@@ -168,6 +170,9 @@ class AccountApiController extends Controller
             'fields.*.name.regex' => 'نام فنی فقط حروف انگلیسی، عدد و _ (مثل email).',
             'color.regex' => 'رنگ را به شکل #10a37f بنویسید.',
             'profit.numeric' => 'سود اختصاصی باید عدد باشد (یا خالی بماند).',
+            'plans.*.profit.numeric' => 'سود پلن باید عدد باشد (یا خالی بماند).',
+            'plans.*.profit.min' => 'سود پلن نمی‌تواند کمتر از ۵۰- درصد باشد.',
+            'plans.*.profit.max' => 'سود پلن حداکثر ۱۰۰۰ درصد است.',
             'profit.min' => 'سود اختصاصی نمی‌تواند کمتر از -۵۰ باشد.',
             'profit.max' => 'سود اختصاصی نمی‌تواند بیشتر از ۱۰۰۰ باشد.',
         ]);
@@ -238,6 +243,7 @@ class AccountApiController extends Controller
                     'popular' => $popular ? 1 : 0,
                     'price' => $row['price'],
                     'discount' => ($row['discount'] ?? '') === '' ? null : $row['discount'],
+                    'profit_percent' => ($row['profit'] ?? '') === '' ? null : $row['profit'], // Pricing::planRate
                     'count' => ($row['count'] ?? '') === '' ? null : $row['count'],
                     'status' => ($row['live'] ?? true) ? 1 : 0,
                     'sort' => $i + 1,

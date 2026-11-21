@@ -33,24 +33,23 @@ class OrderMakeApiController extends Controller
             ->orderBy('faName')->limit(40)->get();
         $plans = Plan::whereIn('product_id', $products->pluck('id'))->where('status', 1)->orderBy('id')->get()->groupBy('product_id');
         $services = new VirtualServiceOrders();
-        $accounts = new AccountOrders();
 
         return response()->json([
             'usdRate' => (int) round(Pricing::servicesRate()),
-            'products' => $products->map(function (Product $p) use ($plans, $services, $accounts) {
+            'products' => $products->map(function (Product $p) use ($plans, $services) {
                 $info = $this->decode($p->detail);
                 $name = (string) ($info['name'] ?? $p->faName);
                 if ($p->type === 'service') {
                     $count = VirtualServiceOrders::countPricing($p, $services->rate());
                     $list = ($plans[$p->id] ?? collect())->map(fn ($pl) => [
                         'id' => $pl->id, 'name' => (string) $pl->name,
-                        'price' => VirtualServiceOrders::dollarPrice($p->price, (int) $pl->count, $services->rate()),
+                        'price' => VirtualServiceOrders::dollarPrice($p->price, (int) $pl->count, Pricing::planRate($pl, $p)),
                     ]);
                 } else {
                     $count = null;
                     $list = ($plans[$p->id] ?? collect())->where('type', 'accounts')->map(fn ($pl) => [
                         'id' => $pl->id, 'name' => (string) $pl->name,
-                        'price' => AccountOrders::planPrices($pl, $info, $accounts->rate($p))[0],
+                        'price' => AccountOrders::planPrices($pl, $info, Pricing::planRate($pl, $p))[0],
                     ]);
                 }
                 return [
@@ -155,8 +154,8 @@ class OrderMakeApiController extends Controller
                     return [null, 'پلن را انتخاب کنید.'];
                 }
                 $price = $product->type === 'service'
-                    ? VirtualServiceOrders::dollarPrice($product->price, (int) $plan->count, Pricing::servicesRate())
-                    : AccountOrders::planPrices($plan, $info, Pricing::productRate($product))[0];
+                    ? VirtualServiceOrders::dollarPrice($product->price, (int) $plan->count, Pricing::planRate($plan, $product))
+                    : AccountOrders::planPrices($plan, $info, Pricing::planRate($plan, $product))[0];
                 $title = $name . ' — ' . $plan->name;
                 $count = null;
             }
