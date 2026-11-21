@@ -45,6 +45,9 @@ type Account = {
     delivery: string;
     deliveryEn: string;
     popular: boolean;
+    // Header menu (at most 6 accounts) and the home page's shop window; none chosen = the site's built-in lists.
+    inMenu: boolean;
+    onHome: boolean;
     sort: string;
     fields: OrderField[];
     notes: { label: string; value: string }[];
@@ -75,6 +78,8 @@ const blank: Account = {
     delivery: '',
     deliveryEn: '',
     popular: false,
+    inMenu: false,
+    onHome: false,
     sort: '',
     fields: [{ name: 'email', title: 'ایمیل حساب', type: 'text', options: [], width: '6' }],
     notes: [],
@@ -83,6 +88,7 @@ const blank: Account = {
 };
 
 const labels: Record<string, string> = {
+    inMenu: 'نمایش در منو', onHome: 'نمایش در صفحه اول',
     name: 'نام', slug: 'نامک', currency: 'واحد قیمت', commission: 'پورسانت', profit: 'سود اختصاصی', short: 'توضیح کوتاه', content: 'متن صفحه', image: 'تصویر',
     metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', fields: 'فیلدهای سفارش', notes: 'نکات', plans: 'پلن‌ها', addons: 'افزودنی‌ها', 'addons.question': 'سؤال', 'addons.options': 'گزینه‌ها',
     enName: 'نام انگلیسی', tagline: 'شعار فارسی', taglineEn: 'شعار انگلیسی', category: 'دسته', color: 'رنگ', activation: 'نحوه تحویل', delivery: 'زمان تحویل', deliveryEn: 'زمان تحویل انگلیسی', sort: 'ترتیب',
@@ -164,6 +170,9 @@ export default function AccountEditor() {
                     <Switch label="فعال در سایت" hint="غیرفعال‌ها در سایت نمایش داده نمی‌شوند." checked={form.live} onChange={(live) => set({ live })} />
                     <Switch label="فروش با پلن" hint="خاموش: یک محصول بدون پلن‌های جدا." checked={form.withPlans} onChange={(withPlans) => set({ withPlans })} />
                     <Switch label="محبوب" hint="در سایت جدید بالای صفحه اشتراک‌ها نشان داده می‌شود." checked={form.popular} onChange={(popular) => set({ popular })} />
+                    <Switch label="نمایش در منو" hint="در منوی بالای سایت؛ حداکثر ۶ اکانت." checked={form.inMenu} onChange={(inMenu) => set({ inMenu })} />
+                    {save.errors.inMenu && <p className="text-[13px] font-medium text-error">{save.errors.inMenu}</p>}
+                    <Switch label="نمایش در صفحه اول" hint="در ویترین اشتراک‌های صفحه اول." checked={form.onHome} onChange={(onHome) => set({ onHome })} />
                     {form.slug && (
                         <p dir="ltr" className="latin truncate pt-1 text-end text-[12px] text-muted">
                             /accounts/{form.slug}

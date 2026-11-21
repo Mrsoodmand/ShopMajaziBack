@@ -21,6 +21,8 @@ use Illuminate\Validation\Rule;
  */
 class ServiceApiController extends Controller
 {
+    public const MENU_LIMIT = 4;
+
     /* ---------- Platforms ---------- */
 
     public function categories()
@@ -57,11 +59,24 @@ class ServiceApiController extends Controller
             'color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'sort' => 'nullable|integer',
             'featured' => 'boolean',
+            'inMenu' => 'boolean',
+            'onHome' => 'boolean',
             'visible' => 'boolean',
             'metaTitle' => 'nullable|string|max:255',
             'metaDesc' => 'nullable|string',
         ], $this->messages());
 
+        // The header menu holds at most MENU_LIMIT social platforms (Api\StorefrontController::prices).
+        if (!empty($data['inMenu'])) {
+            $others = Category::where('type', 'product')->where('in_menu', 1)->when($category->id, fn ($q) => $q->where('id', '!=', $category->id))->pluck('name');
+            if ($others->count() >= self::MENU_LIMIT) {
+                return response()->json(['message' => 'منو پر است', 'errors' => ['inMenu' => [
+                    'منو حداکثر ' . self::MENU_LIMIT . ' پلتفرم دارد؛ اول یکی را از منو بردارید: ' . $others->implode('، '),
+                ]]], 422);
+            }
+        }
+
+        $menuBefore = [(bool) $category->in_menu, (bool) $category->on_home];
         $category->forceFill([
             'type' => 'product',
             'name' => $data['name'],
@@ -75,11 +90,17 @@ class ServiceApiController extends Controller
             'color' => $data['color'] ?? null,
             'sort' => $data['sort'] ?? 0,
             'featured' => (bool) ($data['featured'] ?? false),
+            'in_menu' => (bool) ($data['inMenu'] ?? false),
+            'on_home' => (bool) ($data['onHome'] ?? false),
             // The storefront has always listed every product category; 1 hides one now.
             'status' => ($data['visible'] ?? true) ? 0 : 1,
             'meta_title' => $data['metaTitle'] ?? null,
             'meta_desc' => $data['metaDesc'] ?? null,
         ])->save();
+        // The header menu and home window read these (storefront "prices" section): show the change now.
+        if ($menuBefore !== [(bool) $category->in_menu, (bool) $category->on_home]) {
+            app(\App\Services\CacheManager::class)->refreshStorefront('prices');
+        }
 
         return response()->json(['success' => $id ? 'پلتفرم ذخیره شد.' : 'پلتفرم ساخته شد.', 'category' => $this->category($category)]);
     }
@@ -316,6 +337,8 @@ class ServiceApiController extends Controller
             'color' => $c->color,
             'sort' => (int) $c->sort,
             'featured' => (bool) $c->featured,
+            'inMenu' => (bool) $c->in_menu,
+            'onHome' => (bool) $c->on_home,
             'visible' => (int) $c->status !== 1,
             'metaTitle' => $c->meta_title,
             'metaDesc' => $c->meta_desc,

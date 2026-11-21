@@ -11,6 +11,9 @@ export type Platform = {
     color: string | null;
     sort: number;
     featured: boolean;
+    // Header menu (at most 4 platforms) and the home page's shop window; none chosen = the site's built-in lists.
+    inMenu?: boolean;
+    onHome?: boolean;
     visible: boolean;
     metaTitle: string | null;
     metaDesc: string | null;

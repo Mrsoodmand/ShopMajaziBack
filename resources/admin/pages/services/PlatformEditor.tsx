@@ -22,12 +22,15 @@ const empty: Form = {
     color: '#0ea5e9',
     sort: 0,
     featured: false,
+    inMenu: false,
+    onHome: false,
     visible: true,
     metaTitle: '',
     metaDesc: '',
 };
 
 const labels: Record<string, string> = {
+    inMenu: 'نمایش در منو', onHome: 'نمایش در صفحه اول',
     name: 'نام', enName: 'نام انگلیسی', slug: 'نامک', color: 'رنگ', sort: 'ترتیب', short: 'متن کوتاه سئو', tagline: 'شعار فارسی', taglineEn: 'شعار انگلیسی', image: 'لوگو',
 };
 
@@ -116,6 +119,9 @@ export default function PlatformEditor() {
                     <div className="mt-3 space-y-1">
                         <Switch label="نمایش در سایت" hint="پنهان‌ها در صفحه خدمات دیده نمی‌شوند." checked={form.visible} onChange={(v) => set({ visible: v })} />
                         <Switch label="ویژه" hint="بالاتر و بزرگ‌تر نمایش داده می‌شود." checked={form.featured} onChange={(v) => set({ featured: v })} />
+                        <Switch label="نمایش در منو" hint="در منوی بالای سایت؛ حداکثر ۴ پلتفرم." checked={!!form.inMenu} onChange={(v) => set({ inMenu: v })} />
+                        {errors.inMenu && <p className="text-[13px] font-medium text-error">{errors.inMenu}</p>}
+                        <Switch label="نمایش در صفحه اول" hint="در ویترین شبکه‌های اجتماعی صفحه اول." checked={!!form.onHome} onChange={(v) => set({ onHome: v })} />
                     </div>
                 </div>
             }

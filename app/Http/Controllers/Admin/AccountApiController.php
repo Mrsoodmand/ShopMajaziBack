@@ -19,6 +19,8 @@ use Illuminate\Validation\Rule;
  */
 class AccountApiController extends Controller
 {
+    public const MENU_LIMIT = 6;
+
     use AdminApi;
 
     public function index(Request $request)
@@ -89,6 +91,8 @@ class AccountApiController extends Controller
             'delivery' => (string) ($d['delivery'] ?? ''),
             'deliveryEn' => (string) ($d['delivery_en'] ?? ''),
             'popular' => !empty($d['popular']),
+            'inMenu' => (bool) $p->in_menu,
+            'onHome' => (bool) $p->on_home,
             'sort' => $p->sort !== null ? (string) $p->sort : '',
             'fields' => collect($this->decode($p->filds))->map(fn ($f) => [
                 'name' => (string) ($f['filed_name'] ?? ''),
@@ -162,6 +166,8 @@ class AccountApiController extends Controller
             'delivery' => 'nullable|string|max:80',
             'deliveryEn' => 'nullable|string|max:80',
             'popular' => 'boolean',
+            'inMenu' => 'boolean',
+            'onHome' => 'boolean',
             'sort' => 'nullable|integer|min:0|max:100000',
             'fields' => 'array',
             'fields.*.name' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/', 'distinct'],
@@ -203,6 +209,17 @@ class AccountApiController extends Controller
             }
         }
 
+        // The header menu holds at most MENU_LIMIT accounts (Api\StorefrontController::prices).
+        if (!empty($data['inMenu'])) {
+            $others = Product::where('type', 'accounts')->where('in_menu', 1)->when($p->id, fn ($q) => $q->where('id', '!=', $p->id))->pluck('faName');
+            if ($others->count() >= self::MENU_LIMIT) {
+                return response()->json(['message' => 'منو پر است', 'errors' => ['inMenu' => [
+                    'منو حداکثر ' . self::MENU_LIMIT . ' اکانت دارد؛ اول یکی را از منو بردارید: ' . $others->implode('، '),
+                ]]], 422);
+            }
+        }
+
+        $menuBefore = [(bool) $p->in_menu, (bool) $p->on_home];
         DB::transaction(function () use ($p, $data) {
             $detail = array_merge($this->decode($p->detail), [
                 'name' => $data['name'],
@@ -253,6 +270,8 @@ class AccountApiController extends Controller
                 ])->values()->all(), JSON_UNESCAPED_UNICODE),
                 'status' => ($data['live'] ?? false) ? 1 : 0,
                 'sort' => ($data['sort'] ?? '') === '' ? null : (int) $data['sort'],
+                'in_menu' => !empty($data['inMenu']),
+                'on_home' => !empty($data['onHome']),
             ])->save();
 
             $keep = [];
@@ -280,6 +299,10 @@ class AccountApiController extends Controller
             }
             Plan::where('product_id', $p->id)->where('type', 'accounts')->whereNotIn('id', $keep)->delete();
         });
+        // The header menu and home window read these (storefront "prices" section): show the change now.
+        if ($menuBefore !== [(bool) $p->in_menu, (bool) $p->on_home]) {
+            app(\App\Services\CacheManager::class)->refreshStorefront('prices');
+        }
 
         return response()->json(['success' => $id ? 'تغییرات ذخیره شد.' : 'اکانت ساخته شد.', 'id' => $p->id]);
     }

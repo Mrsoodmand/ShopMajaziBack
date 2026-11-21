@@ -331,16 +331,33 @@ class StorefrontController extends Controller
     /*
      * For the Persian site, which shows every price in Toman: the dollar rate (currencies #1, sell) to convert
      * prices that are still in dollars, and the real lowest price (Toman) of each live service, keyed by its page.
+     * Also `picks`: the accounts and social platforms the admin put in the header menu and on the home page.
      */
     public function prices(AppleIds $Apple, AccountOrders $Accounts): JsonResponse
     {
         $From = [];
+        $Picks = ['menu' => ['subs' => [], 'social' => []], 'home' => ['subs' => [], 'social' => []]];
         // Subscriptions: each one's cheapest plan (its own profit included), keyed by its page.
-        $Products = Product::where('type', 'accounts')->where('status', 1)->get();
+        $Products = Product::where('type', 'accounts')->where('status', 1)
+            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
         $Plans = $Accounts->plansFor($Products);
         foreach ($Products as $Product) {
             $Row = $Accounts->product($Product, $Plans->get($Product->id, collect()), 0);
             $Min = $Row ? collect($Row['plans'] ?? [])->pluck('price')->filter()->min() : null;
+            // Admin-chosen accounts for the header menu (at most 6) and the home page's shop window.
+            if ($Row && ($Product->in_menu || $Product->on_home)) {
+                $Item = [
+                    'href' => '/accounts/' . $Product->slug, 'name' => $Row['name'], 'name_en' => $Row['en_name'],
+                    'desc' => $Row['tagline'], 'desc_en' => $Row['tagline_en'], 'image' => $Row['image'], 'color' => $Row['color'],
+                    'from' => $Min ? (int)$Min : null,
+                ];
+                if ($Product->in_menu && count($Picks['menu']['subs']) < \App\Http\Controllers\Admin\AccountApiController::MENU_LIMIT) {
+                    $Picks['menu']['subs'][] = $Item;
+                }
+                if ($Product->on_home) {
+                    $Picks['home']['subs'][] = $Item;
+                }
+            }
             if ($Min) {
                 $From['/accounts/' . $Product->slug] = (int) $Min;
                 $From['/accounts'] = min($From['/accounts'] ?? PHP_INT_MAX, (int) $Min);
@@ -371,9 +388,33 @@ class StorefrontController extends Controller
             report($e); // Numberland down: the menu falls back to the converted dollar price
         }
 
+        // Admin-chosen social platforms for the menu (at most 4) and the home page, with their cheapest Toman per 1,000.
+        if (Category::where('type', 'product')->where(fn($q) => $q->where('in_menu', 1)->orWhere('on_home', 1))->exists()) {
+            $Chosen = Category::where('type', 'product')->where(fn($q) => $q->where('in_menu', 1)->orWhere('on_home', 1))->get()->keyBy('id');
+            foreach ($this->serviceCategories() as $Category) {
+                $Flags = $Chosen->get($Category['id']);
+                if (!$Flags) {
+                    continue;
+                }
+                $Item = [
+                    'href' => '/virtual-service/' . $Category['slug'], 'name' => $Category['name'], 'name_en' => $Category['en_name'],
+                    'desc' => $Category['tagline'], 'desc_en' => $Category['tagline_en'], 'image' => $Category['logo'], 'color' => $Category['color'],
+                    'from' => $Category['from_per_1000'] ? (int)$Category['from_per_1000'] : null,
+                ];
+                if ($Flags->in_menu && count($Picks['menu']['social']) < \App\Http\Controllers\Admin\ServiceApiController::MENU_LIMIT) {
+                    $Picks['menu']['social'][] = $Item;
+                }
+                if ($Flags->on_home) {
+                    $Picks['home']['social'][] = $Item;
+                }
+            }
+        }
+
         return $this->success([
             'usd' => (int)round(\App\Services\Pricing::servicesRate()), // dollar + profit, for prices still in dollars
             'from' => $From,
+            // Empty lists = the storefront keeps its built-in menu and home items.
+            'picks' => $Picks,
         ]);
     }
 
