@@ -467,7 +467,8 @@ class StorefrontPanelController extends Controller
     // Names the order list needs, loaded in a few queries instead of one per order.
     private function lookup(Collection $Orders): array
     {
-        $Items = OrderItem::whereIn('order_id', $Orders->pluck('id'))->orderBy('id')->get()->groupBy('order_id')->map->first();
+        $AllItems = OrderItem::whereIn('order_id', $Orders->pluck('id'))->orderBy('id')->get()->groupBy('order_id');
+        $Items = $AllItems->map->first();
         // Orders bought together from the cart (Api\StorefrontCartController): their checkout, and its bank payment.
         $Checkouts = \App\Models\CartCheckout::whereIn('id', $Orders->pluck('checkout_id')->filter()->unique())->get()->keyBy('id');
         $CartPays = Payment::whereIn('id', $Checkouts->pluck('payment_id')->filter())->get()->keyBy('id');
@@ -480,6 +481,7 @@ class StorefrontPanelController extends Controller
             'checkouts' => $Checkouts,
             'cart_pays' => $CartPays,
             'items' => $Items,
+            'all_items' => $AllItems, // every line of an order support made (type 9)
             'numbers' => $Numbers,
             'services' => Virtual_Service::whereIn('id', $Numbers->pluck('service_id'))->get()->keyBy('id'),
             'countries' => Virtual_Country::whereIn('id', $Numbers->pluck('country_id'))->get()->keyBy('id'),
@@ -529,6 +531,11 @@ class StorefrontPanelController extends Controller
         $Data['night_call'] = $Order->night_call === null ? null : (bool)$Order->night_call;
         if ($Type === OrderCharges::TYPE) {
             $Data['name'] = ['fa' => (string)$Order->service, 'en' => (string)$Order->service];
+            // Each line on its own (order page and invoice): what it is, support's note about it, its price.
+            $Data['lines'] = ($L['all_items']->get($Order->id) ?? collect())->map(function ($i) {
+                $D = json_decode((string)$i->detail, true) ?: [];
+                return ['title' => (string)($D['title'] ?? 'خدمت'), 'note' => trim((string)($D['note'] ?? '')), 'price' => (int)$i->price];
+            })->values()->all();
             $Data['paid_with'] = $Pay && $Pay->gate === 'Manual' ? 'outside' : $Data['paid_with'];
         }
         // One cart order (several services paid together): its number (C-…), how it was paid, the card for a bank payment.
@@ -638,12 +645,7 @@ class StorefrontPanelController extends Controller
             }
             return $Rows;
         }
-        if ($Type === OrderCharges::TYPE) { // made by support: one row per line, with its note
-            return OrderItem::where('order_id', $Order->id)->orderBy('id')->get()->map(function ($i) {
-                $D = json_decode((string)$i->detail, true) ?: [];
-                return ['label' => (string)($D['title'] ?? 'خدمت'), 'value' => trim((string)($D['note'] ?? '')) ?: number_format((int)$i->price) . ' تومان', 'raw' => true];
-            })->values()->all();
-        }
+        // Made by support: its lines come with the order itself (summary › lines), nothing more to hand over here.
         if ($Type === 2 || $Type === 7) {
             $Data = $Type === 2 ? app(VirtualServiceOrders::class)->data($Order) : app(AccountOrders::class)->data($Order);
             return collect($Data['fields'] ?? [])->filter(fn($f) => $f['value'] !== null && $f['value'] !== '')
