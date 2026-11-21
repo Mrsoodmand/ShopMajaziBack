@@ -277,7 +277,8 @@ class OrderApiController extends Controller
                         continue;
                     }
                     $value = $field['filed_value'] ?? null;
-                    $rows[] = ['label' => $field['filed_type'] ?? $field['filed_name'] ?? 'فیلد', 'value' => is_scalar($value) ? (string) $value : null, 'copy' => true, 'ltr' => true];
+                    $addon = isset($field['addon']); // an add-on answer (AccountOrders::spec): Persian text, nothing to copy
+                    $rows[] = ['label' => $field['filed_type'] ?? $field['filed_name'] ?? 'فیلد', 'value' => is_scalar($value) ? (string) $value : null, 'copy' => !$addon, 'ltr' => !$addon];
                 }
                 break;
             case '9': // made by support (Admin\OrderMakeApiController)

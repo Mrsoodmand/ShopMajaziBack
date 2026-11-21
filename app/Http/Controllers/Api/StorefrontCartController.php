@@ -403,7 +403,7 @@ class StorefrontCartController extends Controller
     private function firstAnswer(array $Detail): string
     {
         foreach ($Detail as $Key => $Field) {
-            if ($Key !== 'plan' && is_array($Field) && isset($Field['filed_value'])) {
+            if ($Key !== 'plan' && is_array($Field) && isset($Field['filed_value']) && !isset($Field['addon'])) { // add-ons aren't what the buyer typed
                 return mb_substr((string)$Field['filed_value'], 0, 40);
             }
         }
@@ -418,8 +418,8 @@ class StorefrontCartController extends Controller
             if (!is_string($Key) || in_array($Key, ['price', 'return'], true)) {
                 continue;
             }
-            if ($Key === 'fields' && is_array($Value)) {
-                $Out['fields'] = collect($Value)->filter(fn($v, $k) => is_string($k) && is_scalar($v))->map(fn($v) => mb_substr((string)$v, 0, 200))->take(20)->all();
+            if (in_array($Key, ['fields', 'addons'], true) && is_array($Value)) { // answers; add-ons: {addon id: option id}
+                $Out[$Key] = collect($Value)->filter(fn($v, $k) => is_string($k) && is_scalar($v))->map(fn($v) => mb_substr((string)$v, 0, 200))->take(20)->all();
             } elseif (is_scalar($Value)) {
                 $Out[$Key] = is_string($Value) ? mb_substr($Value, 0, 200) : $Value;
             }

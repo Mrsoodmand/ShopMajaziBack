@@ -61,6 +61,49 @@ class AccountOrders
         return [$Convert($Base), null];
     }
 
+    /*
+     * An account's add-ons as the admin saved them (products.addons), cleaned: questions with at least two options.
+     * @return array<int, array{id: string, question: string, question_en: string, options: array<int, array{id: string, label: string, label_en: string, amount: float, currency: string}>}>
+     */
+    public static function addons(Product $Product): array
+    {
+        $Raw = json_decode((string)$Product->addons, true);
+        $Out = [];
+        foreach (is_array($Raw) ? $Raw : [] as $A) {
+            $Options = [];
+            foreach ((array)($A['options'] ?? []) as $O) {
+                $Label = trim((string)($O['label'] ?? ''));
+                if ($Label === '' || !self::addonId($O['id'] ?? null)) {
+                    continue;
+                }
+                $Options[] = [
+                    'id' => (string)$O['id'], 'label' => $Label, 'label_en' => trim((string)($O['label_en'] ?? '')),
+                    'amount' => max(0, (float)($O['amount'] ?? 0)), 'currency' => ($O['currency'] ?? '') === 'toman' ? 'toman' : 'usd',
+                ];
+            }
+            $Question = trim((string)($A['question'] ?? ''));
+            if ($Question !== '' && self::addonId($A['id'] ?? null) && count($Options) >= 2) {
+                $Out[] = ['id' => (string)$A['id'], 'question' => $Question, 'question_en' => trim((string)($A['question_en'] ?? '')), 'options' => $Options];
+            }
+        }
+        return $Out;
+    }
+
+    // Ids start with a letter ("a3f9"), so they stay string keys in PHP arrays and JSON objects.
+    public static function addonId($Id): bool
+    {
+        return is_string($Id) && preg_match('/^[a-z][a-z0-9_-]{0,31}$/i', $Id) === 1;
+    }
+
+    /* Toman one add-on option adds: dollars at the plan's rate (rounded like plan prices), or Toman as set. */
+    public static function addonPrice(array $Option, float $Rate): int
+    {
+        if ($Option['amount'] <= 0) {
+            return 0;
+        }
+        return $Option['currency'] === 'toman' ? (int)round($Option['amount']) : self::round($Option['amount'] * $Rate);
+    }
+
     private static function round(float $Toman): int
     {
         return (int)str_replace(',', '', CovertVirtualNumberPrice(number_format($Toman)));
@@ -157,6 +200,14 @@ class AccountOrders
             'delivery_en' => trim((string)($Info['delivery_en'] ?? '')) ?: null,
             'popular' => !empty($Info['popular']),
             'plans' => $PlanRows,
+            // Add-on questions; each option's extra in Toman per plan id (a dollar extra follows the plan's rate).
+            'addons' => array_map(fn($A) => [
+                'id' => $A['id'], 'question' => $A['question'], 'question_en' => $A['question_en'],
+                'options' => array_map(fn($O) => [
+                    'id' => $O['id'], 'label' => $O['label'], 'label_en' => $O['label_en'],
+                    'prices' => (object)collect($Plans)->mapWithKeys(fn($Plan) => [$Plan->id => self::addonPrice($O, Pricing::planRate($Plan, $Product))])->all(),
+                ], $A['options']),
+            ], self::addons($Product)),
             'fields' => array_map(fn($f) => [
                 'name' => $f['filed_name'],
                 'title' => trim((string)$f['title']),
@@ -221,9 +272,27 @@ class AccountOrders
             $Answers[] = ['filed_name' => $Field['filed_name'], 'filed_type' => $Title, 'filed_value' => $Value];
         }
 
+        // Add-ons: {addon id: option id}; one not answered takes its first option. Extras are priced here, never
+        // taken from the request, and kept on the order (shown with its details; the invoice lists each one).
+        $Chosen = is_array($Input['addons'] ?? null) ? $Input['addons'] : [];
+        $PlanPrice = $Price;
+        foreach (self::addons($Product) as $Addon) {
+            $Pick = (string)($Chosen[$Addon['id']] ?? $Addon['options'][0]['id']);
+            $Option = collect($Addon['options'])->firstWhere('id', $Pick);
+            if (!$Option) {
+                return [null, ['لطفا گزینه «' . $Addon['question'] . '» را انتخاب کنید.', 'addon_invalid', 422, ['addon' => $Addon['id']]]];
+            }
+            $Extra = self::addonPrice($Option, Pricing::planRate($Plan, $Product));
+            $Price += $Extra;
+            $Answers[] = [
+                'filed_name' => 'addon_' . $Addon['id'], 'filed_type' => $Addon['question'],
+                'filed_value' => $Option['label'] . ($Extra > 0 ? ' (+' . number_format($Extra) . ' تومان)' : ''),
+                'addon' => $Addon['id'], 'option' => $Option['id'], 'label' => $Option['label'], 'extra' => $Extra,
+            ];
+        }
 
         $Detail = $Answers;
-        $Detail['plan'] = ['plan_id' => $Plan->id, 'plan_name' => $Plan->name];
+        $Detail['plan'] = ['plan_id' => $Plan->id, 'plan_name' => $Plan->name, 'price' => $PlanPrice];
         return [['product' => $Product, 'plan' => $Plan, 'price' => $Price, 'detail' => $Detail], null];
     }
 

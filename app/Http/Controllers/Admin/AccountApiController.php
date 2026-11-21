@@ -99,6 +99,14 @@ class AccountApiController extends Controller
                 'width' => (string) ($f['col'] ?? ''),
             ])->values(),
             'notes' => collect($notes)->map(fn ($v, $k) => ['label' => (string) $k, 'value' => (string) $v])->values(),
+            // Add-on questions (AccountOrders::addons): amounts as typed, in 'usd' or 'toman'.
+            'addons' => collect(\App\Services\AccountOrders::addons($p))->map(fn ($a) => [
+                'id' => $a['id'], 'question' => $a['question'], 'questionEn' => $a['question_en'],
+                'options' => collect($a['options'])->map(fn ($o) => [
+                    'id' => $o['id'], 'label' => $o['label'], 'labelEn' => $o['label_en'],
+                    'amount' => $o['amount'] > 0 ? rtrim(rtrim(number_format($o['amount'], 2, '.', ''), '0'), '.') : '', 'currency' => $o['currency'],
+                ])->values(),
+            ])->values(),
             'plans' => Plan::where('product_id', $p->id)->where('type', 'accounts')->orderBy('sort')->orderBy('id')->get()->map(fn (Plan $pl) => [
                 'id' => $pl->id,
                 'name' => (string) $pl->name,
@@ -129,6 +137,16 @@ class AccountApiController extends Controller
             'currency' => ['required', Rule::in(['dollar', 'toman'])],
             'commission' => 'nullable|numeric|min:0|max:100',
             'profit' => 'nullable|numeric|min:-50|max:1000',
+            'addons' => 'array|max:10',
+            'addons.*.id' => ['required', 'string', 'regex:/^[a-z][a-z0-9_-]{0,31}$/i', 'distinct'],
+            'addons.*.question' => 'required|string|max:190',
+            'addons.*.questionEn' => 'nullable|string|max:190',
+            'addons.*.options' => 'required|array|min:2|max:8',
+            'addons.*.options.*.id' => ['required', 'string', 'regex:/^[a-z][a-z0-9_-]{0,31}$/i'],
+            'addons.*.options.*.label' => 'required|string|max:120',
+            'addons.*.options.*.labelEn' => 'nullable|string|max:120',
+            'addons.*.options.*.amount' => 'nullable|numeric|min:0|max:500000000',
+            'addons.*.options.*.currency' => ['required', Rule::in(['usd', 'toman'])],
             'short' => 'required|string',
             'content' => 'required|string',
             'image' => 'nullable|string|max:500',
@@ -168,6 +186,9 @@ class AccountApiController extends Controller
             'plans.*.popular' => 'boolean',
         ], $this->messages() + [
             'fields.*.name.regex' => 'نام فنی فقط حروف انگلیسی، عدد و _ (مثل email).',
+            'addons.*.options.min' => 'هر سؤال افزودنی دست‌کم دو گزینه لازم دارد.',
+            'addons.*.question.required' => 'متن سؤال افزودنی را بنویسید.',
+            'addons.*.options.*.label.required' => 'نام گزینه را بنویسید.',
             'color.regex' => 'رنگ را به شکل #10a37f بنویسید.',
             'profit.numeric' => 'سود اختصاصی باید عدد باشد (یا خالی بماند).',
             'plans.*.profit.numeric' => 'سود پلن باید عدد باشد (یا خالی بماند).',
@@ -223,6 +244,13 @@ class AccountApiController extends Controller
                 'notes' => json_encode((object) $notes, JSON_UNESCAPED_UNICODE),
                 'commission' => $data['commission'] ?? null,
                 'profit_percent' => isset($data['profit']) && $data['profit'] !== '' ? $data['profit'] : null,
+                'addons' => empty($data['addons']) ? null : json_encode(collect($data['addons'])->map(fn ($a) => [
+                    'id' => $a['id'], 'question' => trim($a['question']), 'question_en' => trim((string) ($a['questionEn'] ?? '')),
+                    'options' => collect($a['options'])->map(fn ($o) => [
+                        'id' => $o['id'], 'label' => trim($o['label']), 'label_en' => trim((string) ($o['labelEn'] ?? '')),
+                        'amount' => (float) ($o['amount'] ?? 0), 'currency' => $o['currency'],
+                    ])->values()->all(),
+                ])->values()->all(), JSON_UNESCAPED_UNICODE),
                 'status' => ($data['live'] ?? false) ? 1 : 0,
                 'sort' => ($data['sort'] ?? '') === '' ? null : (int) $data['sort'],
             ])->save();

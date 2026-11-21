@@ -568,6 +568,13 @@ class StorefrontPanelController extends Controller
             $Data['sub'] = $Platform ? ['fa' => (string)$Platform->name, 'en' => (string)($Platform->enName ?: $Platform->name), 'slug' => $Platform->slug] : null;
             $Data['plan'] = $Detail['plan']['plan_name'] ?? null;
             $Data['count'] = isset($Detail['plan']['count']) ? (int)$Detail['plan']['count'] : null;
+            // An account bought with paid add-ons: the plan and each add-on as invoice lines (AccountOrders::spec).
+            $Addons = collect($Detail)->filter(fn($f) => is_array($f) && isset($f['addon']) && (int)($f['extra'] ?? 0) > 0);
+            if ($Type === 7 && $Addons->isNotEmpty() && isset($Detail['plan']['price'])) {
+                $Data['bill'] = collect([['title' => (string)($Detail['plan']['plan_name'] ?? ''), 'note' => '', 'price' => (int)$Detail['plan']['price']]])
+                    ->concat($Addons->map(fn($f) => ['title' => (string)$f['filed_type'], 'note' => (string)($f['label'] ?? ''), 'price' => (int)$f['extra']]))
+                    ->values()->all();
+            }
         } elseif ($Type === 3 || $Type === 4) {
             $Data['count'] = $Type === AppleIds::READY ? max(1, intval($Item->detail ?? 1)) : 1;
             $Data['custom'] = $Type === AppleIds::CUSTOM;

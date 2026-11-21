@@ -11,6 +11,12 @@ import { EditorSkeleton, problemsFrom } from '../../components/list';
 
 // profit: the plan's own profit ('' = the account's, else the dollar's; Pricing::planRate).
 type Plan = { id?: number; name: string; enName: string; months: string; price: string; discount: string; profit: string; count: string; live: boolean; popular: boolean };
+// An add-on question the buyer answers at checkout; each option may add an amount (dollars or Toman) to the price.
+type AddonOption = { id: string; label: string; labelEn: string; amount: string; currency: 'usd' | 'toman' };
+type Addon = { id: string; question: string; questionEn: string; options: AddonOption[] };
+// Letter-first ids keep them string keys on the server (AccountOrders::addonId).
+const newId = () => 'a' + Math.random().toString(36).slice(2, 9);
+const newOption = (label = '', amount = ''): AddonOption => ({ id: newId(), label, labelEn: '', amount, currency: 'usd' });
 type OrderField = { name: string; title: string; type: 'text' | 'select'; options: string[]; width: string };
 type Account = {
     name: string;
@@ -41,6 +47,7 @@ type Account = {
     sort: string;
     fields: OrderField[];
     notes: { label: string; value: string }[];
+    addons: Addon[];
     plans: Plan[];
 };
 
@@ -70,12 +77,13 @@ const blank: Account = {
     sort: '',
     fields: [{ name: 'email', title: 'ایمیل حساب', type: 'text', options: [], width: '6' }],
     notes: [],
+    addons: [],
     plans: [],
 };
 
 const labels: Record<string, string> = {
     name: 'نام', slug: 'نامک', currency: 'واحد قیمت', commission: 'پورسانت', profit: 'سود اختصاصی', short: 'توضیح کوتاه', content: 'متن صفحه', image: 'تصویر',
-    metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', fields: 'فیلدهای سفارش', notes: 'نکات', plans: 'پلن‌ها',
+    metaTitle: 'عنوان سئو', metaDesc: 'توضیح سئو', fields: 'فیلدهای سفارش', notes: 'نکات', plans: 'پلن‌ها', addons: 'افزودنی‌ها', 'addons.question': 'سؤال', 'addons.options': 'گزینه‌ها',
     enName: 'نام انگلیسی', tagline: 'شعار فارسی', taglineEn: 'شعار انگلیسی', category: 'دسته', color: 'رنگ', activation: 'نحوه تحویل', delivery: 'زمان تحویل', deliveryEn: 'زمان تحویل انگلیسی', sort: 'ترتیب',
     'plans.name': 'نام', 'plans.enName': 'نام انگلیسی', 'plans.months': 'مدت', 'plans.price': 'قیمت', 'plans.discount': 'قیمت با تخفیف', 'plans.profit': 'سود پلن', 'plans.count': 'تعداد',
     'fields.name': 'نام فنی', 'fields.title': 'عنوان', 'fields.options': 'گزینه‌ها', 'notes.label': 'عنوان', 'notes.value': 'مقدار',
@@ -342,6 +350,60 @@ export default function AccountEditor() {
                 />
             </Panel>
 
+            <Panel title="افزودنی‌ها">
+                <p className="mb-3 text-muted">سؤال‌هایی که خریدار هنگام خرید جواب می‌دهد (مثلاً «ورود دو مرحله‌ای فعال شود؟»). گزینه اول پیش‌فرض است؛ مبلغ هر گزینه به قیمت پلن اضافه می‌شود. مبلغ دلاری با نرخ همان پلن (و سودش) به تومان تبدیل می‌شود.</p>
+                <RowsEditor
+                    rows={form.addons}
+                    onChange={(addons) => set({ addons })}
+                    make={() => ({ id: newId(), question: '', questionEn: '', options: [newOption('خیر'), newOption('بله', '')] })}
+                    addLabel="افزودن سؤال"
+                    empty="این اکانت افزودنی ندارد."
+                    removeLabel={(r, i) => `حذف سؤال ${r.question || i + 1}`}
+                    render={(row, update, i) => (
+                        <div className="space-y-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Field label="سؤال" error={err(`addons.${i}.question`)}>
+                                    {(p) => <input {...p} className="field" value={row.question} onChange={(e) => update({ question: e.target.value })} placeholder="ورود دو مرحله‌ای فعال شود؟" />}
+                                </Field>
+                                <Field label="سؤال انگلیسی" optional error={err(`addons.${i}.questionEn`)}>
+                                    {(p) => <input {...p} dir="ltr" className="field latin" value={row.questionEn} onChange={(e) => update({ questionEn: e.target.value })} placeholder="Turn on 2-step verification?" />}
+                                </Field>
+                            </div>
+                            {err(`addons.${i}.options`) && <p className="font-bold text-error">{err(`addons.${i}.options`)}</p>}
+                            <RowsEditor
+                                rows={row.options}
+                                onChange={(options) => update({ options })}
+                                make={() => newOption()}
+                                addLabel="افزودن گزینه"
+                                empty="دست‌کم دو گزینه لازم است."
+                                removeLabel={(o, j) => `حذف گزینه ${o.label || j + 1}`}
+                                render={(o, upd, j) => (
+                                    <div className="grid gap-3 sm:grid-cols-[1fr_1fr_120px_110px] sm:items-end">
+                                        <Field label={j === 0 ? 'گزینه (پیش‌فرض)' : 'گزینه'} error={err(`addons.${i}.options.${j}.label`)}>
+                                            {(p) => <input {...p} className="field" value={o.label} onChange={(e) => upd({ label: e.target.value })} placeholder={j === 0 ? 'خیر' : 'بله'} />}
+                                        </Field>
+                                        <Field label="گزینه انگلیسی" optional error={err(`addons.${i}.options.${j}.labelEn`)}>
+                                            {(p) => <input {...p} dir="ltr" className="field latin" value={o.labelEn} onChange={(e) => upd({ labelEn: e.target.value })} placeholder={j === 0 ? 'No' : 'Yes'} />}
+                                        </Field>
+                                        <Field label="مبلغ اضافه" optional error={err(`addons.${i}.options.${j}.amount`)} hint={addonHint(form, o)}>
+                                            {(p) => <input {...p} inputMode="decimal" dir="ltr" className="field num text-end" value={o.amount} onChange={(e) => upd({ amount: e.target.value })} placeholder="0" />}
+                                        </Field>
+                                        <Field label="واحد">
+                                            {(p) => (
+                                                <select {...p} className="field" value={o.currency} onChange={(e) => upd({ currency: e.target.value as AddonOption['currency'] })}>
+                                                    <option value="usd">دلار</option>
+                                                    <option value="toman">تومان</option>
+                                                </select>
+                                            )}
+                                        </Field>
+                                    </div>
+                                )}
+                            />
+                        </div>
+                    )}
+                />
+            </Panel>
+
             <Panel title="نکات کنار سفارش">
                 <RowsEditor
                     rows={form.notes}
@@ -412,4 +474,11 @@ function planPriceHint(form: Account, row: Plan): string | undefined {
     const dollars = parseDecimal(row.discount) || parseDecimal(row.price) || 0;
     if (dollars <= 0) return (row.profit ?? '').trim() === '' ? 'خالی = سود اکانت' : undefined;
     return `≈ ${count(Math.round(dollars * form.pricing.marketDollar * (1 + profit / 100)))} ت`;
+}
+
+// Roughly what a dollar add-on adds in Toman at the account's rate (a plan with its own profit differs a little).
+function addonHint(form: Account, o: AddonOption): string | undefined {
+    const amount = parseDecimal(o.amount);
+    if (!amount || amount <= 0 || o.currency === 'toman' || !form.pricing) return undefined;
+    return `≈ ${count(Math.round(amount * form.pricing.marketDollar * (1 + inheritedProfit(form) / 100)))} تومان`;
 }
