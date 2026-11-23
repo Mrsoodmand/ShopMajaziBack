@@ -81,8 +81,8 @@ class CallBackController extends Controller
                                     } elseif ($order->type == 6) {
                                         CheckRef(5, $order, Auth::guard('user')->user(), 10);
                                         return $this->GoogleVoiceCallBack($order, $response);
-                                    } elseif ($order->type == 7) {
-                                        // Subscriptions / foreign accounts: same hand-delivered flow as services.
+                                    } elseif ($order->type == 7 || $order->type == \App\Services\VerificationOrders::TYPE) {
+                                        // Subscriptions / foreign accounts and verification: same hand-delivered flow as services.
                                         CheckRef(3, $order, Auth::guard('user')->user(), 5);
                                         return $this->VirtualServiceCallBack($order, $response);
                                     }
@@ -117,7 +117,7 @@ class CallBackController extends Controller
                                 $Id = $payment->order_id;
                             }
 
-                            if ($payment->type == 1 && in_array($Order->type, [1, 2, 3, 4, 6, 7]) && $Back = $this->storefrontReturn('failed', $Id)) {
+                            if ($payment->type == 1 && in_array($Order->type, [1, 2, 3, 4, 6, 7, 10]) && $Back = $this->storefrontReturn('failed', $Id)) {
                                 return $Back;
                             }
                             $Status = false;
@@ -143,7 +143,7 @@ class CallBackController extends Controller
                             $Id = $payment->order_id;
                         }
 
-                        if ($payment->type == 1 && in_array($Order->type, [1, 2, 3, 4, 6, 7]) && $Back = $this->storefrontReturn('cancelled', $Id)) {
+                        if ($payment->type == 1 && in_array($Order->type, [1, 2, 3, 4, 6, 7, 10]) && $Back = $this->storefrontReturn('cancelled', $Id)) {
                             return $Back;
                         }
                         $Status = false;

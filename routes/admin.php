@@ -249,6 +249,8 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
     Route::get('dashboard', 'Admin\DashboardApiController')->name('dashboard');
     Route::get('orders', 'Admin\OrderApiController@index')->name('orders');
     Route::get('orders/{id}', 'Admin\OrderApiController@show')->whereNumber('id')->name('order');
+    // A file a buyer sent with a verification order (private disk; Admin\VerificationApiController::file).
+    Route::get('orders/{id}/files/{field}', 'Admin\VerificationApiController@file')->whereNumber('id')->where('field', '[A-Za-z][A-Za-z0-9_]*')->name('order-file');
     // Orders support makes for a customer, and extra amounts (tax, VAT…) on an order: Admin\OrderMakeApiController.
     Route::get('orders/catalog', 'Admin\OrderMakeApiController@catalog')->name('order-catalog');
     Route::post('orders/make', 'Admin\OrderMakeApiController@store')->name('order-make');
@@ -381,6 +383,14 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('payment-gateways', 'Admin\PaymentGatewayApiController@index')->name('payment-gateways');
         Route::post('payment-gateways', 'Admin\PaymentGatewayApiController@save');
         Route::post('payment-gateways/{key}/test', 'Admin\PaymentGatewayApiController@test')->where('key', '[a-z]+');
+        // پیامک: SMS.ir credit, automatic patterns, bulk sends (App\Services\Sms).
+        Route::get('sms', 'Admin\SmsApiController@index')->name('sms');
+        Route::post('sms', 'Admin\SmsApiController@save');
+        Route::post('sms/patterns/{key}/test', 'Admin\SmsApiController@test')->where('key', '[a-z_]+');
+        Route::post('sms/bulk/preview', 'Admin\SmsApiController@preview');
+        Route::post('sms/bulk', 'Admin\SmsApiController@send');
+        Route::get('sms/campaigns', 'Admin\SmsApiController@campaigns');
+        Route::post('sms/campaigns/{id}/cancel', 'Admin\SmsApiController@cancel')->whereNumber('id');
     });
 
     Route::middleware('role_or_permission:super-admin|accounts-list|accounts-create-edit')->group(function () {
@@ -391,6 +401,31 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('accounts', 'Admin\AccountApiController@save');
         Route::post('accounts/{id}', 'Admin\AccountApiController@save')->whereNumber('id');
         Route::post('uploads/account-image', 'Admin\AccountApiController@upload');
+    });
+    // وریفای: verification products (App\Services\VerificationOrders). Same staff as foreign accounts.
+    Route::middleware('role_or_permission:super-admin|accounts-list|accounts-create-edit')->group(function () {
+        Route::get('verification', 'Admin\VerificationApiController@index')->name('verification');
+        Route::get('verification/{id}', 'Admin\VerificationApiController@show')->whereNumber('id');
+    });
+    Route::middleware('role_or_permission:super-admin|accounts-create-edit')->group(function () {
+        Route::post('verification', 'Admin\VerificationApiController@save');
+        Route::post('verification/{id}', 'Admin\VerificationApiController@save')->whereNumber('id');
+        Route::post('uploads/verification-image', 'Admin\VerificationApiController@upload');
+    });
+    // حساب‌های سازمانی (App\Services\Organizations): requests, organisations + discount, the form. Same staff as users.
+    Route::middleware('role_or_permission:super-admin|users-list|users-detail|edit-user')->group(function () {
+        Route::get('organizations/requests', 'Admin\OrganizationApiController@requests')->name('organization-requests');
+        Route::get('organizations/requests/{id}', 'Admin\OrganizationApiController@request')->whereNumber('id');
+        Route::get('organizations/requests/{id}/files/{key}', 'Admin\OrganizationApiController@file')->whereNumber('id')->where('key', '[a-z][a-z0-9_]*')->name('organization-file');
+        Route::get('organizations', 'Admin\OrganizationApiController@organizations')->name('organizations');
+        Route::get('organizations/settings', 'Admin\OrganizationApiController@settings');
+    });
+    Route::middleware('role_or_permission:super-admin|edit-user')->group(function () {
+        Route::post('organizations/requests/{id}/approve', 'Admin\OrganizationApiController@approve')->whereNumber('id');
+        Route::post('organizations/requests/{id}/reject', 'Admin\OrganizationApiController@reject')->whereNumber('id');
+        Route::post('organizations/{userId}/discount', 'Admin\OrganizationApiController@discount')->whereNumber('userId');
+        Route::post('organizations/{userId}/cancel', 'Admin\OrganizationApiController@cancel')->whereNumber('userId');
+        Route::post('organizations/settings', 'Admin\OrganizationApiController@saveSettings');
     });
 
     Route::group(['prefix' => 'ip', 'as' => 'ip.'], function () {

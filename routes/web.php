@@ -156,10 +156,15 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
     Route::post('subscriptions/buy', 'StorefrontAccountController@subscriptionsBuy')->middleware('throttle:storefront-buy');
     Route::post('subscriptions/pay-card', 'StorefrontAccountController@subscriptionsPayCard')->middleware('throttle:storefront-buy');
     Route::get('subscriptions/orders/{id}', 'StorefrontAccountController@subscriptionsOrder')->middleware('throttle:storefront-poll');
+    // Verification (VerificationOrders): multipart when the product asks for files.
+    Route::post('verification/buy', 'StorefrontAccountController@verificationBuy')->middleware('throttle:storefront-buy');
+    Route::post('verification/pay-card', 'StorefrontAccountController@verificationPayCard')->middleware('throttle:storefront-buy');
+    Route::get('verification/orders/{id}', 'StorefrontAccountController@verificationOrder')->middleware('throttle:storefront-poll');
     // The dashboard (/account on the Next.js site): StorefrontPanelController.
     Route::get('panel', 'StorefrontPanelController@index')->middleware('throttle:storefront-read');
     Route::get('panel/orders/{id}', 'StorefrontPanelController@order')->middleware('throttle:storefront-read');
     Route::get('panel/tickets/{id}', 'StorefrontPanelController@ticket')->middleware('throttle:storefront-read');
+    Route::get('panel/organization', 'StorefrontPanelController@organization')->middleware('throttle:storefront-read');
     Route::group(['middleware' => 'throttle:storefront-write'], function () {
         Route::post('panel/tickets', 'StorefrontPanelController@newTicket');
         Route::post('panel/tickets/{id}/reply', 'StorefrontPanelController@reply');
@@ -170,6 +175,7 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
         Route::post('panel/orders/{id}/pay', 'StorefrontPanelController@payOrder')->middleware('throttle:storefront-buy');
         Route::post('panel/orders/{id}/review', 'StorefrontPanelController@review'); // a buyer's comment (OrderReviews)
         Route::post('panel/orders/{id}/cancel', 'StorefrontPanelController@cancelOrder')->middleware('throttle:storefront-buy');
+        Route::post('panel/organization', 'StorefrontPanelController@organizationApply'); // App\Services\Organizations
     });
     // Shopping cart (StorefrontCartController): guests may fill it; paying needs sign-in.
     Route::get('cart', 'StorefrontCartController@show')->middleware('throttle:storefront-read');
@@ -192,6 +198,7 @@ Route::get('/storefront/me', function () {
         'data' => [
             'authenticated' => !is_null($User),
             'wallet' => is_null($User) ? 0 : (int)($User->wallet + $User->blocked_wallet),
+            'organization' => \App\Services\Organizations::badge($User),
         ],
     ])->header('Cache-Control', 'no-store');
 });

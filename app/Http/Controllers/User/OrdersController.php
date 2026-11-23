@@ -48,7 +48,7 @@ class OrdersController extends Controller
                         return $this->IpSabetOrder($Order);
                     } elseif ($Order->type == 6) {
                         return $this->GoogleVoiceOrder($Order);
-                    } elseif ($Order->type == 7) {
+                    } elseif ($Order->type == 7 || $Order->type == 10) { // 10: verification, same item shape
                         return $this->AccountsOrder($Order);
                     }
                 } else {

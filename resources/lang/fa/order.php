@@ -28,6 +28,7 @@ return [
         '5' => 'آی پی ثابت',
         '6' => 'گوگل ویس',
         '7' => 'اکانت خارجی',
+        '10' => 'وریفای',
     ],
     'PageType' => [
         '1' => 'virtual-number',
@@ -37,6 +38,7 @@ return [
         '5' => 'ip-sabet',
         '6' => 'google-voice',
         '7' => 'account',
+        '10' => 'account', // verification (VerificationOrders): same item shape as accounts
     ],
     'PageTypeFa' => [
         '1' => 'شماره مجازی',
@@ -46,6 +48,7 @@ return [
         '5' => 'آی پی ثابت',
         '6' => 'گوگل ویس',
         '7' => 'اکانت خارجی',
+        '10' => 'وریفای',
     ],
     "pay status" => [
         'paid with wallet' => 'پرداخت شده با کیف پول' ,

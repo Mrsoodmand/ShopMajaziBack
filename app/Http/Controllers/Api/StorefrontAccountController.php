@@ -13,6 +13,7 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Virtual_Products;
 use App\Services\AccountOrders;
+use App\Services\VerificationOrders;
 use App\Services\AppleIds;
 use App\Services\GoogleVoiceNumbers;
 use App\Services\VirtualServiceOrders;
@@ -49,6 +50,7 @@ class StorefrontAccountController extends Controller
             'authenticated' => !is_null($User),
             'user' => $User ? ['name' => $User->name, 'mobile' => $User->mobile] : null,
             'wallet' => $User ? $this->wallet($User) : 0,
+            'organization' => \App\Services\Organizations::badge($User),
         ]);
     }
 
@@ -324,7 +326,8 @@ class StorefrontAccountController extends Controller
                     return $this->fail('موجودی کیف پول شما کافی نیست.', 'balance', 400, ['wallet' => $this->wallet($User), 'price' => $Number['price']]);
                 }
                 $Order = $Numbers->buyWithWallet($User, $Number);
-                return $this->googleVoiceResult($Order, $User);
+                \App\Services\Organizations::stamp($Order, $Number);
+                return $this->googleVoiceResult($Order->fresh(), $User);
             });
         } catch (LockTimeoutException $e) {
             return $this->fail('لطفا چند لحظه دیگر دوباره تلاش کنید.', 'busy', 429);
@@ -348,6 +351,7 @@ class StorefrontAccountController extends Controller
         $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : '/google-voice';
 
         [$Order, $Payment] = $Numbers->bankOrder($User, $Number);
+        \App\Services\Organizations::stamp($Order, $Number);
         $Url = app(BankController::class)->zarinPalStartUrl($Payment, $Order, StorefrontUrl(route('user.service-bank-callback', [], false)));
         if (!$Url) {
             $Order->status = $Order->pay_status = 'failed';
@@ -445,7 +449,8 @@ class StorefrontAccountController extends Controller
         if (is_null($Number)) {
             return [null, $this->fail('این شماره فروخته شده است. لطفا شماره دیگری انتخاب کنید.', 'sold', 404)];
         }
-        return [$Number, null];
+        // An organisation's Google Voice percent comes off here, so wallet, card and the cart all charge the same.
+        return [\App\Services\Organizations::apply($Number, 'google_voice'), null];
     }
 
     private function googleVoiceResult(Order $Order, $User): JsonResponse
@@ -504,6 +509,7 @@ class StorefrontAccountController extends Controller
         }
 
         [$Order] = $Apple->createOrder($User, $Spec['type'], $Spec['qty'], $Spec['price'], $Spec['details']);
+        \App\Services\Organizations::stamp($Order, $Spec);
         $Response = app(WalletController::class)->PayWithWallet($Spec['type'], $Order->id, $request);
         if ($Response->getStatusCode() !== 200) {
             $Order->status = $Order->pay_status = 'failed'; // nothing was charged; don't leave it waiting
@@ -539,6 +545,7 @@ class StorefrontAccountController extends Controller
         $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : '/apple-id';
 
         [$Order, $Payment] = $Apple->createOrder($User, $Spec['type'], $Spec['qty'], $Spec['price'], $Spec['details']);
+        \App\Services\Organizations::stamp($Order, $Spec);
         $Url = app(BankController::class)->zarinPalStartUrl($Payment, $Order, StorefrontUrl(route('user.service-bank-callback', [], false)));
         if (!$Url) {
             $Order->status = $Order->pay_status = 'failed';
@@ -601,7 +608,7 @@ class StorefrontAccountController extends Controller
             $Spec = ['type' => AppleIds::READY, 'qty' => $Qty, 'price' => $Each * $Qty, 'details' => null];
         }
 
-        return [$Spec, null];
+        return [\App\Services\Organizations::apply($Spec, 'apple_id'), null];
     }
 
     private function appleIdData(Order $Order, AppleIds $Apple): array
@@ -670,7 +677,29 @@ class StorefrontAccountController extends Controller
         return $this->queuedOrder($id, AccountOrders::TYPE, $Accounts);
     }
 
-    /* ---------- Orders support delivers by hand (services, subscriptions) ---------- */
+    /* ---------- Verification (VerificationOrders, order type 10) ---------- */
+
+    /*
+     * Buy with the wallet: {product_id, plan_id, fields: {name: value}}, as multipart when a field takes a file
+     * (fields[passport] = the file). Support then delivers it.
+     */
+    public function verificationBuy(Request $request, VerificationOrders $Verification): JsonResponse
+    {
+        return $this->buyWithWallet($request, $Verification, 'سفارش ثبت شد و به زودی بررسی می شود.');
+    }
+
+    /* Pay by card: the same body plus `return`. */
+    public function verificationPayCard(Request $request, VerificationOrders $Verification): JsonResponse
+    {
+        return $this->payByBank($request, $Verification, '/verify');
+    }
+
+    public function verificationOrder($id, VerificationOrders $Verification): JsonResponse
+    {
+        return $this->queuedOrder($id, VerificationOrders::TYPE, $Verification);
+    }
+
+    /* ---------- Orders support delivers by hand (services, subscriptions, verification) ---------- */
 
     /*
      * $Orders: VirtualServiceOrders or AccountOrders (spec, createOrder, data). The wallet pays them through
@@ -693,6 +722,7 @@ class StorefrontAccountController extends Controller
         }
 
         [$Order] = $Orders->createOrder($User, $Spec);
+        \App\Services\Organizations::stamp($Order, $Spec);
         $Response = app(WalletController::class)->PayWithWallet(VirtualServiceOrders::TYPE, $Order->id, $request);
         if ($Response->getStatusCode() !== 200) {
             $Order->status = $Order->pay_status = 'failed'; // nothing was charged; don't leave it waiting
@@ -724,6 +754,7 @@ class StorefrontAccountController extends Controller
         $Return = str_starts_with($Return, '/') && !str_starts_with($Return, '//') ? $Return : $Fallback;
 
         [$Order, $Payment] = $Orders->createOrder($User, $Spec);
+        \App\Services\Organizations::stamp($Order, $Spec);
         $Url = app(BankController::class)->zarinPalStartUrl($Payment, $Order, StorefrontUrl(route('user.service-bank-callback', [], false)));
         if (!$Url) {
             $Order->status = $Order->pay_status = 'failed';

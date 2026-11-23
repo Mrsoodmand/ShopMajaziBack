@@ -90,7 +90,7 @@ class Pricing
         if ($plan && $plan->profit_percent !== null && $plan->profit_percent !== '') {
             return self::market(self::DOLLAR) * (1 + (float) $plan->profit_percent / 100);
         }
-        return $product && $product->type === 'accounts' ? self::productRate($product) : self::servicesRate();
+        return $product && in_array($product->type, ['accounts', 'verification'], true) ? self::productRate($product) : self::servicesRate();
     }
 
     /** Profit (percent) per operator. */

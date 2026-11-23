@@ -46,7 +46,7 @@ export type Order = {
     /** What the order asks the customer for: kind "order" = its own price (made by support), "extra" = tax, VAT… */
     charges: { id: number; kind: 'order' | 'extra'; title: string; price: number; status: 'unpaid' | 'paid' | 'cancelled'; paymentId: number | null; by: string | null; at: string | null; paidAt: string | null }[];
     cancelled: boolean;
-    items: { id: number; title: string | null; price: number; rows: { label: string; value: string | null; copy?: boolean; ltr?: boolean }[] }[];
+    items: { id: number; title: string | null; price: number; rows: ItemRow[] }[];
     history: { id: number; from: string | null; to: string | null; reason: string | null; by: string | null; at: string | null }[];
     chats: { id: number; from: 'admin' | 'customer'; text: string; by: string | null; at: string | null; unread: boolean }[];
     /** A Google Voice pre-order (or unclear Numberland order) and what it is waiting for; null for other orders. */
@@ -61,6 +61,22 @@ export type Order = {
 
 /** Order types whose full detail (credentials, IP config) still lives on the old page. */
 const LEGACY_DETAIL_TYPES = ['3', '4', '5', '6'];
+
+/**
+ * One line of an order item. Verification orders (type 10) add files the buyer sent: `file` opens it from the private
+ * disk (null once verification:prune-files deleted it, then `pruned` is the date), `multiline` for long answers.
+ */
+type ItemRow = {
+    label: string;
+    value: string | null;
+    copy?: boolean;
+    ltr?: boolean;
+    multiline?: boolean;
+    file?: string | null;
+    size?: number | null;
+    image?: boolean;
+    pruned?: string | null;
+};
 
 export default function OrderDetail() {
     const { id } = useParams();
@@ -149,7 +165,11 @@ function ItemsList({ order }: { order: Order }) {
                         <dl className="m-0">
                             {item.rows.map((row) => (
                                 <Row key={row.label} label={row.label} ltr={row.ltr}>
-                                    {row.value ? (
+                                    {'file' in row ? (
+                                        <FileValue row={row} />
+                                    ) : row.value && row.multiline ? (
+                                        <span className="block whitespace-pre-line text-start font-normal">{row.value}</span>
+                                    ) : row.value ? (
                                         <>
                                             <span className={`select-all ${row.copy ? 'latin' : ''}`}>{row.value}</span>
                                             {row.copy && <CopyButton value={row.value} label={row.label} />}
@@ -940,5 +960,27 @@ function DetailSkeleton() {
                 <div className="skeleton h-96 rounded-xl" />
             </div>
         </div>
+    );
+}
+
+// A file the buyer sent (verification orders): opens in a new tab; images also show a small preview.
+function FileValue({ row }: { row: ItemRow }) {
+    if (!row.file) {
+        return <span className="font-normal text-muted">{row.pruned ? `حذف شد (${row.pruned})` : 'فایلی نیست'}</span>;
+    }
+    const size = row.size ? (row.size >= 1024 * 1024 ? `${(row.size / 1024 / 1024).toFixed(1)} مگابایت` : `${Math.max(1, Math.round(row.size / 1024))} کیلوبایت`) : null;
+    return (
+        <span className="inline-flex flex-col items-end gap-2">
+            {row.image && (
+                <a href={row.file} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-stroke">
+                    <img src={row.file} alt={row.label} className="max-h-40 max-w-[220px] object-contain" />
+                </a>
+            )}
+            <a href={row.file} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo hover:underline">
+                <ExternalLink aria-hidden size={13} />
+                <span className="latin" dir="ltr">{row.value || 'file'}</span>
+            </a>
+            {size && <span className="num text-[12px] font-normal text-muted">{size}</span>}
+        </span>
     );
 }

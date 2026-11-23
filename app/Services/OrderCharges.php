@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\DB;
  *             (gate Manual) and starts it at «درحال بررسی».
  * - charge(): an extra amount on any order (kind "extra"); the order keeps its status, the customer sees it as due.
  * - pay():    pays every unpaid charge of the order from the wallet, as type-1 payments on the order.
+ * - startCard() / paidByCard(): the same by card, as one type-1 bank payment on the order (no wallet top-up).
  * - cancel(): the customer cancels a pending order; every payment on it goes back to the wallet (type-2 payments
  *             whose `error` is the refunded payment's id, the same shape as admin › refund).
  */
@@ -243,20 +244,23 @@ class OrderCharges
         }
     }
 
-    /* ---------- Card payments (wallet top-up, then pay()) ---------- */
+    /* ---------- Card payments (a bank payment on the order, like any order paid by card) ---------- */
 
-    /* A type-3 top-up for what the wallet is short of (at least the gateway minimum), linked to the unpaid charges. */
-    public function startTopUp(User|\App\Models\User $User, Order $Order, int $Minimum): ?Payment
+    /*
+     * One type-1 bank payment on the order for everything still due, linked to those charges (order_charges.topup_id
+     * holds the bank payment in progress). The wallet is not touched: the order shows «درگاه بانک», not «کیف پول».
+     */
+    public function startCard(User|\App\Models\User $User, Order $Order): ?Payment
     {
         $Due = $this->due($Order);
         if ($Due <= 0) {
             return null;
         }
-        $Short = max($Minimum, $Due - (int) ($User->wallet + $User->blocked_wallet));
         $Payment = new Payment();
+        $Payment->order_id = $Order->id;
         $Payment->user_id = $User->id;
-        $Payment->price = $Short;
-        $Payment->type = '3';
+        $Payment->price = $Due;
+        $Payment->type = 1;
         $Payment->status = 'waiting to pay';
         $Payment->gate = 'Bank';
         $Payment->creator = 'OrderCharge';
@@ -264,6 +268,67 @@ class OrderCharges
         $Payment->save();
         OrderCharge::where('order_id', $Order->id)->where('status', 'unpaid')->update(['topup_id' => $Payment->id]);
         return $Payment;
+    }
+
+    /*
+     * The bank confirmed $Payment (startCard): its charges are paid by it. A charge that was paid from the wallet or
+     * dropped meanwhile (or a cancelled order) leaves money over; that part goes to the wallet as a refund of the
+     * payment (type 2, `error` = the payment's id). Safe to call again: nothing is paid or credited twice.
+     */
+    public function paidByCard(Payment $Payment, Order $Order): void
+    {
+        $this->locked($Order, fn () => DB::transaction(function () use ($Payment, $Order) {
+            $Order = Order::lockForUpdate()->find($Order->id);
+            if (Payment::where('type', 2)->where('error', (string) $Payment->id)->exists()) {
+                return; // settled before, leftover included
+            }
+            $Cancelled = in_array($Order->status, ['failed', 'back money to wallet'], true);
+            // The order's unpaid charges, as far as this payment reaches (its own first: a later card attempt may
+            // have taken over topup_id).
+            $Room = (int) round((float) $Payment->price) - (int) OrderCharge::where('payment_id', $Payment->id)->sum('price');
+            $Charges = collect();
+            if (!$Cancelled) {
+                foreach (OrderCharge::where('order_id', $Order->id)->where('status', 'unpaid')->lockForUpdate()->get()
+                             ->sortBy(fn ($c) => [(int) $c->topup_id !== (int) $Payment->id, $c->id]) as $C) {
+                    if ($C->price <= $Room) {
+                        $Charges->push($C);
+                        $Room -= $C->price;
+                    }
+                }
+            }
+            $Now = Carbon::now();
+            foreach ($Charges as $Charge) {
+                $Charge->update(['status' => 'paid', 'payment_id' => $Payment->id, 'paid_at' => $Now]);
+                if ($Charge->kind === 'order') {
+                    $Order->pay_id = $Payment->id;
+                    $Order->pay_status = 'Complete';
+                    if ($Order->status === 'waiting to pay') {
+                        $Order->status = 'pending';
+                    }
+                    $Order->save();
+                }
+            }
+            $Sum = (int) $Charges->sum('price');
+            $Left = $Room; // what this payment didn't cover any charge with
+            if ($Left > 0) {
+                $Refund = new Payment();
+                $Refund->user_id = $Payment->user_id;
+                $Refund->order_id = $Order->id;
+                $Refund->type = 2;
+                $Refund->status = 'Complete';
+                $Refund->creator = 'system';
+                $Refund->price = $Left;
+                $Refund->error = $Payment->id;
+                $Refund->help = "مانده پرداخت بانکی تراکنش $Payment->id به کیف پول";
+                $Refund->save();
+                $Owner = User::lockForUpdate()->find($Payment->user_id);
+                $Owner->wallet = $Owner->wallet + $Left;
+                $Owner->save();
+            }
+            if ($Sum > 0) {
+                $this->notifyPaid($Order, $Sum, 'درگاه بانک');
+            }
+        }));
     }
 
     /* ---------- Helpers ---------- */
@@ -283,9 +348,9 @@ class OrderCharges
         $H->save();
     }
 
-    private function notifyPaid(Order $Order, int $Sum): void
+    private function notifyPaid(Order $Order, int $Sum, string $Via = 'کیف پول'): void
     {
-        $this->telegram("💳 پرداخت سفارش #$Order->id\n💵 مبلغ: " . number_format($Sum) . " تومان (کیف پول)\n👀 " . route('admin.order single', $Order->id));
+        $this->telegram("💳 پرداخت سفارش #$Order->id\n💵 مبلغ: " . number_format($Sum) . " تومان ($Via)\n👀 " . route('admin.order single', $Order->id));
     }
 
     private function notifyCancelled(Order $Order, int $Refunded): void

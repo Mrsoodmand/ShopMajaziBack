@@ -811,48 +811,14 @@ function SiteMap($Posts, $Filename)
     file_put_contents("$Filename", $data);
 }
 
-/* Sms Verify */
+/* Sms Verify: the sign-up code pattern. Template id and switch come from admin › پیامک (App\Services\Sms). */
 function SendVerifySmsSmsIr($mobile = '9302736430', $code = 11111)
 {
     if (DevFakeProviders()) { // local development: log instead of texting
         \Illuminate\Support\Facades\Log::info("[dev] SMS code for $mobile: $code");
         return null;
     }
-    $Params = [
-        'mobile' => "$mobile",
-        'templateId' => 880532,
-        'parameters' =>
-            [
-                [
-                    'name' => 'CODE',
-                    'value' => "$code"
-                ],
-                [
-                    'name' => 'CODE2',
-                    'value' => "#$code"
-                ]
-            ]
-    ];
-    $curl = curl_init();
-    curl_setopt_array($curl, array(
-        CURLOPT_URL => 'https://api.sms.ir/v1/send/verify',
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_POSTFIELDS => json_encode($Params),
-        CURLOPT_HTTPHEADER => array(
-            'Content-Type: application/json',
-            'Accept: text/plain',
-            'x-api-key: ' . config('services.smsir.key') . ''
-        ),
-    ));
-    $response = curl_exec($curl);
-    curl_close($curl);
-    return $response;
+    return app(\App\Services\Sms::class)->sendPattern((string)$mobile, ['CODE' => "$code", 'CODE2' => "#$code"], 'verify_code');
 }
 
 /* Get V2ray */
@@ -1275,50 +1241,11 @@ function getClientTraffics($data)
     return $Data;
 }
 
-/* Send Sms */
+/* Send Sms: one SMS.ir pattern. $template is a pattern key or the old hardcoded id; App\Services\Sms swaps in the
+   id and on/off switch saved in admin › پیامک. */
 function sendSmsWithSmsir($mobile, $Data, $template)
 {
-    if (DevFakeProviders()) { // local development: log instead of texting
-        \Illuminate\Support\Facades\Log::info("[dev] SMS template $template for $mobile: " . json_encode($Data));
-        return null;
-    }
-    $param = null;
-    foreach ($Data as $key => $value) {
-        $param[] =
-            [
-                'name' => "$key",
-                'value' => "$value"
-            ];
-    }
-
-    $Params = [
-        'mobile' => "$mobile",
-        'templateId' => $template,
-        'parameters' => $param
-    ];
-
-
-    $curl = curl_init();
-    curl_setopt_array($curl, array(
-        CURLOPT_URL => 'https://api.sms.ir/v1/send/verify',
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_POSTFIELDS => json_encode($Params),
-        CURLOPT_HTTPHEADER => array(
-            'Content-Type: application/json',
-            'Accept: text/plain',
-            'x-api-key: ' . config('services.smsir.key') . ''
-        ),
-    ));
-    $response = curl_exec($curl);
-    curl_close($curl);
-    return $response;
-
+    return app(\App\Services\Sms::class)->sendPattern((string)$mobile, (array)$Data, $template);
 }
 
 /* Partner */

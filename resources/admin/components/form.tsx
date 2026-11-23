@@ -147,6 +147,7 @@ export function RowsEditor<T>({
     empty,
     render,
     removeLabel,
+    canRemove,
 }: {
     rows: T[];
     onChange: (rows: T[]) => void;
@@ -155,6 +156,8 @@ export function RowsEditor<T>({
     empty: string;
     removeLabel: (row: T, i: number) => string;
     render: (row: T, update: (patch: Partial<T>) => void, i: number) => ReactNode;
+    /** Rows that can't be removed get no delete button (all can by default). */
+    canRemove?: (row: T, i: number) => boolean;
 }) {
     return (
         <div>
@@ -163,15 +166,17 @@ export function RowsEditor<T>({
                 {rows.map((row, i) => (
                     <li key={i} className="flex items-start gap-2 rounded-xl border border-stroke p-3">
                         <div className="min-w-0 flex-1">{render(row, (patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r))), i)}</div>
-                        <button
-                            type="button"
-                            className="btn btn-ghost mt-6 shrink-0 px-2 text-error"
-                            onClick={() => onChange(rows.filter((_, j) => j !== i))}
-                            aria-label={removeLabel(row, i)}
-                            title="حذف"
-                        >
-                            <Trash2 aria-hidden size={16} />
-                        </button>
+                        {(canRemove?.(row, i) ?? true) && (
+                            <button
+                                type="button"
+                                className="btn btn-ghost mt-6 shrink-0 px-2 text-error"
+                                onClick={() => onChange(rows.filter((_, j) => j !== i))}
+                                aria-label={removeLabel(row, i)}
+                                title="حذف"
+                            >
+                                <Trash2 aria-hidden size={16} />
+                            </button>
+                        )}
                     </li>
                 ))}
             </ol>

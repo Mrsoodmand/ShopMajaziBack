@@ -31,6 +31,8 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::get('virtual-services/{category}/{slug}', 'Api\StorefrontController@serviceDetail');
     Route::get('accounts', 'Api\StorefrontController@accounts');
     Route::get('accounts/{slug}', 'Api\StorefrontController@account');
+    Route::get('verifications', 'Api\StorefrontController@verifications');
+    Route::get('verifications/{slug}', 'Api\StorefrontController@verification');
     Route::get('google-voice', 'Api\StorefrontController@googleVoice');
     Route::get('cache-times', 'Api\StorefrontController@cacheTimes'); // admin › Cache: seconds per section (Front/src/lib/backend.ts)
     Route::get('telegram-stars', 'Api\StorefrontController@telegramStars');

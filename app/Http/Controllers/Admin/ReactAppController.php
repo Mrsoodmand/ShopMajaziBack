@@ -98,12 +98,18 @@ class ReactAppController extends Controller
                         ['label' => 'لیست اکانت‌ها', 'to' => '/accounts'],
                         $orders(7),
                     ]] : null,
+                    $can(['accounts-list', 'accounts-create-edit']) ? ['label' => 'وریفای', 'icon' => 'verify', 'children' => [
+                        ['label' => 'محصولات وریفای', 'to' => '/verification'],
+                        $orders(\App\Services\VerificationOrders::TYPE),
+                    ]] : null,
                 ])),
             ],
             [
                 'title' => 'کاربران',
                 'items' => array_values(array_filter([
                     $can(['users-list']) ? ['label' => 'کاربران', 'icon' => 'users', 'to' => '/users'] : null,
+                    // Organisation accounts (App\Services\Organizations): requests, discounts, the form.
+                    $can(['users-list', 'users-detail', 'edit-user']) ? ['label' => 'حساب‌های سازمانی', 'icon' => 'organization', 'to' => '/organizations'] : null,
                     $can(['tickets-list']) ? ['label' => 'تیکت‌ها', 'icon' => 'tickets', 'to' => '/tickets'] : null,
                     $can(['comments-list', 'accept-comment']) ? ['label' => 'نظرها', 'icon' => 'comments', 'to' => '/comments'] : null,
                 ])),
@@ -127,6 +133,7 @@ class ReactAppController extends Controller
                 $isSuper ? ['label' => 'درگاه‌های پرداخت', 'icon' => 'bank', 'to' => '/payment-gateways'] : null,
                 $isSuper ? ['label' => 'مدیریت کش', 'icon' => 'cache', 'to' => '/cache'] : null,
                 $isSuper ? ['label' => 'کپچا', 'icon' => 'captcha', 'to' => '/captcha'] : null,
+                $isSuper ? ['label' => 'پیامک', 'icon' => 'sms', 'to' => '/sms'] : null,
                 $isSuper ? ['label' => 'نقش‌ها و دسترسی‌ها', 'icon' => 'roles', 'to' => '/roles'] : null,
                 $isSuper ? ['label' => 'مدیران', 'icon' => 'admins', 'to' => '/admins'] : null,
                 $can(['partner-list']) ? ['label' => 'همکاران', 'icon' => 'partners', 'to' => '/partners'] : null,

@@ -19,6 +19,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('currency:update')->everyThirtyMinutes()->withoutOverlapping();
         // Paid Google Voice pre-orders, filled from Numberland when a number is available (App\Services\GoogleVoiceNumbers).
         $schedule->command('gv:fill-preorders')->everyFiveMinutes()->withoutOverlapping();
+        // Buyers' ID photos / documents on verification orders, deleted some days after the order is finished.
+        $schedule->command('verification:prune-files')->dailyAt('04:30')->withoutOverlapping();
+        // Bulk SMS sends that stopped half-way (App\Jobs\SendSmsCampaign).
+        $schedule->command('sms:resume-campaigns')->everyMinute()->withoutOverlapping();
     }
 
     /**

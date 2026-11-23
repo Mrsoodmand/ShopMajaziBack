@@ -25,9 +25,12 @@ import StockItem from './pages/stock/StockItem';
 import { APPLE, GOOGLE_VOICE } from './pages/stock/config';
 import AccountsList from './pages/accounts/AccountsList';
 import AccountEditor from './pages/accounts/AccountEditor';
+import VerificationList from './pages/verification/VerificationList';
+import VerificationEditor from './pages/verification/VerificationEditor';
 import PricingPage from './pages/pricing/PricingPage';
 import CachePage from './pages/cache/CachePage';
 import CaptchaPage from './pages/captcha/CaptchaPage';
+import SmsPage from './pages/sms/SmsPage';
 import GatewaysPage from './pages/gateways/GatewaysPage';
 import IpLocations from './pages/ip/IpLocations';
 import IpLocationPage from './pages/ip/IpLocationPage';
@@ -44,6 +47,8 @@ import AdminsList from './pages/team/AdminsList';
 import AdminEditor from './pages/team/AdminEditor';
 import PartnersList from './pages/partners/PartnersList';
 import PartnerEditor from './pages/partners/PartnerEditor';
+import OrganizationsPage from './pages/organizations/OrganizationsPage';
+import OrganizationRequest from './pages/organizations/RequestDetail';
 import './styles.css';
 
 function NotFound() {
@@ -74,6 +79,8 @@ if (root) {
                     { path: 'orders/:id', element: <OrderDetail /> },
                     { path: 'users', element: <UsersList /> },
                     { path: 'users/:id', element: <UserDetail /> },
+                    { path: 'organizations', element: <OrganizationsPage /> },
+                    { path: 'organizations/requests/:id', element: <OrganizationRequest /> },
                     { path: 'services', element: <ServicesPage /> },
                     { path: 'services/platforms/:id', element: <PlatformEditor /> },
                     { path: 'services/:id', element: <ServiceEditor /> },
@@ -98,9 +105,12 @@ if (root) {
                     { path: 'google-voice/:id', element: <StockItem key="gv" kind={GOOGLE_VOICE} /> },
                     { path: 'accounts', element: <AccountsList /> },
                     { path: 'accounts/:id', element: <AccountEditor /> },
+                    { path: 'verification', element: <VerificationList /> },
+                    { path: 'verification/:id', element: <VerificationEditor /> },
                     { path: 'pricing', element: <PricingPage /> },
                     { path: 'cache', element: <CachePage /> },
                     { path: 'captcha', element: <CaptchaPage /> },
+                    { path: 'sms', element: <SmsPage /> },
                     { path: 'payment-gateways', element: <GatewaysPage /> },
                     { path: 'ip', element: <IpLocations /> },
                     { path: 'ip/:id', element: <IpLocationPage /> },

@@ -40,7 +40,7 @@ class OrderReviews
             $Id = StorefrontCommentController::PAGES[$Page] ?? null;
             return $Id && Pages::whereKey($Id)->exists() ? ['page', $Id] : null;
         }
-        if ((int)$Order->type === 7 && $ProductId) {
+        if (in_array((int)$Order->type, [7, VerificationOrders::TYPE], true) && $ProductId) {
             $Product ??= Product::find($ProductId);
             return $Product && (int)$Product->status === 1 ? ['service', (int)$Product->id] : null;
         }

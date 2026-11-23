@@ -17,6 +17,8 @@ export type User = {
     wallet: number;
     blockedWallet: number;
     flags: UserFlags;
+    /** Organisation account (Admin\OrganizationApiController): null when the user never asked. */
+    organization: { active: boolean; discounts: Record<string, number>; requestId: number | null; requestStatus: string | null; company: string | null } | null;
     createdAt: string | null;
     stats: { orders: number; completed: number; spent: number };
     links: { legacy: string; panel: string };
@@ -77,6 +79,18 @@ export default function UserDetail() {
                             <div className="flex flex-wrap items-center gap-3">
                                 <h1 className="text-[22px] leading-tight font-bold">{user.name || 'بدون نام'}</h1>
                                 <BlockedPill flags={user.flags} />
+                                {user.organization && user.organization.requestId && (
+                                    <Link
+                                        to={`/organizations/requests/${user.organization.requestId}`}
+                                        className={`rounded-full px-2.5 py-0.5 text-[13px] font-medium ${user.organization.active ? 'bg-success-soft text-success' : user.organization.requestStatus === 'pending' ? 'bg-indigo-soft text-indigo' : 'bg-surface-2 text-muted'}`}
+                                    >
+                                        {user.organization.active
+                                            ? `سازمانی${user.organization.company ? ` · ${user.organization.company}` : ''}`
+                                            : user.organization.requestStatus === 'pending'
+                                              ? 'درخواست حساب سازمانی'
+                                              : 'حساب شخصی (درخواست سازمانی قبلی)'}
+                                    </Link>
+                                )}
                             </div>
                             <p className="mt-1.5 text-body">
                                 <span dir="ltr" className="num">

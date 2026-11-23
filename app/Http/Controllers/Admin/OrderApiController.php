@@ -281,6 +281,29 @@ class OrderApiController extends Controller
                     $rows[] = ['label' => $field['filed_type'] ?? $field['filed_name'] ?? 'فیلد', 'value' => is_scalar($value) ? (string) $value : null, 'copy' => !$addon, 'ltr' => !$addon];
                 }
                 break;
+            case '10': // verification (App\Services\VerificationOrders): answers, and files opened from the private disk
+                $title = $detail['plan']['plan_name'] ?? null;
+                foreach ((array) $detail as $key => $field) {
+                    if ($key === 'plan' || !is_array($field)) {
+                        continue;
+                    }
+                    $kind = $field['kind'] ?? 'text';
+                    $label = $field['filed_type'] ?? $field['filed_name'] ?? 'فیلد';
+                    $value = isset($field['filed_value']) && is_scalar($field['filed_value']) ? (string) $field['filed_value'] : null;
+                    if ($kind === 'file') {
+                        $rows[] = [
+                            'label' => $label,
+                            'value' => $value,
+                            'file' => !empty($field['file']) ? '/admin/api/orders/' . $order->id . '/files/' . $field['filed_name'] : null,
+                            'size' => isset($field['size']) ? (int) $field['size'] : null,
+                            'image' => str_starts_with((string) ($field['mime'] ?? ''), 'image/'),
+                            'pruned' => $field['pruned'] ?? null,
+                        ];
+                        continue;
+                    }
+                    $rows[] = ['label' => $label, 'value' => $value, 'copy' => in_array($kind, ['text', 'email', 'phone'], true), 'ltr' => in_array($kind, ['email', 'phone', 'date'], true), 'multiline' => $kind === 'textarea'];
+                }
+                break;
             case '9': // made by support (Admin\OrderMakeApiController)
                 $title = $detail['title'] ?? null;
                 if (!empty($detail['note'])) {

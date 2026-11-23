@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Comment;
 use App\Models\GoogleVoice;
 use App\Services\AccountOrders;
+use App\Services\VerificationOrders;
 use App\Services\AppleIds;
 use App\Services\BlogHtml;
 use App\Services\BlogTopics;
@@ -100,6 +101,28 @@ class StorefrontController extends Controller
             return $this->error('اشتراک مورد نظر یافت نشد.', 404);
         }
         return $this->success(['account' => $Data]);
+    }
+
+    /* Verification products (/verify): ready verified accounts and verifying the buyer's own account. */
+    public function verifications(VerificationOrders $Verification): JsonResponse
+    {
+        $Products = Product::where('type', VerificationOrders::PRODUCT_TYPE)->where('status', 1)
+            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        $Plans = $Verification->plansFor($Products);
+        return $this->success([
+            'products' => $Products->map(fn($Product) => $Verification->product($Product, $Plans->get($Product->id, collect())))->filter()->values(),
+        ]);
+    }
+
+    /* One verification product's page (/verify/{slug}): the same plus its text and SEO. */
+    public function verification($slug, VerificationOrders $Verification): JsonResponse
+    {
+        $Product = Product::where('type', VerificationOrders::PRODUCT_TYPE)->where('status', 1)->where('slug', (string)$slug)->first();
+        $Data = $Product ? $Verification->product($Product, $Verification->plansFor(collect([$Product]))->get($Product->id, collect()), true) : null;
+        if (is_null($Data)) {
+            return $this->error('محصول مورد نظر یافت نشد.', 404);
+        }
+        return $this->success(['product' => $Data]);
     }
 
     /* لندینگ شماره مجازی: سرویس ها و کشورها به همراه تعداد و کمترین قیمت */
@@ -336,7 +359,7 @@ class StorefrontController extends Controller
     public function prices(AppleIds $Apple, AccountOrders $Accounts): JsonResponse
     {
         $From = [];
-        $Picks = ['menu' => ['subs' => [], 'social' => []], 'home' => ['subs' => [], 'social' => []]];
+        $Picks = ['menu' => ['subs' => [], 'social' => [], 'verify' => []], 'home' => ['subs' => [], 'social' => [], 'verify' => []]];
         // Subscriptions: each one's cheapest plan (its own profit included), keyed by its page.
         $Products = Product::where('type', 'accounts')->where('status', 1)
             ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
@@ -366,6 +389,34 @@ class StorefrontController extends Controller
                 }
             }
         }
+        // Verification (/verify): the home page's shop window tab shows the products the admin put on the home page
+        // (admin › وریفای › نمایش در صفحه اول); with none chosen, every live product (up to 8).
+        $Verification = app(\App\Services\VerificationOrders::class);
+        $VProducts = Product::where('type', \App\Services\VerificationOrders::PRODUCT_TYPE)->where('status', 1)
+            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        $VPlans = $Verification->plansFor($VProducts);
+        $Home = [];
+        foreach ($VProducts as $Product) {
+            $Row = $Verification->product($Product, $VPlans->get($Product->id, collect()));
+            $Min = $Row ? collect($Row['plans'])->pluck('price')->filter()->min() : null;
+            if (!$Row || !$Min) {
+                continue;
+            }
+            $From['/verify/' . $Product->slug] = (int)$Min;
+            $From['/verify'] = min($From['/verify'] ?? PHP_INT_MAX, (int)$Min);
+            $Item = [
+                'href' => '/verify/' . $Product->slug, 'name' => $Row['name'], 'name_en' => $Row['en_name'],
+                'desc' => $Row['tagline'], 'desc_en' => $Row['tagline_en'], 'image' => $Row['image'], 'color' => $Row['color'],
+                'from' => (int)$Min,
+            ];
+            $Home[] = [$Item, (bool)$Product->on_home];
+            // The header menu: only the ones the admin switched on (admin › وریفای › نمایش در منو).
+            if ($Product->in_menu && count($Picks['menu']['verify']) < \App\Http\Controllers\Admin\VerificationApiController::MENU_LIMIT) {
+                $Picks['menu']['verify'][] = $Item;
+            }
+        }
+        $Chosen = array_filter($Home, fn($h) => $h[1]);
+        $Picks['home']['verify'] = array_slice(array_column($Chosen ?: $Home, 0), 0, \App\Http\Controllers\Admin\VerificationApiController::HOME_LIMIT);
         $Prices = $Apple->prices();
         if ($Prices['ready'] > 0) {
             $From['/apple-id/usa'] = $From['/apple-id'] = $Prices['ready'];

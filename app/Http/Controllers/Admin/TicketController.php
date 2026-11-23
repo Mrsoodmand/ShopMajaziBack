@@ -88,6 +88,7 @@ class TicketController extends Controller
                 $detail->file = $this->UploadUserTicketImage($request->input('file'));
             }
             $detail->save();
+            app(\App\Services\Sms::class)->notifyUser($ticket->user_id, 'ticket_answer', ['NUM' => $ticket->id]);
 
             return success($request, 'تیکت با موفقیت ارسال شد');
 

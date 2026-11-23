@@ -20,6 +20,7 @@ use App\Services\AppleIds;
 use App\Services\GoogleVoiceNumbers;
 use App\Services\OrderCharges;
 use App\Services\OrderReviews;
+use App\Services\VerificationOrders;
 use App\Services\VirtualServiceOrders;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -62,7 +63,7 @@ class StorefrontPanelController extends Controller
         $Lookup = $this->lookup($Orders);
 
         return $this->ok([
-            'user' => ['name' => (string)$User->name, 'mobile' => (string)$User->mobile, 'email' => $User->email ?: null, 'since' => $this->iso($User->created_at)],
+            'user' => ['name' => (string)$User->name, 'mobile' => (string)$User->mobile, 'email' => $User->email ?: null, 'since' => $this->iso($User->created_at), 'organization' => \App\Services\Organizations::badge($User), 'company' => \App\Services\Organizations::company($User)],
             'wallet' => $Wallet,
             'cards' => $this->cards($User),
             'statement' => $this->statement($User, $Wallet),
@@ -90,8 +91,8 @@ class StorefrontPanelController extends Controller
     }
 
     /*
-     * Pay what the order still asks for: {method: wallet|card, return?}. Card tops the wallet up with what it is short
-     * of (route order-charge-callback), then pays from the wallet and returns to `{return}?pay=ok|failed|cancelled|held`.
+     * Pay what the order still asks for: {method: wallet|card, return?}. Card is a bank payment on the order for all of
+     * it (route order-charge-callback), shown as paid online, then returns to `{return}?pay=ok|failed|cancelled|held`.
      */
     public function payOrder(Request $request, $id, OrderCharges $Charges): JsonResponse
     {
@@ -113,7 +114,7 @@ class StorefrontPanelController extends Controller
         if ($User->bank_blocked != 0 || $User->wallet_blocked != 0) {
             return $this->fail('امکان پرداخت با درگاه بانک برای حساب شما وجود ندارد، لطفا با پشتیبانی تماس بگیرید.', 'bank_blocked', 403);
         }
-        $Payment = $Charges->startTopUp($User, $Order, self::TOP_UP_MIN);
+        $Payment = $Charges->startCard($User, $Order);
         $Url = $Payment ? app(\App\Services\Payments\GatewayManager::class)->start(
             $Payment,
             (int)$Payment->price * 10, // Rial
@@ -134,13 +135,20 @@ class StorefrontPanelController extends Controller
         return $this->ok(['url' => $Url, 'payment_id' => $Payment->id]);
     }
 
-    /* Back from the bank for payOrder(): verify the top-up, credit the wallet once, pay the order's charges. */
+    /*
+     * Back from the bank for payOrder(): verify the bank payment and mark the order's charges paid by it.
+     * (Type 3 = a wallet top-up started before 2026-11-23: credit the wallet once, then pay from it, as it was.)
+     */
     public function payBack(Request $request, OrderCharges $Charges)
     {
         $Gateways = app(\App\Services\Payments\GatewayManager::class);
         [$Payment, $Key] = $Gateways->fromCallback($request) ?? [null, null];
+        $Direct = $Payment && (int)$Payment->type === 1 && $Payment->creator === 'OrderCharge';
         $Charge = $Payment ? \App\Models\OrderCharge::where('topup_id', $Payment->id)->first() : null;
-        if (is_null($Payment) || (int)$Payment->type !== 3 || is_null($Charge)) {
+        if ($Direct && !$Charge) { // a later card attempt on the order took over topup_id
+            $Charge = \App\Models\OrderCharge::where('order_id', $Payment->order_id)->first();
+        }
+        if (is_null($Payment) || (!$Direct && (int)$Payment->type !== 3) || is_null($Charge)) {
             return $this->chargeBack('failed', null);
         }
         $Label = \App\Services\Payments\GatewayManager::GATEWAYS[$Key]['label'] ?? $Key;
@@ -153,7 +161,7 @@ class StorefrontPanelController extends Controller
             return $this->chargeBack('cancelled', $Charge->order_id);
         }
         try {
-            return \Illuminate\Support\Facades\Cache::lock('wallet-topup:' . $Payment->id, 60)->block(20, function () use ($Gateways, $Payment, $Charge, $Label, $Charges) {
+            return \Illuminate\Support\Facades\Cache::lock('wallet-topup:' . $Payment->id, 60)->block(20, function () use ($Gateways, $Payment, $Charge, $Label, $Charges, $Direct) {
                 $Payment = Payment::find($Payment->id);
                 if ($Payment->status !== 'Complete') {
                     $Verify = $Gateways->verify($Payment, (int)round($Payment->price * 10));
@@ -172,14 +180,19 @@ class StorefrontPanelController extends Controller
                     $Payment->status = 'Complete';
                     $Payment->paid_at = $Payment->paid_at ?? Carbon::now();
                     $Payment->save();
-                    if ($Verify->ok) { // verified now, not by an earlier callback: credit once
+                    if ($Direct) { // safe to repeat: only unpaid charges, the leftover once
+                        $Charges->paidByCard($Payment, Order::find($Charge->order_id));
+                    } elseif ($Verify->ok) { // verified now, not by an earlier callback: credit once
                         $Owner = \App\User::find($Payment->user_id);
                         $Owner->wallet = $Payment->price + $Owner->wallet;
                         $Owner->save();
                     }
                 }
-                // The money is in the wallet now; pay the order as its owner (the session may have run out at the bank).
                 $Order = Order::find($Charge->order_id);
+                if ($Direct) {
+                    return $this->chargeBack('ok', $Order->id);
+                }
+                // The money is in the wallet now; pay the order as its owner (the session may have run out at the bank).
                 [$Ok] = $Charges->pay(\App\User::find($Payment->user_id), $Order);
                 return $this->chargeBack($Ok ? 'ok' : 'wallet', $Order->id);
             });
@@ -204,6 +217,30 @@ class StorefrontPanelController extends Controller
         }
         Auth::guard('user')->setUser($User->fresh()); // the wallet changed: answer with the new balance
         return $this->ok($this->order($Order->id)->getData(true)['data'], $Message);
+    }
+
+    /* ---------- Organisation account (App\Services\Organizations) ---------- */
+
+    /* Where my account stands, the form to send when I can, and my last request. */
+    public function organization(): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        return $this->ok(\App\Services\Organizations::state($User));
+    }
+
+    /* Send the form: {fields: {key: value}}, multipart when a question takes a file. An admin then reviews it. */
+    public function organizationApply(Request $request, \App\Services\Organizations $Orgs): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        [$Sent, $Error] = $Orgs->submit($User, $request->all());
+        if ($Error) {
+            return $this->fail($Error[0], $Error[1], $Error[2], $Error[3] ?? []);
+        }
+        return $this->ok(\App\Services\Organizations::state($User->fresh()), 'درخواست شما ثبت شد؛ بعد از بررسی نتیجه را همین‌جا می‌بینید.');
     }
 
     private function chargeBack(string $Result, $OrderId)
@@ -474,7 +511,7 @@ class StorefrontPanelController extends Controller
         $CartPays = Payment::whereIn('id', $Checkouts->pluck('payment_id')->filter())->get()->keyBy('id');
         $NumberIds = $Items->filter(fn($i) => (int)optional($Orders->firstWhere('id', $i->order_id))->type === 1)->pluck('product_id');
         $Numbers = Virtual_Products::whereIn('id', $NumberIds)->get()->keyBy('id');
-        $ProductIds = $Items->filter(fn($i) => in_array((int)optional($Orders->firstWhere('id', $i->order_id))->type, [2, 7]))->pluck('product_id');
+        $ProductIds = $Items->filter(fn($i) => in_array((int)optional($Orders->firstWhere('id', $i->order_id))->type, [2, 7, VerificationOrders::TYPE]))->pluck('product_id');
         $Products = Product::whereIn('id', $ProductIds)->get()->keyBy('id');
         return [
             'charges' => \App\Models\OrderCharge::whereIn('order_id', $Orders->pluck('id'))->where('status', '!=', 'cancelled')->orderBy('id')->get()->groupBy('order_id'),
@@ -510,9 +547,11 @@ class StorefrontPanelController extends Controller
         $Data = [
             'id' => $Order->id,
             'type' => $Type,
-            'kind' => match ($Type) { 1 => 'number', 2 => 'social', 3, 4 => 'apple-id', 5 => 'static-ip', 6 => 'google-voice', OrderCharges::TYPE => 'custom', default => 'subscription' },
+            'kind' => match ($Type) { 1 => 'number', 2 => 'social', 3, 4 => 'apple-id', 5 => 'static-ip', 6 => 'google-voice', OrderCharges::TYPE => 'custom', VerificationOrders::TYPE => 'verification', default => 'subscription' },
             'state' => $State,
             'price' => (int)$Order->price,
+            // Toman an organisation account's discount took off (App\Services\Organizations); the invoice shows it.
+            'discount' => $Order->discount_code === \App\Services\Organizations::CODE ? (int)$Order->discount_price : 0,
             'paid_with' => $Pay && $Pay->gate === 'Bank' ? 'card' : 'wallet',
             'card' => $Pay && $Pay->gate === 'Bank' ? $this->maskedCard($Pay->card, $Pay->card_id) : null,
             'at' => $this->iso($Order->created_at),
@@ -558,7 +597,7 @@ class StorefrontPanelController extends Controller
             $Data['number'] = isset($Detail['number']) ? '+' . ltrim((string)$Detail['number'], '+') : null;
             $Data['code'] = $Detail['sms'] ?? null;
             $Data['seconds_left'] = $State === 'waiting' && $Order->expire_date ? max(0, (int)Carbon::now()->diffInSeconds(Carbon::parse($Order->expire_date), false)) : 0;
-        } elseif ($Type === 2 || $Type === 7) {
+        } elseif ($Type === 2 || $Type === 7 || $Type === VerificationOrders::TYPE) {
             $Product = $Item ? $L['products']->get($Item->product_id) : null;
             $Info = $Product ? (json_decode((string)$Product->detail, true) ?: []) : [];
             $Platform = $Product && $Type === 2 ? $L['platforms']->get($Product->country_id) : null;
@@ -582,7 +621,7 @@ class StorefrontPanelController extends Controller
             $Data['number'] = $Detail['number'] ?? null;
         }
         // Delivered: may the buyer write a comment on what they bought (null: not asked), or did they already.
-        $ProductId = $Item && in_array($Type, [2, 7]) ? (int)$Item->product_id : null;
+        $ProductId = $Item && in_array($Type, [2, 7, VerificationOrders::TYPE]) ? (int)$Item->product_id : null;
         $Data['product_id'] = $ProductId;
         $Data['review'] = app(OrderReviews::class)->state($Order, $ProductId, $ProductId ? $L['products']->get($ProductId) : null, $L['reviewed'] ?? []);
         return $Data;
@@ -614,7 +653,7 @@ class StorefrontPanelController extends Controller
             return $this->fail('دیدگاه حداکثر ۱۰۰۰ حرف می‌تواند باشد.', 'text', 422);
         }
         $Item = OrderItem::where('order_id', $Order->id)->orderBy('id')->first();
-        $ProductId = $Item && in_array((int)$Order->type, [2, 7]) ? (int)$Item->product_id : null;
+        $ProductId = $Item && in_array((int)$Order->type, [2, 7, VerificationOrders::TYPE]) ? (int)$Item->product_id : null;
         [$Ok, $Code, $Message] = $Reviews->save($User, $Order, $ProductId, $ProductId ? Product::find($ProductId) : null, $Name, $Text);
         if (!$Ok) {
             return $this->fail($Message, $Code, $Code === 'already' ? 409 : 400, ['review' => $Code === 'already' ? ['state' => 'sent'] : null]);
@@ -653,8 +692,12 @@ class StorefrontPanelController extends Controller
             return $Rows;
         }
         // Made by support: its lines come with the order itself (summary › lines), nothing more to hand over here.
-        if ($Type === 2 || $Type === 7) {
-            $Data = $Type === 2 ? app(VirtualServiceOrders::class)->data($Order) : app(AccountOrders::class)->data($Order);
+        if ($Type === 2 || $Type === 7 || $Type === VerificationOrders::TYPE) {
+            $Data = match ($Type) {
+                2 => app(VirtualServiceOrders::class)->data($Order),
+                7 => app(AccountOrders::class)->data($Order),
+                default => app(VerificationOrders::class)->data($Order), // files: their names only
+            };
             return collect($Data['fields'] ?? [])->filter(fn($f) => $f['value'] !== null && $f['value'] !== '')
                 ->map(fn($f) => ['label' => $f['title'], 'value' => $f['value'], 'raw' => true])->values()->all();
         }

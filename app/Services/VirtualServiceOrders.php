@@ -134,7 +134,10 @@ class VirtualServiceOrders
             'plan_name' => $Plan ? $Plan->name : number_format($Count) . (TelegramStars::isStars($Product) ? ' استار' : ' عدد'),
             'count' => $Count,
         ];
-        return [['product' => $Product, 'platform' => $Platform, 'count' => $Count, 'price' => $Price, 'detail' => $Detail], null];
+        // An organisation's discount comes off last (Organizations::apply; the storefront shows the same cut).
+        // Telegram Stars is sold as a service but takes the company's Telegram percent.
+        $Family = TelegramStars::isStars($Product) ? 'telegram' : 'services';
+        return [Organizations::apply(['product' => $Product, 'platform' => $Platform, 'count' => $Count, 'price' => $Price, 'detail' => $Detail], $Family), null];
     }
 
     /*

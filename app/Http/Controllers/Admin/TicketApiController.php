@@ -142,6 +142,8 @@ class TicketApiController extends Controller
         $ticket->new_for_user = true;
         $ticket->new_for_admin = false;
         $ticket->save();
+        // «پاسخ تیکت» pattern from admin › پیامک; sends nothing until it has a template id.
+        app(\App\Services\Sms::class)->notifyUser($ticket->user_id, 'ticket_answer', ['NUM' => $ticket->id]);
 
         return response()->json(['success' => $request->boolean('close') ? 'پاسخ ارسال و تیکت بسته شد.' : 'پاسخ ارسال شد.']);
     }

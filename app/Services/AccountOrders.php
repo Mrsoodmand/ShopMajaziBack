@@ -293,7 +293,10 @@ class AccountOrders
 
         $Detail = $Answers;
         $Detail['plan'] = ['plan_id' => $Plan->id, 'plan_name' => $Plan->name, 'price' => $PlanPrice];
-        return [['product' => $Product, 'plan' => $Plan, 'price' => $Price, 'detail' => $Detail], null];
+        // An organisation's discount comes off last (Organizations::apply; the storefront shows the same cut).
+        // Telegram Premium is sold as a subscription but takes the company's Telegram percent.
+        $Family = $Product->slug === Organizations::TELEGRAM_PREMIUM ? 'telegram' : 'subscriptions';
+        return [Organizations::apply(['product' => $Product, 'plan' => $Plan, 'price' => $Price, 'detail' => $Detail], $Family), null];
     }
 
     /*

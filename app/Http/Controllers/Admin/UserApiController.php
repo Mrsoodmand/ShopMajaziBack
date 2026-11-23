@@ -121,6 +121,18 @@ class UserApiController extends Controller
             'wallet' => (int) $user->wallet,
             'blockedWallet' => (int) $user->blocked_wallet,
             'flags' => $this->flags($user),
+            // Organisation account (App\Services\Organizations): the last request and, when approved, the discount.
+            'organization' => (function () use ($user) {
+                $last = \App\Models\OrganizationRequest::where('user_id', $user->id)->orderByDesc('id')->first();
+                $org = \App\Services\Organizations::isOrganization($user);
+                return $org || $last ? [
+                    'active' => $org,
+                    'discounts' => (object) \App\Services\Organizations::discountsOf($user),
+                    'requestId' => $last?->id,
+                    'requestStatus' => $last?->status,
+                    'company' => $last?->company_name,
+                ] : null;
+            })(),
             'createdAt' => $this->date($jdf, $user->created_at),
             'stats' => [
                 'orders' => Order::where('user_id', $user->id)->count(),

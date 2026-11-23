@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
-import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, ExternalLink, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot } from 'lucide-react';
+import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, ExternalLink, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot, BadgeCheck, Building2, MessageSquareMore } from 'lucide-react';
 import { useBoot, type MenuLink } from '../lib/boot';
 import { useTheme, type ThemeChoice } from '../lib/theme';
 
@@ -16,6 +16,8 @@ const icons: Record<string, LucideIcon> = {
     ip: Globe,
     voice: Mic,
     accounts: AppWindow,
+    verify: BadgeCheck,
+    organization: Building2,
     users: Users,
     tickets: Ticket,
     comments: MessageSquareText,
@@ -30,6 +32,7 @@ const icons: Record<string, LucideIcon> = {
     pricing: BadgePercent,
     cache: DatabaseZap,
     captcha: Bot,
+    sms: MessageSquareMore,
 };
 
 // One easing for the rail: quick to start, soft to land.
