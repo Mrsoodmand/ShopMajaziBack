@@ -43,6 +43,8 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::get('comments', 'Api\StorefrontCommentController@index');
     Route::post('comments', 'Api\StorefrontCommentController@store')->middleware(['throttle:5,1', 'captcha:comment']);
     Route::get('testimonials', 'Api\StorefrontCommentController@testimonials');
+    // The /contact-us form (StorefrontContactController): saved to contact_us and announced on Telegram.
+    Route::post('contact', 'Api\StorefrontContactController@store')->middleware(['throttle:5,1', 'captcha:contact']);
     // Captcha for the public forms (App\Services\Captcha): the mode in use, and a new number picture.
     Route::get('captcha', 'Api\StorefrontCaptchaController@config');
     Route::get('captcha/number', 'Api\StorefrontCaptchaController@number')->middleware('throttle:30,1');
