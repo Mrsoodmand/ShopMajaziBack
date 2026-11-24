@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { Link, Outlet, useLocation } from 'react-router';
 import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, ExternalLink, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot, BadgeCheck, Building2, MessageSquareMore } from 'lucide-react';
 import { useBoot, type MenuLink } from '../lib/boot';
+import { getJson } from '../lib/api';
 import { useTheme, type ThemeChoice } from '../lib/theme';
 
 const icons: Record<string, LucideIcon> = {
@@ -47,6 +48,53 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 // Which sidebar group is open (by label). Only one at a time: opening a group closes the one that was open.
 const OpenGroup = createContext<{ open: string | null; setOpen: (label: string | null) => void }>({ open: null, setOpen: () => {} });
 
+// Numbers beside sidebar links (ReactAppController::menuCounts), keyed by a link's `badge`.
+const Counts = createContext<Record<string, number>>({});
+const COUNTS_EVENT = 'admin:menu-counts';
+
+/** Ask the sidebar to fetch its numbers again now, e.g. right after tickets were closed. */
+export function refreshMenuCounts() {
+    window.dispatchEvent(new Event(COUNTS_EVENT));
+}
+
+/** Starts from the numbers rendered into the page; refetches on navigation, every minute while visible, and on request. */
+function useMenuCounts(initial: Record<string, number>) {
+    const [counts, setCounts] = useState(initial);
+    const location = useLocation();
+    const load = useCallback(() => {
+        getJson<Record<string, number>>('/admin/api/menu-counts').then(setCounts, () => {});
+    }, []);
+    const first = useRef(true);
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
+            return;
+        }
+        load();
+    }, [location.pathname, load]);
+    useEffect(() => {
+        const tick = window.setInterval(() => document.visibilityState === 'visible' && load(), 60_000);
+        const onShow = () => document.visibilityState === 'visible' && load();
+        document.addEventListener('visibilitychange', onShow);
+        window.addEventListener(COUNTS_EVENT, load);
+        return () => {
+            window.clearInterval(tick);
+            document.removeEventListener('visibilitychange', onShow);
+            window.removeEventListener(COUNTS_EVENT, load);
+        };
+    }, [load]);
+    return counts;
+}
+
+function CountBadge({ n }: { n: number | undefined }) {
+    if (!n) return null;
+    return (
+        <span aria-hidden className="num ms-auto min-w-5 rounded-full bg-primary px-1.5 text-center text-[11px] leading-5 font-bold text-primary-ink" title={`${n.toLocaleString('fa-IR')} در انتظار`}>
+            {n > 99 ? '۹۹+' : n.toLocaleString('fa-IR')}
+        </span>
+    );
+}
+
 function MenuItem({ item }: { item: MenuLink }) {
     const location = useLocation();
     const Icon = item.icon ? icons[item.icon] : undefined;
@@ -54,6 +102,8 @@ function MenuItem({ item }: { item: MenuLink }) {
     const active = !!item.to && isActive(item.to, location.pathname, location.search);
     const icon = Icon ? <Icon aria-hidden size={18} strokeWidth={1.75} className={`${iconClass} ${active ? '!text-rail-active-ink' : ''}`} /> : null;
     const group = useContext(OpenGroup);
+    const counts = useContext(Counts);
+    const badge = item.badge ? counts[item.badge] : undefined;
     const open = group.open === item.label;
     const setOpen = (on: boolean) => group.setOpen(on ? item.label : null);
     const opened = useRef(false); // opened by a click (not by navigating), so reveal it once it has slid open
@@ -113,6 +163,8 @@ function MenuItem({ item }: { item: MenuLink }) {
                 <Link to={item.to} aria-current={active ? 'page' : undefined} className={`${rowClass} ${item.icon ? '' : '!px-2.5 !text-[13px]'} ${active ? 'font-semibold !text-rail-active-ink hover:!bg-transparent' : ''}`}>
                     {icon}
                     {item.label}
+                    <CountBadge n={badge} />
+                    {!!badge && <span className="sr-only"> ({badge} در انتظار)</span>}
                 </Link>
             </li>
         );
@@ -204,7 +256,7 @@ function useScrollFades(scroller: RefObject<HTMLDivElement | null>) {
     }, [scroller]);
 }
 
-function Sidebar() {
+function Sidebar({ counts }: { counts: Record<string, number> }) {
     const { menu } = useBoot();
     const location = useLocation();
     // Start with the current page's group already open, so it doesn't slide open on load.
@@ -238,6 +290,7 @@ function Sidebar() {
             <div ref={scroller} className="rail-scroll flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-6">
                 <div ref={content} className="relative">
                     <span ref={pill} aria-hidden className="rail-pill pointer-events-none absolute top-0 left-0 rounded-lg bg-rail-active opacity-0" />
+                    <Counts.Provider value={counts}>
                     <OpenGroup.Provider value={{ open: openGroup, setOpen: setOpenGroup }}>
                     <div className="relative">
                         {menu.map((section, i) => (
@@ -252,6 +305,7 @@ function Sidebar() {
                         ))}
                     </div>
                     </OpenGroup.Provider>
+                    </Counts.Provider>
                 </div>
             </div>
         </nav>
@@ -341,7 +395,8 @@ function ThemeSwitch() {
 }
 
 export default function Shell() {
-    const { admin, links } = useBoot();
+    const { admin, links, menuCounts } = useBoot();
+    const counts = useMenuCounts(menuCounts ?? {});
     const drawer = useRef<HTMLDialogElement>(null);
     const location = useLocation();
 
@@ -353,7 +408,7 @@ export default function Shell() {
     return (
         <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
             <aside className="sticky top-0 hidden h-dvh lg:block">
-                <Sidebar />
+                <Sidebar counts={counts} />
             </aside>
 
             <dialog
@@ -364,7 +419,7 @@ export default function Shell() {
                 onClick={(e) => e.target === drawer.current && drawer.current.close()}
             >
                 <div className="relative h-full">
-                    <Sidebar />
+                    <Sidebar counts={counts} />
                     <button
                         type="button"
                         className="absolute top-3.5 end-2 grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink"

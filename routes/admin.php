@@ -247,6 +247,8 @@ Route::group(['prefix' => 'v2'], function () {
 /* پنل جدید React (Vite) — JSON reads for the React screens, then the app itself (React handles every path below /admin/app) */
 Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
     Route::get('dashboard', 'Admin\DashboardApiController')->name('dashboard');
+    Route::get('menu-counts', 'Admin\ReactAppController@counts')->name('menu-counts');
+    Route::get('csrf', 'Admin\ReactAppController@csrf')->name('csrf'); // lib/api.ts retries a 419 with this
     Route::get('orders', 'Admin\OrderApiController@index')->name('orders');
     Route::get('orders/{id}', 'Admin\OrderApiController@show')->whereNumber('id')->name('order');
     // A file a buyer sent with a verification order (private disk; Admin\VerificationApiController::file).
@@ -348,6 +350,7 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('tickets/{id}', 'Admin\TicketApiController@show')->whereNumber('id');
         Route::post('tickets/{id}/reply', 'Admin\TicketApiController@reply')->whereNumber('id');
         Route::post('tickets/{id}/status', 'Admin\TicketApiController@setStatus')->whereNumber('id');
+        Route::post('tickets/bulk-close', 'Admin\TicketApiController@bulkClose');
     });
 
     Route::middleware('role_or_permission:super-admin|add-apple-id')->group(function () {

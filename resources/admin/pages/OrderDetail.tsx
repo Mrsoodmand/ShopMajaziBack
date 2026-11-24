@@ -320,30 +320,6 @@ function Chat({ order, onChanged }: { order: Order; onChanged: () => void }) {
 
     return (
         <div>
-            {order.chats.length === 0 ? (
-                <p className="pb-4 text-muted">گفتگویی برای این سفارش ثبت نشده است. پیامی که بفرستید در صفحه سفارش مشتری دیده می‌شود.</p>
-            ) : (
-                <ol className="mb-5 max-h-[60vh] space-y-3 overflow-y-auto">
-                    {order.chats.map((m) => {
-                        const mine = m.from === 'admin';
-                        return (
-                            <li key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-                                <div
-                                    className={`max-w-[85%] rounded-xl px-4 py-2.5 whitespace-pre-wrap ${
-                                        mine ? 'rounded-ee-md bg-indigo-soft text-ink' : 'rounded-es-md bg-surface-2 text-ink'
-                                    } ${m.unread ? 'ring-2 ring-indigo/40' : ''}`}
-                                >
-                                    {m.text}
-                                </div>
-                                <span className="mt-1 px-1 text-[12px] text-muted">
-                                    {mine ? m.by || 'پشتیبانی' : 'مشتری'} · <span dir="ltr" className="num">{m.at}</span>
-                                    {m.unread && <span className="ms-1.5 font-bold text-indigo">جدید</span>}
-                                </span>
-                            </li>
-                        );
-                    })}
-                </ol>
-            )}
             <form onSubmit={send} className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="flex-1">
                     <label htmlFor={inputId} className="sr-only">
@@ -369,6 +345,30 @@ function Chat({ order, onChanged }: { order: Order; onChanged: () => void }) {
                 </button>
             </form>
             {state.error && <FieldError id={`${inputId}-error`}>{state.error}</FieldError>}
+            {order.chats.length === 0 ? (
+                <p className="pt-4 text-muted">گفتگویی برای این سفارش ثبت نشده است. پیامی که بفرستید در صفحه سفارش مشتری دیده می‌شود.</p>
+            ) : (
+                <ol className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto">
+                    {order.chats.map((m) => {
+                        const mine = m.from === 'admin';
+                        return (
+                            <li key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                                <div
+                                    className={`max-w-[85%] rounded-xl px-4 py-2.5 whitespace-pre-wrap ${
+                                        mine ? 'rounded-ee-md bg-indigo-soft text-ink' : 'rounded-es-md bg-surface-2 text-ink'
+                                    } ${m.unread ? 'ring-2 ring-indigo/40' : ''}`}
+                                >
+                                    {m.text}
+                                </div>
+                                <span className="mt-1 px-1 text-[12px] text-muted">
+                                    {mine ? m.by || 'پشتیبانی' : 'مشتری'} · <span dir="ltr" className="num">{m.at}</span>
+                                    {m.unread && <span className="ms-1.5 font-bold text-indigo">جدید</span>}
+                                </span>
+                            </li>
+                        );
+                    })}
+                </ol>
+            )}
         </div>
     );
 }

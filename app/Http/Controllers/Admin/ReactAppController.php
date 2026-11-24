@@ -37,8 +37,38 @@ class ReactAppController extends Controller
                     'paymentType' => __('payments.type'),
                 ],
                 'menu' => $this->menu($admin),
+                'menuCounts' => self::menuCounts($admin),
             ],
         ]);
+    }
+
+    /**
+     * The numbers beside «سفارش‌ها» and «تیکت‌ها» in the sidebar: orders that need action and tickets waiting for a
+     * reply. Rendered into the page and refreshed by GET /admin/api/menu-counts; each is left out without its permission.
+     */
+    public static function menuCounts($admin): array
+    {
+        $isSuper = $admin->hasRole('super-admin');
+        $counts = [];
+        if ($isSuper || $admin->hasAnyPermission(['order'])) {
+            $counts['orders'] = \App\Models\Order::whereIn('status', OrderApiController::NEEDS_ACTION)->count();
+        }
+        if ($isSuper || $admin->hasAnyPermission(['tickets-list'])) {
+            $counts['tickets'] = \App\Models\Ticket::whereIn('status', TicketApiController::WAITING)->count();
+        }
+
+        return $counts;
+    }
+
+    public function counts()
+    {
+        return response()->json(self::menuCounts(Auth::guard('admin')->user()));
+    }
+
+    /** The session's current CSRF token, for a save that came back 419 with the token the page was rendered with. */
+    public function csrf()
+    {
+        return response()->json(['token' => csrf_token()]);
     }
 
     /** The sidebar, mirroring resources/views/admin-v2/layout/menu.blade.php and its permission checks. */
@@ -58,9 +88,19 @@ class ReactAppController extends Controller
             [
                 'title' => 'سفارش‌ها و حسابداری',
                 'items' => array_values(array_filter([
-                    $can(['order']) ? ['label' => 'سفارش‌ها', 'icon' => 'orders', 'to' => '/orders'] : null,
+                    $can(['order']) ? ['label' => 'سفارش‌ها', 'icon' => 'orders', 'to' => '/orders', 'badge' => 'orders'] : null,
                     // One React page replaces the old transactions, bank payments and mismatch lists; the API limits what each permission sees.
                     $can(['transaction-list', 'bank-transaction', 'moghayerat']) ? ['label' => 'تراکنش‌ها', 'icon' => 'transactions', 'to' => '/transactions'] : null,
+                ])),
+            ],
+            [
+                'title' => 'کاربران',
+                'items' => array_values(array_filter([
+                    $can(['users-list']) ? ['label' => 'کاربران', 'icon' => 'users', 'to' => '/users'] : null,
+                    // Organisation accounts (App\Services\Organizations): requests, discounts, the form.
+                    $can(['users-list', 'users-detail', 'edit-user']) ? ['label' => 'حساب‌های سازمانی', 'icon' => 'organization', 'to' => '/organizations'] : null,
+                    $can(['tickets-list']) ? ['label' => 'تیکت‌ها', 'icon' => 'tickets', 'to' => '/tickets', 'badge' => 'tickets'] : null,
+                    $can(['comments-list', 'accept-comment']) ? ['label' => 'نظرها', 'icon' => 'comments', 'to' => '/comments'] : null,
                 ])),
             ],
             [
@@ -102,16 +142,6 @@ class ReactAppController extends Controller
                         ['label' => 'محصولات وریفای', 'to' => '/verification'],
                         $orders(\App\Services\VerificationOrders::TYPE),
                     ]] : null,
-                ])),
-            ],
-            [
-                'title' => 'کاربران',
-                'items' => array_values(array_filter([
-                    $can(['users-list']) ? ['label' => 'کاربران', 'icon' => 'users', 'to' => '/users'] : null,
-                    // Organisation accounts (App\Services\Organizations): requests, discounts, the form.
-                    $can(['users-list', 'users-detail', 'edit-user']) ? ['label' => 'حساب‌های سازمانی', 'icon' => 'organization', 'to' => '/organizations'] : null,
-                    $can(['tickets-list']) ? ['label' => 'تیکت‌ها', 'icon' => 'tickets', 'to' => '/tickets'] : null,
-                    $can(['comments-list', 'accept-comment']) ? ['label' => 'نظرها', 'icon' => 'comments', 'to' => '/comments'] : null,
                 ])),
             ],
             [

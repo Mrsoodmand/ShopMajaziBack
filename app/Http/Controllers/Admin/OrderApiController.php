@@ -145,7 +145,7 @@ class OrderApiController extends Controller
             OrderChat::where('order_id', $order->id)->pluck('admin_id'))->filter()->unique())
             ->pluck('full_name', 'id');
 
-        $chats = OrderChat::where('order_id', $order->id)->orderBy('id')->get();
+        $chats = OrderChat::where('order_id', $order->id)->orderByDesc('id')->get(); // newest message first
         $unread = $chats->where('type', 'user')->where('new', true)->count();
         // Opening the order counts as reading the customer's messages.
         if ($unread) {

@@ -763,8 +763,12 @@ function BulkBar<T>({ n, rows, actions, onClear }: { n: number; rows: T[]; actio
                         type="button"
                         className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-page/25 px-3 hover:bg-page/10"
                         onClick={async () => {
-                            await a.run(rows);
-                            setDone(`${a.label}: انجام شد`);
+                            try {
+                                await a.run(rows);
+                                setDone(`${a.label}: انجام شد`);
+                            } catch {
+                                // The action already told the admin what went wrong.
+                            }
                         }}
                     >
                         {a.icon && <a.icon aria-hidden size={15} />}

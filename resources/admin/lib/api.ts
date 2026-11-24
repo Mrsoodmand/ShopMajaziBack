@@ -13,7 +13,8 @@ export class ApiError extends Error {
     }
 }
 
-const SESSION_EXPIRED = 'نشست شما تمام شده است. صفحه را تازه کنید و دوباره وارد شوید.';
+// Refreshing would lose what is on the page, so ask for a sign-in in another tab; the next save picks up the new session.
+const SESSION_EXPIRED = 'نشست شما تمام شده است. لطفاً در زبانه‌ای دیگر دوباره وارد شوید و سپس دوباره ذخیره کنید؛ تغییرات این صفحه از بین نمی‌رود.';
 const OFFLINE = 'اتصال برقرار نشد. اینترنت را بررسی کنید و دوباره تلاش کنید.';
 const HEADERS = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
 
@@ -38,13 +39,54 @@ async function readJson(res: Response) {
     return body;
 }
 
-async function send(url: string, init: RequestInit) {
-    let res: Response;
+/*
+ * The CSRF token rendered into the page goes stale when the session behind it changes (signing in again in another
+ * tab, or the session file expiring while the admin is still remembered), and every save then fails with 419 although
+ * the admin is signed in. So a 419 fetches the current token once and retries; only if that fails is the session gone.
+ */
+let freshToken: string | null = null;
+
+async function currentToken(): Promise<string | null> {
     try {
-        res = await fetch(url, { credentials: 'same-origin', ...init });
+        const res = await fetch('/admin/api/csrf', { credentials: 'same-origin', headers: HEADERS });
+        const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
+        if (!res.ok || !isJson) return null;
+        const body = await res.json();
+        return typeof body?.token === 'string' ? body.token : null;
+    } catch {
+        return null;
+    }
+}
+
+function withToken(init: RequestInit, token: string): RequestInit {
+    const headers = { ...(init.headers as Record<string, string>), 'X-CSRF-TOKEN': token };
+    let body = init.body;
+    if (body instanceof URLSearchParams && body.has('_token')) {
+        body = new URLSearchParams(body);
+        body.set('_token', token);
+    }
+    return { ...init, headers, body };
+}
+
+async function attempt(url: string, init: RequestInit) {
+    try {
+        return await fetch(url, { credentials: 'same-origin', ...init });
     } catch (e) {
         if ((e as Error).name === 'AbortError') throw e;
         throw new ApiError(OFFLINE);
+    }
+}
+
+async function send(url: string, init: RequestInit) {
+    const posting = !!init.method && init.method !== 'GET';
+    if (posting && freshToken) init = withToken(init, freshToken);
+    let res = await attempt(url, init);
+    if (posting && res.status === 419) {
+        const token = await currentToken();
+        if (token) {
+            freshToken = token;
+            res = await attempt(url, withToken(init, token));
+        }
     }
     return readJson(res);
 }

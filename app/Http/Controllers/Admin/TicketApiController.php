@@ -62,11 +62,10 @@ class TicketApiController extends Controller
             default => null,
         };
         match ((string) $request->input('sort', '')) {
-            'updated_desc' => $list->orderByDesc('updated_at'),
             'updated_asc' => $list->orderBy('updated_at'),
             'newest' => $list->orderByDesc('id'),
             'oldest' => $list->orderBy('id'),
-            default => $filter === 'waiting' ? $list->orderBy('updated_at') : $list->orderByDesc('updated_at'), // waiting: longest wait first
+            default => $list->orderByDesc('updated_at'), // latest update first, every view
         };
         $page = $list->paginate($this->perPage($request, self::PER_PAGE));
         $last = Ticket_Detail::whereIn('id', Ticket_Detail::whereIn('ticket_id', $page->getCollection()->pluck('id'))
@@ -159,6 +158,15 @@ class TicketApiController extends Controller
         $ticket->save();
 
         return response()->json(['success' => $request->boolean('open') ? 'تیکت دوباره باز شد.' : 'تیکت بسته شد.']);
+    }
+
+    /** Closes the tickets ticked in the list (the «بستن همه» bulk action). */
+    public function bulkClose(Request $request)
+    {
+        $request->validate(['ids' => 'required|array|min:1|max:500', 'ids.*' => 'integer'], $this->messages());
+        $n = Ticket::whereIn('id', $request->input('ids'))->where('status', '!=', 'close')->update(['status' => 'close']);
+
+        return response()->json(['success' => $n ? "$n تیکت بسته شد." : 'تیکت‌های انتخاب‌شده از قبل بسته بودند.', 'closed' => $n]);
     }
 
     private function summary(Ticket $t): array

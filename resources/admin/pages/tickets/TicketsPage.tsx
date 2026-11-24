@@ -1,6 +1,8 @@
 import { Link } from 'react-router';
 import { CircleCheck, Clock, FileText, Lock, MessageCircleReply } from 'lucide-react';
-import { useQuery } from '../../lib/api';
+import { postJson, useQuery } from '../../lib/api';
+import { useBoot } from '../../lib/boot';
+import { refreshMenuCounts } from '../../components/Shell';
 import { waited } from '../../lib/format';
 import { Badge } from '../../components/Status';
 import { dayGroup } from '../../lib/dates';
@@ -48,8 +50,7 @@ const views = [
 ];
 
 const sorts = [
-    { value: '', label: 'ترتیب پیش‌فرض' },
-    { value: 'updated_desc', label: 'آخرین به‌روزرسانی' },
+    { value: '', label: 'آخرین به‌روزرسانی' },
     { value: 'updated_asc', label: 'بیشترین انتظار' },
     { value: 'newest', label: 'جدیدترین تیکت' },
     { value: 'oldest', label: 'قدیمی‌ترین تیکت' },
@@ -76,6 +77,18 @@ export default function TicketsPage() {
     const list = useListParams({ filter: 'waiting', q: '', sort: '', per: '', department: '', unread: '', order: '', from: '', to: '' });
     const v = list.values;
     const { data, error, loading, reload } = useQuery<TicketsPage>(`/admin/api/tickets?${list.query}`);
+    const { csrfToken } = useBoot();
+
+    async function closeAll(rows: TicketRow[]) {
+        try {
+            await postJson('/admin/api/tickets/bulk-close', csrfToken, { ids: rows.map((t) => t.id) });
+        } catch (err) {
+            window.alert((err as Error).message);
+            throw err;
+        }
+        reload();
+        refreshMenuCounts();
+    }
     const filters: FilterDef[] = [
         { type: 'select', key: 'department', label: 'بخش', any: 'همه بخش‌ها', options: data?.departments ?? [] },
         { type: 'dates', label: 'تاریخ ثبت' },
@@ -133,7 +146,7 @@ export default function TicketsPage() {
 
     return (
         <div className="mx-auto max-w-[1280px]">
-            <PageHeader title="تیکت‌ها" subtitle={v.filter === 'waiting' && !v.sort ? 'بیشترین انتظار اول.' : 'آخرین به‌روزرسانی اول، مگر ترتیب دیگری انتخاب کنید.'} />
+            <PageHeader title="تیکت‌ها" subtitle="آخرین به‌روزرسانی اول، مگر ترتیب دیگری انتخاب کنید." />
             <FilterBar
                 views={<FilterTabs label="فیلتر تیکت‌ها" items={views} value={v.filter} counts={data?.counts} attention="waiting" onChange={(filter) => list.update({ filter })} />}
                 search={{ label: 'جستجوی تیکت', placeholder: 'موضوع، نام، موبایل یا شماره' }}
@@ -148,7 +161,7 @@ export default function TicketsPage() {
             />
             <DataTable
                 rowStatus={(t) => (t.status === 'waiting' ? 'info' : t.status === 'answered' ? 'success' : 'neutral')}
-                groupBy={v.sort.startsWith('updated') ? (t) => dayGroup(t.updatedAt) : ['newest', 'oldest'].includes(v.sort) ? (t) => dayGroup(t.createdAt) : undefined}
+                groupBy={!v.sort || v.sort.startsWith('updated') ? (t) => dayGroup(t.updatedAt) : ['newest', 'oldest'].includes(v.sort) ? (t) => dayGroup(t.createdAt) : undefined}
                 offset={data ? (data.page - 1) * data.perPage : 0}
                 label="فهرست تیکت‌ها"
                 rows={data?.tickets}
@@ -157,6 +170,7 @@ export default function TicketsPage() {
                 onRetry={reload}
                 columns={columns}
                 rowKey={(t) => t.id}
+                bulk={[{ label: 'بستن همه', icon: Lock, run: closeAll }]}
                 href={(t) => `/tickets/${t.id}`}
                 linkState={{ list: list.here }}
                 rowLabel={(t) => `تیکت ${t.id}`}
