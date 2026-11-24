@@ -40,6 +40,7 @@ class Sms
         'ip_ready' => ['label' => 'آی‌پی ثابت آماده شد', 'where' => 'تحویل آی‌پی ثابت', 'vars' => ['NUM'], 'legacy' => 507031, 'required' => false],
         'organization' => ['label' => 'نتیجه حساب سازمانی', 'where' => 'تأیید یا رد درخواست حساب سازمانی', 'vars' => ['STATUS'], 'legacy' => null, 'required' => false],
         'ticket_answer' => ['label' => 'پاسخ تیکت', 'where' => 'وقتی پشتیبانی به تیکت کاربر جواب می‌دهد', 'vars' => ['NUM'], 'legacy' => null, 'required' => false, 'new' => true],
+        'account_request' => ['label' => 'نتیجه درخواست اکانت', 'where' => 'رد درخواست اکانتی که در سایت نیست (قیمت با پیامک تغییر وضعیت سفارش می‌رود)', 'vars' => ['STATUS'], 'legacy' => null, 'required' => false, 'new' => true],
         'new_order' => ['label' => 'ثبت سفارش تازه', 'where' => 'بعد از پرداخت موفق سفارش (درگاه یا کیف پول)', 'vars' => ['NUM'], 'legacy' => null, 'required' => false, 'new' => true],
     ];
 

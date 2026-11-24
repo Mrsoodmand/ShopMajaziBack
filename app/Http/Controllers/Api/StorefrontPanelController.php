@@ -243,6 +243,36 @@ class StorefrontPanelController extends Controller
         return $this->ok(\App\Services\Organizations::state($User->fresh()), 'درخواست شما ثبت شد؛ بعد از بررسی نتیجه را همین‌جا می‌بینید.');
     }
 
+    /* «درخواست اکانت»: the form (guests too, so the page can show it before sign-in) and the customer's own requests. */
+    public function accountRequests(): JsonResponse
+    {
+        return $this->ok(\App\Services\AccountRequests::state($this->user()));
+    }
+
+    /* Send the form: {fields: {key: value}}, multipart when a field takes a file. Support answers with a price. */
+    public function accountRequestSend(Request $request, \App\Services\AccountRequests $Requests): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        [$Sent, $Error] = $Requests->submit($User, $request->all());
+        if ($Error) {
+            return $this->fail($Error[0], $Error[1], $Error[2], $Error[3] ?? []);
+        }
+        return $this->ok(\App\Services\AccountRequests::state($User) + ['sent' => $Sent->id], 'درخواست شما ثبت شد؛ قیمت یا جوابش را همین‌جا و با پیامک می‌بینید.');
+    }
+
+    public function accountRequestWithdraw($id, \App\Services\AccountRequests $Requests): JsonResponse
+    {
+        if (!$User = $this->user()) {
+            return $this->signInFirst();
+        }
+        if (!$Requests->withdraw($User, (int)$id)) {
+            return $this->fail('این درخواست دیگر قابل لغو نیست.', 'not_pending', 409);
+        }
+        return $this->ok(\App\Services\AccountRequests::state($User), 'درخواست لغو شد.');
+    }
+
     private function chargeBack(string $Result, $OrderId)
     {
         $Path = \Illuminate\Support\Facades\Session::pull('storefront_charge_return') ?: ($OrderId ? '/account/orders/' . $OrderId : '/account/orders');

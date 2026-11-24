@@ -49,6 +49,8 @@ import PartnersList from './pages/partners/PartnersList';
 import PartnerEditor from './pages/partners/PartnerEditor';
 import OrganizationsPage from './pages/organizations/OrganizationsPage';
 import OrganizationRequest from './pages/organizations/RequestDetail';
+import AccountRequestsPage from './pages/account-requests/AccountRequestsPage';
+import AccountRequestDetail from './pages/account-requests/RequestDetail';
 import './styles.css';
 
 function NotFound() {
@@ -81,6 +83,8 @@ if (root) {
                     { path: 'users/:id', element: <UserDetail /> },
                     { path: 'organizations', element: <OrganizationsPage /> },
                     { path: 'organizations/requests/:id', element: <OrganizationRequest /> },
+                    { path: 'account-requests', element: <AccountRequestsPage /> },
+                    { path: 'account-requests/:id', element: <AccountRequestDetail /> },
                     { path: 'services', element: <ServicesPage /> },
                     { path: 'services/platforms/:id', element: <PlatformEditor /> },
                     { path: 'services/:id', element: <ServiceEditor /> },

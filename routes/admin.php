@@ -353,6 +353,19 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('tickets/bulk-close', 'Admin\TicketApiController@bulkClose');
     });
 
+    // «درخواست اکانت» (App\Services\AccountRequests): accounts-list reads, accounts-create-edit answers and edits the form.
+    Route::middleware('role_or_permission:super-admin|accounts-list|accounts-create-edit')->group(function () {
+        Route::get('account-requests', 'Admin\AccountRequestApiController@index')->name('account-requests');
+        Route::get('account-requests/{id}', 'Admin\AccountRequestApiController@show')->whereNumber('id');
+        Route::get('account-requests/{id}/files/{key}', 'Admin\AccountRequestApiController@file')->whereNumber('id')->where('key', '[a-z][a-z0-9_]*')->name('account-request-file');
+        Route::get('account-requests/settings', 'Admin\AccountRequestApiController@settings');
+    });
+    Route::middleware('role_or_permission:super-admin|accounts-create-edit')->group(function () {
+        Route::post('account-requests/{id}/quote', 'Admin\AccountRequestApiController@quote')->whereNumber('id');
+        Route::post('account-requests/{id}/reject', 'Admin\AccountRequestApiController@reject')->whereNumber('id');
+        Route::post('account-requests/settings', 'Admin\AccountRequestApiController@saveSettings');
+    });
+
     Route::middleware('role_or_permission:super-admin|add-apple-id')->group(function () {
         Route::get('apple-ids', 'Admin\AppleIdApiController@index')->name('apple-ids');
         Route::post('apple-ids', 'Admin\AppleIdApiController@store');

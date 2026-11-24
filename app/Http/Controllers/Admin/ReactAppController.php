@@ -53,6 +53,9 @@ class ReactAppController extends Controller
         if ($isSuper || $admin->hasAnyPermission(['order'])) {
             $counts['orders'] = \App\Models\Order::whereIn('status', OrderApiController::NEEDS_ACTION)->count();
         }
+        if ($isSuper || $admin->hasAnyPermission(['accounts-list', 'accounts-create-edit'])) {
+            $counts['accountRequests'] = \App\Services\AccountRequests::pendingCount();
+        }
         if ($isSuper || $admin->hasAnyPermission(['tickets-list'])) {
             $counts['tickets'] = \App\Models\Ticket::whereIn('status', TicketApiController::WAITING)->count();
         }
@@ -136,6 +139,7 @@ class ReactAppController extends Controller
                     ]))] : null,
                     $can(['accounts-list', 'accounts-create-edit']) ? ['label' => 'اکانت‌های خارجی', 'icon' => 'accounts', 'children' => [
                         ['label' => 'لیست اکانت‌ها', 'to' => '/accounts'],
+                        ['label' => 'درخواست اکانت', 'to' => '/account-requests', 'badge' => 'accountRequests'],
                         $orders(7),
                     ]] : null,
                     $can(['accounts-list', 'accounts-create-edit']) ? ['label' => 'وریفای', 'icon' => 'verify', 'children' => [

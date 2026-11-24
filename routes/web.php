@@ -165,6 +165,8 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
     Route::get('panel/orders/{id}', 'StorefrontPanelController@order')->middleware('throttle:storefront-read');
     Route::get('panel/tickets/{id}', 'StorefrontPanelController@ticket')->middleware('throttle:storefront-read');
     Route::get('panel/organization', 'StorefrontPanelController@organization')->middleware('throttle:storefront-read');
+    // «درخواست اکانت» (App\Services\AccountRequests): the form for everyone, the customer's own requests when signed in.
+    Route::get('panel/account-requests', 'StorefrontPanelController@accountRequests')->middleware('throttle:storefront-read');
     Route::group(['middleware' => 'throttle:storefront-write'], function () {
         Route::post('panel/tickets', 'StorefrontPanelController@newTicket');
         Route::post('panel/tickets/{id}/reply', 'StorefrontPanelController@reply');
@@ -176,6 +178,8 @@ Route::group(['prefix' => 'api/v1/storefront/account', 'namespace' => 'Api'], fu
         Route::post('panel/orders/{id}/review', 'StorefrontPanelController@review'); // a buyer's comment (OrderReviews)
         Route::post('panel/orders/{id}/cancel', 'StorefrontPanelController@cancelOrder')->middleware('throttle:storefront-buy');
         Route::post('panel/organization', 'StorefrontPanelController@organizationApply'); // App\Services\Organizations
+        Route::post('panel/account-requests', 'StorefrontPanelController@accountRequestSend');
+        Route::post('panel/account-requests/{id}/withdraw', 'StorefrontPanelController@accountRequestWithdraw')->whereNumber('id');
     });
     // Shopping cart (StorefrontCartController): guests may fill it; paying needs sign-in.
     Route::get('cart', 'StorefrontCartController@show')->middleware('throttle:storefront-read');

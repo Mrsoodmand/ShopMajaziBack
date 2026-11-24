@@ -128,6 +128,8 @@ function MenuItem({ item }: { item: MenuLink }) {
                 >
                     {icon}
                     <span className="flex-1 text-start">{item.label}</span>
+                    {/* Shut, the group carries its links' numbers so they aren't hidden. */}
+                    {!open && <CountBadge n={item.children.reduce((sum, c) => sum + (c.badge ? counts[c.badge] ?? 0 : 0), 0)} />}
                     <ChevronDown aria-hidden size={16} className={`text-rail-muted transition-transform duration-300 ${EASE} ${open ? 'rotate-180' : ''}`} />
                 </button>
                 {/*

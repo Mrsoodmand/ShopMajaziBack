@@ -40,6 +40,32 @@ class OrderCharges
     /* ---------- Admin ---------- */
 
     /**
+     * An amount support typed, in Toman or dollars, as [toman, currency, amount as typed, error]. Dollars use today's
+     * services rate (market dollar + its profit), rounded up to a thousand Toman. Digits must already be western.
+     */
+    public static function price(string $Currency, $Amount): array
+    {
+        $Currency = $Currency === 'usd' ? 'usd' : 'toman';
+        $Value = (float)str_replace([',', '٬', ' '], '', (string)$Amount);
+        if ($Value <= 0) {
+            return [0, $Currency, 0, 'مبلغ را وارد کنید.'];
+        }
+        if ($Currency === 'usd') {
+            $Rate = (int)round(Pricing::servicesRate());
+            if ($Rate <= 0) {
+                return [0, $Currency, $Value, 'نرخ دلار در دسترس نیست.'];
+            }
+            $Price = (int)(ceil($Value * $Rate / 1000) * 1000);
+        } else {
+            $Price = (int)round($Value);
+        }
+        if ($Price < 1000 || $Price > self::MAX_PRICE) {
+            return [0, $Currency, $Value, 'مبلغ باید بین ۱٬۰۰۰ تا ۵۰۰٬۰۰۰٬۰۰۰ تومان باشد.'];
+        }
+        return [$Price, $Currency, round($Value, 2), null];
+    }
+
+    /**
      * @param array $Lines each: {product_id?, plan_id?, title, note?, currency: toman|usd, amount, count?}
      * @return Order
      */

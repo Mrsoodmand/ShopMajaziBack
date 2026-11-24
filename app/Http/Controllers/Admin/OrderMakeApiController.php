@@ -185,24 +185,7 @@ class OrderMakeApiController extends Controller
     /** [toman, currency, amount as typed, error]. Dollars use today's services rate (market dollar + its profit). */
     private function money(string $currency, $amount): array
     {
-        $currency = $currency === 'usd' ? 'usd' : 'toman';
-        $value = (float) str_replace([',', '٬', ' '], '', $this->westernDigits((string) $amount));
-        if ($value <= 0) {
-            return [0, $currency, 0, 'مبلغ را وارد کنید.'];
-        }
-        if ($currency === 'usd') {
-            $rate = (int) round(Pricing::servicesRate()); // the rate the form shows and the order item keeps
-            if ($rate <= 0) {
-                return [0, $currency, $value, 'نرخ دلار در دسترس نیست.'];
-            }
-            $price = (int) (ceil($value * $rate / 1000) * 1000); // rounded up to a thousand Toman
-        } else {
-            $price = (int) round($value);
-        }
-        if ($price < 1000 || $price > OrderCharges::MAX_PRICE) {
-            return [0, $currency, $value, 'مبلغ باید بین ۱٬۰۰۰ تا ۵۰۰٬۰۰۰٬۰۰۰ تومان باشد.'];
-        }
-        return [$price, $currency, round($value, 2), null];
+        return OrderCharges::price($currency, $this->westernDigits((string) $amount));
     }
 
     private function note(array $line): ?string
