@@ -1,13 +1,13 @@
 {
-  "_styles-BNwwquem.css": {
-    "file": "assets/styles-BNwwquem.css",
-    "src": "_styles-BNwwquem.css"
+  "_styles-CYlr_3KS.css": {
+    "file": "assets/styles-CYlr_3KS.css",
+    "src": "_styles-CYlr_3KS.css"
   },
-  "_styles-D5uTuDkX.js": {
-    "file": "assets/styles-D5uTuDkX.js",
+  "_styles-DruWnwQP.js": {
+    "file": "assets/styles-DruWnwQP.js",
     "name": "styles",
     "css": [
-      "assets/styles-BNwwquem.css"
+      "assets/styles-CYlr_3KS.css"
     ],
     "assets": [
       "assets/Estedad-FD-Regular-WBK81_Q2.woff2",
@@ -33,21 +33,21 @@
     "src": "resources/admin/fonts/Estedad-FD-SemiBold.woff2"
   },
   "resources/admin/login.tsx": {
-    "file": "assets/login-q8biOv0Y.js",
+    "file": "assets/login-YjdutVkA.js",
     "name": "login",
     "src": "resources/admin/login.tsx",
     "isEntry": true,
     "imports": [
-      "_styles-D5uTuDkX.js"
+      "_styles-DruWnwQP.js"
     ]
   },
   "resources/admin/main.tsx": {
-    "file": "assets/main-BENoocmT.js",
+    "file": "assets/main-tCJV7ht3.js",
     "name": "main",
     "src": "resources/admin/main.tsx",
     "isEntry": true,
     "imports": [
-      "_styles-D5uTuDkX.js"
+      "_styles-DruWnwQP.js"
     ]
   }
 }
