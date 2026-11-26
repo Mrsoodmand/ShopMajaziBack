@@ -78,14 +78,14 @@ class StorefrontPanelController extends Controller
        session, /user/login then opens the storefront's /login), who joined with it, and the commission it earned. */
     private function referral($User): ?array
     {
-        if (!$User->token) {
+        if (!$User->token || !\App\Services\Referrals::enabled()) { // admin › معرفی دوستان switched off
             return null;
         }
         return [
             'code' => (string)$User->token,
             'link' => StorefrontUrl('/user/login?ref=' . rawurlencode((string)$User->token)),
             'invited' => \App\User::where('parent_id', $User->id)->count(),
-            'earned' => (int)Payment::where('user_id', $User->id)->where('type', '5')->where('status', 'Complete')->sum('price'),
+            'earned' => \App\Services\Referrals::earned($User),
         ];
     }
 

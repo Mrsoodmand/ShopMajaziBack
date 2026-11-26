@@ -169,6 +169,7 @@ class UserApiController extends Controller
                 'url' => route('admin.react-app', 'tickets/' . $t->id),
                 'at' => $this->date($jdf, $t->created_at),
             ])->values(),
+            'referral' => ReferralApiController::forUser($user),
             'referrals' => User::where('parent_id', $user->id)->orderByDesc('id')->take(50)->get(['id', 'name', 'mobile', 'created_at'])
                 ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name, 'mobile' => $r->mobile, 'createdAt' => $this->date($jdf, $r->created_at)])->values(),
             'history' => $history->map(function ($h) use ($jdf, $admins) {

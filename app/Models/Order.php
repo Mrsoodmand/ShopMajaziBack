@@ -45,5 +45,11 @@ class Order extends Model
                 }
             }
         });
+        // Referral commission (App\Services\Referrals): paid when an order turns complete, taken back if it's undone.
+        static::saved(function (Order $Order) {
+            if ($Order->wasChanged('status') || ($Order->wasRecentlyCreated && $Order->status !== null)) {
+                \App\Services\Referrals::statusChanged($Order);
+            }
+        });
     }
 }

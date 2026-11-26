@@ -184,6 +184,9 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('external-cards', 'Admin\ExternalCardApiController@save');
         Route::post('external-cards/{id}', 'Admin\ExternalCardApiController@save')->whereNumber('id');
         Route::post('external-cards/{id}/delete', 'Admin\ExternalCardApiController@delete')->whereNumber('id');
+        // معرفی دوستان: on/off and the default commission per service (App\Services\Referrals).
+        Route::get('referral', 'Admin\ReferralApiController@index')->name('referral');
+        Route::post('referral', 'Admin\ReferralApiController@save');
         // پیامک: SMS.ir credit, automatic patterns, bulk sends (App\Services\Sms).
         Route::get('sms', 'Admin\SmsApiController@index')->name('sms');
         Route::post('sms', 'Admin\SmsApiController@save');
@@ -227,6 +230,8 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('organizations/{userId}/discount', 'Admin\OrganizationApiController@discount')->whereNumber('userId');
         Route::post('organizations/{userId}/cancel', 'Admin\OrganizationApiController@cancel')->whereNumber('userId');
         Route::post('organizations/{userId}/note', 'Admin\OrganizationApiController@note')->whereNumber('userId');
+        // One referrer's own commission percents (admin › user › معرفی‌شده‌ها).
+        Route::post('users/{id}/referral', 'Admin\ReferralApiController@saveUser')->whereNumber('id');
         Route::post('organizations/settings', 'Admin\OrganizationApiController@saveSettings');
     });
 

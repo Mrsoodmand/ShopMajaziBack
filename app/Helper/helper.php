@@ -722,39 +722,10 @@ function GenerateApiKey()
     }
 }
 
-/* بررسی کد رفرال */
+/* Old referral payout (fixed 10% / 5%, paid at payment time). Commission is now paid once when an order completes,
+   with the percents from admin › معرفی دوستان: App\Services\Referrals (Order::saved). Kept so the old callers still run. */
 function CheckRef($type, $order, $user_id, $percent)
 {
-    $Orders = \App\Models\Order::where('user_id', $user_id->id)->where('status', 'complete')->get();
-    if ($user_id->parent_id != 0) {
-        $RefUser = \App\User::find($user_id->parent_id);
-        if (count($Orders) >= 1) {
-            $percent = 5;
-        }
-        if ($RefUser->id == 10) {
-            $percent = 5;
-        };
-
-        $Price = $order->price / 100;
-        $Price = $Price * $percent;
-
-        if (!is_null($RefUser)) {
-            $Help = "پورسانت سفارش شماره: $order->id";
-            $Payment = new \App\Models\Payment();
-            $Payment->price = $Price;
-            $Payment->type = 5;
-            $Payment->order_id = $order->id;
-            $Payment->user_id = $RefUser->id;
-            $Payment->status = 'Complete';
-            $Payment->creator = 'System';
-            $Payment->help = $Help;
-            $Payment->save();
-
-            $RefUser->blocked_wallet = $RefUser->blocked_wallet + $Price;
-            $RefUser->save();
-        }
-    }
-
 }
 
 /* */

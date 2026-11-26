@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
-import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot, BadgeCheck, Building2, MessageSquareMore, CreditCard } from 'lucide-react';
+import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot, BadgeCheck, Building2, MessageSquareMore, CreditCard, Gift } from 'lucide-react';
 import { useBoot, type MenuLink } from '../lib/boot';
 import { getJson } from '../lib/api';
 import { useTheme, type ThemeChoice } from '../lib/theme';
@@ -35,6 +35,7 @@ const icons: Record<string, LucideIcon> = {
     captcha: Bot,
     sms: MessageSquareMore,
     card: CreditCard,
+    referral: Gift,
 };
 
 // One easing for the rail: quick to start, soft to land.

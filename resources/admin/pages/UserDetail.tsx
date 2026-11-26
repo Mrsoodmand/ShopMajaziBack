@@ -9,6 +9,8 @@ import { CopyButton, ErrorState, FieldError, Notice, Panel, Row, gateLabel } fro
 import { TabbedSections } from '../components/PageTabs';
 import { BlockedPill, type UserFlags } from './UsersList';
 import { UserActions } from './UserActions';
+import { PercentRows, pctText, type Family } from './referral/ReferralPage';
+import { useSave } from '../lib/useSave';
 
 export type User = {
     id: number;
@@ -27,6 +29,8 @@ export type User = {
     payments: { id: number; orderId: number | null; type: string; status: string; gate: string | null; price: number; note: string | null; at: string | null }[];
     tickets: { id: number; subject: string | null; status: string; statusLabel: string; unread: boolean; url: string; at: string | null }[];
     referrals: { id: number; name: string | null; mobile: string | null; createdAt: string | null }[];
+    /** Referral (Admin\ReferralApiController::forUser): own percents per service; a missing one uses the default. */
+    referral: { enabled: boolean; code: string | null; referredBy: { id: number; name: string | null; mobile: string | null } | null; earned: number; own: Record<string, number>; defaults: Record<string, number>; families: Family[] };
     history: { id: number; changes: { kind: 'credit' | 'debit' | 'info' | 'reason'; text: string }[]; by: string | null; at: string | null }[];
 };
 
@@ -273,8 +277,12 @@ function Activity({ user, onChanged }: { user: User; onChanged: () => void }) {
                     );
                 }
                 if (tab === 'referrals') {
-                    if (!user.referrals.length) return <p className="text-muted">کسی با کد معرف این کاربر ثبت‌نام نکرده است.</p>;
                     return (
+                        <div className="grid gap-6">
+                            <ReferralBox user={user} onChanged={onChanged} />
+                            <div>
+                                <h2 className="mb-2 text-[16px] font-bold">کسانی که با کد این کاربر ثبت‌نام کرده‌اند</h2>
+                    {!user.referrals.length ? <p className="text-muted">کسی با کد معرف این کاربر ثبت‌نام نکرده است.</p> : (
                         <ul className="-mx-5 divide-y divide-stroke">
                             {user.referrals.map((r) => (
                                 <li key={r.id}>
@@ -290,6 +298,9 @@ function Activity({ user, onChanged }: { user: User; onChanged: () => void }) {
                                 </li>
                             ))}
                         </ul>
+                    )}
+                            </div>
+                        </div>
                     );
                 }
                 if (!user.history.length) return <p className="text-muted">حساب این کاربر هنوز به‌دست مدیری تغییر نکرده است.</p>;
@@ -600,5 +611,62 @@ function SettingsForm({ user, onChanged }: { user: User; onChanged: () => void }
             </button>
             {done && <Notice>{done}</Notice>}
         </form>
+    );
+}
+
+/** Referral code, who referred this user, earnings, and this referrer's own commission percents. */
+function ReferralBox({ user, onChanged }: { user: User; onChanged: () => void }) {
+    const r = user.referral;
+    const save = useSave();
+    const fromServer = () => Object.fromEntries(r.families.map((f) => [f.key, pctText(r.own[f.key])]));
+    const [values, setValues] = useState<Record<string, string>>(fromServer);
+    useEffect(() => setValues(fromServer()), [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    const custom = Object.keys(r.own).length > 0;
+
+    async function submit(e: FormEvent) {
+        e.preventDefault();
+        if (await save.run(`/admin/api/users/${user.id}/referral`, { percents: values })) onChanged();
+    }
+
+    return (
+        <div className="max-w-[560px]">
+            <dl className="m-0 mb-4">
+                <Row label="کد معرف" ltr>
+                    {r.code ?? '—'}
+                    {r.code && <CopyButton value={r.code} label="کد معرف" />}
+                </Row>
+                <Row label="معرفی‌شده توسط">
+                    {r.referredBy ? <Link to={`/users/${r.referredBy.id}`} className="hover:underline">{r.referredBy.name || r.referredBy.mobile}</Link> : '—'}
+                </Row>
+                <Row label="پورسانت دریافتی" num>
+                    {toman(r.earned)}
+                </Row>
+            </dl>
+            {!r.enabled && <p className="mb-3 rounded-lg bg-surface-2 px-3 py-2 text-[13px] text-muted">معرفی دوستان الان خاموش است؛ این درصدها وقتی روشن شود اعمال می‌شوند.</p>}
+            <form onSubmit={submit} noValidate>
+                <h2 className="text-[16px] font-bold">پورسانت اختصاصی {custom ? '' : <span className="text-[13px] font-normal text-muted">(الان درصدهای پیش‌فرض)</span>}</h2>
+                <p className="mt-1 text-[13px] text-muted">برای هر سرویس که خالی بماند، درصد پیش‌فرض (کم‌رنگ) حساب می‌شود.</p>
+                <PercentRows
+                    families={r.families}
+                    values={values}
+                    onChange={(k, v) => setValues((p) => ({ ...p, [k]: v }))}
+                    errors={save.errors}
+                    placeholders={Object.fromEntries(r.families.map((f) => [f.key, pctText(r.defaults[f.key] ?? 0)]))}
+                    prefix="percents"
+                />
+                {save.failure && <p role="alert" className="mt-2 font-medium text-error">{save.failure}</p>}
+                {save.saved && <Notice>{save.saved}</Notice>}
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="submit" className="btn btn-primary" disabled={save.saving}>
+                        {save.saving ? 'در حال ذخیره…' : 'ذخیره پورسانت'}
+                    </button>
+                    {custom && (
+                        <button type="button" className="btn btn-secondary" disabled={save.saving} onClick={() => setValues(Object.fromEntries(r.families.map((f) => [f.key, ''])))}>
+                            برگشت به پیش‌فرض
+                        </button>
+                    )}
+                </div>
+            </form>
+        </div>
     );
 }

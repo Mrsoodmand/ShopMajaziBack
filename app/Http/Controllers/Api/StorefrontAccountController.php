@@ -64,7 +64,15 @@ class StorefrontAccountController extends Controller
         if (User::where('mobile', $Mobile)->exists()) {
             return $this->ok(['mobile' => $Mobile, 'exists' => true]);
         }
-        return $this->sendCode($Mobile, false);
+        $Sent = $this->sendCode($Mobile, false);
+        // Sign-up step: the optional referral code box (admin › معرفی دوستان on), filled in from a ?ref link.
+        if ($Sent->getStatusCode() === 200 && \App\Services\Referrals::enabled()) {
+            $Body = $Sent->getData(true);
+            $Linked = \App\Services\Referrals::referrerByCode($request->session()->get('RefCode'));
+            $Body['data']['referral'] = ['code' => $Linked ? (string)$Linked->token : null];
+            $Sent->setData($Body);
+        }
+        return $Sent;
     }
 
     /* Sends (or re-sends) a code: a one-time sign-in code for existing users, the sign-up code for new ones. */
@@ -122,15 +130,21 @@ class StorefrontAccountController extends Controller
         if (User::where('mobile', $Mobile)->exists()) {
             return $this->fail('کاربری با این شماره وجود دارد.', 'user_exists', 409);
         }
+        // Referral (App\Services\Referrals, only while it is on): the code typed on the sign-up step, optional; a client
+        // that sends no `referral` field falls back to the ?ref link CheckRefCode kept in the session.
+        $Parent = 0;
+        if (\App\Services\Referrals::enabled()) {
+            $Typed = $request->exists('referral') ? trim((string)$request->input('referral')) : null;
+            $Referrer = \App\Services\Referrals::referrerByCode($Typed ?? $request->session()->get('RefCode'));
+            if ($Typed !== null && $Typed !== '' && !$Referrer) {
+                return $this->fail('کد معرف درست نیست. آن را دوباره بررسی کنید یا خالی بگذارید.', 'referral_invalid', 422);
+            }
+            $Parent = (int)optional($Referrer)->id;
+        }
         if (!$this->useCode($Mobile, $request->input('code'), false)) {
             return $this->fail('کد وارد شده صحیح نیست یا منقضی شده است.', 'wrong_code', 422);
         }
 
-        // Referral: CheckRefCode keeps ?ref=<token> in the session.
-        $Parent = 0;
-        if ($request->session()->has('RefCode')) {
-            $Parent = (int)optional(User::where('token', $request->session()->get('RefCode'))->first())->id;
-        }
         $User = new User();
         $User->name = $Name;
         $User->mobile = $Mobile;
