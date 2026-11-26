@@ -151,6 +151,6 @@ class UserController extends Controller
     public function UserPanel($id)
     {
         Auth::guard('user')->loginUsingId($id);
-        return redirect('/user/home');
+        return redirect(StorefrontUrl('/account')); // the new customer panel (Next.js); /user/* pages are retired
     }
 }

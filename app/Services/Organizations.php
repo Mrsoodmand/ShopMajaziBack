@@ -30,6 +30,11 @@ use Illuminate\Support\Str;
  *
  * Virtual numbers and Google Voice pre-orders are never discounted (live provider prices / pre-orders are filled
  * later with any number up to the price paid).
+ *
+ * Official invoice (فاکتور رسمی): the form's built-in yes/no question official_invoice. Yes makes the tax code
+ * required; on approval the company gets users.org_vat (the admin's percent, default settings › vat = 12) and
+ * apply() adds that VAT to every purchase after the discount (orders.vat_percent / vat_price keep it for the
+ * invoice). Admin orders (OrderCharges::make) get a VAT charge too. No: tax code optional, no VAT.
  */
 class Organizations
 {
@@ -37,7 +42,8 @@ class Organizations
     public const CODE = 'organization';
     public const STATUSES = ['pending', 'approved', 'rejected', 'cancelled'];
     public const FIELD_TYPES = ['text', 'email', 'phone', 'textarea', 'number', 'select', 'yesno', 'date', 'file'];
-    public const BUILTIN = ['company_name', 'company_email', 'company_phone', 'company_address', 'tax_code'];
+    public const BUILTIN = ['official_invoice', 'company_name', 'company_email', 'company_phone', 'company_address', 'tax_code'];
+    public const DEFAULT_VAT = 12;
     // Product families a company can get a percent on (users.org_discounts keys).
     public const FAMILIES = [
         'subscriptions' => 'اشتراک‌ها و اکانت‌ها',
@@ -58,19 +64,30 @@ class Organizations
 
     /* ---------- Settings ---------- */
 
-    /** @return array{open: bool, defaults: array<string, float>} defaults: the percents an approval starts from. */
+    /**
+     * @return array{open: bool, defaults: array<string, float>, vat: float} defaults: the percents an approval starts
+     * from; vat: the VAT percent an official-invoice company starts with.
+     */
     public static function settings(): array
     {
         if (self::$settings === null) {
             $Raw = json_decode((string)optional(Setting::where('name', 'organization')->first())->key, true) ?: [];
-            self::$settings = ['open' => (bool)($Raw['open'] ?? true), 'defaults' => self::discounts($Raw['defaults'] ?? [])];
+            self::$settings = [
+                'open' => (bool)($Raw['open'] ?? true),
+                'defaults' => self::discounts($Raw['defaults'] ?? []),
+                'vat' => array_key_exists('vat', $Raw) ? self::vatPercent($Raw['vat']) : (float)self::DEFAULT_VAT,
+            ];
         }
         return self::$settings;
     }
 
     public static function saveSettings(array $Input): array
     {
-        $Data = ['open' => (bool)($Input['open'] ?? true), 'defaults' => (object)self::discounts($Input['defaults'] ?? [])];
+        $Data = [
+            'open' => (bool)($Input['open'] ?? true),
+            'defaults' => (object)self::discounts($Input['defaults'] ?? []),
+            'vat' => array_key_exists('vat', $Input) ? self::vatPercent($Input['vat']) : self::settings()['vat'],
+        ];
         $Row = Setting::where('name', 'organization')->first() ?? new Setting();
         $Row->name = 'organization';
         $Row->key = json_encode($Data);
@@ -84,6 +101,26 @@ class Organizations
     {
         $N = (float)str_replace(',', '.', convertPersianNumbersToEnglish((string)$Value));
         return round(max(0, min((float)config('organization.max_discount', 50), $N)), 2);
+    }
+
+    /** A VAT percent from the admin, 0–100 with two decimals. */
+    public static function vatPercent($Value): float
+    {
+        $N = (float)str_replace(['٫', '،', ','], '.', convertPersianNumbersToEnglish(trim((string)$Value)));
+        return round(max(0, min(100, $N)), 2);
+    }
+
+    /** 12 → "۱۲", 9.5 → "۹٫۵" (charge titles). */
+    public static function percentText(float $Percent): string
+    {
+        $T = rtrim(rtrim(number_format($Percent, 2, '.', ''), '0'), '.');
+        return strtr($T, ['.' => '٫', '0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹']);
+    }
+
+    /** This company's VAT percent; 0 for personal accounts and companies without an official invoice. */
+    public static function vatOf($User): float
+    {
+        return self::isOrganization($User) && $User->org_vat !== null ? self::vatPercent($User->org_vat) : 0.0;
     }
 
     /* ---------- Discount ---------- */
@@ -125,7 +162,7 @@ class Organizations
      */
     public static function badge($User): ?array
     {
-        return self::isOrganization($User) ? ['discounts' => (object)self::discountsOf($User)] : null;
+        return self::isOrganization($User) ? ['discounts' => (object)self::discountsOf($User), 'vat' => self::vatOf($User)] : null;
     }
 
     /** An approved company's name and tax code, for invoices; null for personal accounts. */
@@ -135,7 +172,7 @@ class Organizations
             return null;
         }
         $R = OrganizationRequest::where('user_id', $User->id)->where('status', 'approved')->orderByDesc('id')->first();
-        return $R ? ['name' => (string)$R->company_name, 'tax_code' => (string)$R->tax_code] : null;
+        return $R ? ['name' => (string)$R->company_name, 'tax_code' => (string)$R->tax_code, 'official' => self::vatOf($User) > 0] : null;
     }
 
     /** Toman taken off a price. The storefront rounds the same way (Math.round). */
@@ -144,9 +181,16 @@ class Organizations
         return $Percent > 0 ? (int)round($Price * $Percent / 100) : 0;
     }
 
+    /** Toman of VAT on a price. The storefront rounds the same way (Math.round). */
+    public static function vat(int $Price, float $Percent): int
+    {
+        return $Percent > 0 ? (int)round($Price * $Percent / 100) : 0;
+    }
+
     /*
-     * A priced spec (['price' => int, …]) with the signed-in organisation's discount taken off; adds price_before
-     * and org_discount. Unchanged for everyone else.
+     * A priced spec (['price' => int, …]) with the signed-in organisation's discount taken off, then its VAT added
+     * (official-invoice companies); adds price_before, org_discount, vat, vat_percent. `price` is what is charged.
+     * Unchanged for everyone else.
      */
     public static function apply(array $Spec, string $Family, $User = null): array
     {
@@ -157,15 +201,31 @@ class Organizations
             $Spec['org_discount'] = $Cut;
             $Spec['price'] = (int)$Spec['price'] - $Cut;
         }
+        $Percent = self::vatOf($User);
+        $Vat = self::vat((int)$Spec['price'], $Percent);
+        if ($Vat > 0) {
+            $Spec['vat_percent'] = $Percent;
+            $Spec['vat'] = $Vat;
+            $Spec['price'] = (int)$Spec['price'] + $Vat;
+        }
         return $Spec;
     }
 
-    /** Marks an order made from a discounted spec (admin › order shows discount_code / discount_price). */
+    /** Marks an order made from a discounted / VAT-carrying spec (admin › order and the invoice show them). */
     public static function stamp(Order $Order, array $Spec): void
     {
+        $Dirty = false;
         if (($Spec['org_discount'] ?? 0) > 0) {
             $Order->discount_code = self::CODE;
             $Order->discount_price = (string)$Spec['org_discount'];
+            $Dirty = true;
+        }
+        if (($Spec['vat'] ?? 0) > 0) {
+            $Order->vat_percent = $Spec['vat_percent'];
+            $Order->vat_price = (int)$Spec['vat'];
+            $Dirty = true;
+        }
+        if ($Dirty) {
             $Order->save();
         }
     }
@@ -290,6 +350,8 @@ class Organizations
             'status' => $Status,
             'discounts' => (object)self::discountsOf($User),
             'open' => $Settings['open'],
+            // VAT: the company's own percent once approved, else the percent the form's official-invoice note shows.
+            'vat' => self::isOrganization($User) ? self::vatOf($User) : $Settings['vat'],
             'can_apply' => $CanApply,
             'fields' => $CanApply ? self::fields()->map(fn($f) => self::fieldData($f))->values() : [],
             'request' => $Latest ? self::requestData($Latest, false) : null,
@@ -314,7 +376,15 @@ class Organizations
         $Given = is_array($Input['fields'] ?? null) ? $Input['fields'] : [];
         $Answers = [];
         $Files = [];
-        foreach (self::fields() as $F) {
+        $Fields = self::fields();
+        // Official invoice: yes makes the tax code required, no makes it optional. Off in admin: the tax code keeps
+        // its own setting and no VAT is asked for.
+        $Asked = $Fields->contains('key', 'official_invoice');
+        $Official = $Asked && is_scalar($Given['official_invoice'] ?? null) && (string)$Given['official_invoice'] === 'yes';
+        foreach ($Fields as $F) {
+            if ($F->key === 'tax_code' && $Asked) {
+                $F->required = $Official;
+            }
             $Raw = $Given[$F->key] ?? null;
             $Bad = fn(string $Why = '') => [null, [$Why ?: 'لطفا «' . $F->title . '» را درست وارد کنید.', 'fields_invalid', 422, ['field' => $F->key]]];
 
@@ -366,7 +436,7 @@ class Organizations
             $Answers[] = ['key' => $F->key, 'title' => $F->title, 'type' => $F->type, 'value' => $Value];
         }
 
-        $Request = DB::transaction(function () use ($User, $Answers) {
+        $Request = DB::transaction(function () use ($User, $Answers, $Asked, $Official) {
             $By = collect($Answers)->keyBy('key');
             return OrganizationRequest::create([
                 'user_id' => $User->id,
@@ -376,6 +446,7 @@ class Organizations
                 'company_phone' => $By['company_phone']['value'] ?? null,
                 'company_address' => $By['company_address']['value'] ?? null,
                 'tax_code' => $By['tax_code']['value'] ?? null,
+                'official_invoice' => $Asked ? $Official : null,
                 'answers' => $Answers,
             ]);
         });
@@ -407,14 +478,18 @@ class Organizations
 
     /* ---------- Admin ---------- */
 
-    /** $Discounts: {family: percent}. */
-    public function approve(OrganizationRequest $Request, array $Discounts, int $AdminId): void
+    /** $Discounts: {family: percent}. $Vat: the company's VAT percent, used only when it asked for an official invoice. */
+    public function approve(OrganizationRequest $Request, array $Discounts, int $AdminId, ?float $Vat = null): void
     {
-        DB::transaction(function () use ($Request, $Discounts, $AdminId) {
+        DB::transaction(function () use ($Request, $Discounts, $AdminId, $Vat) {
             $Request->update(['status' => 'approved', 'admin_note' => null, 'reviewed_by' => $AdminId, 'reviewed_at' => now()]);
             // An older approved request of the same user is superseded.
             OrganizationRequest::where('user_id', $Request->user_id)->where('id', '!=', $Request->id)->where('status', 'approved')->update(['status' => 'cancelled']);
-            User::where('id', $Request->user_id)->update(['type' => self::USER_TYPE, 'org_discounts' => json_encode((object)self::discounts($Discounts))]);
+            User::where('id', $Request->user_id)->update([
+                'type' => self::USER_TYPE,
+                'org_discounts' => json_encode((object)self::discounts($Discounts)),
+                'org_vat' => $Request->official_invoice ? self::vatPercent($Vat ?? self::settings()['vat']) : null,
+            ]);
         });
         $this->sms($Request->user_id, 'تایید شد');
     }
@@ -431,7 +506,7 @@ class Organizations
         DB::transaction(function () use ($User, $Note, $AdminId) {
             OrganizationRequest::where('user_id', $User->id)->where('status', 'approved')
                 ->update(['status' => 'cancelled', 'admin_note' => $Note ?: null, 'reviewed_by' => $AdminId, 'reviewed_at' => now()]);
-            User::where('id', $User->id)->update(['type' => 'user', 'org_discounts' => null]);
+            User::where('id', $User->id)->update(['type' => 'user', 'org_discounts' => null, 'org_vat' => null]);
         });
     }
 
@@ -439,6 +514,13 @@ class Organizations
     public function setDiscounts(User $User, array $Discounts): void
     {
         User::where('id', $User->id)->update(['org_discounts' => json_encode((object)self::discounts($Discounts))]);
+    }
+
+    /** The company's VAT percent from the next purchase on; null or 0 = no official invoice, no VAT. */
+    public function setVat(User $User, $Percent): void
+    {
+        $P = $Percent === null || $Percent === '' ? 0 : self::vatPercent($Percent);
+        User::where('id', $User->id)->update(['org_vat' => $P > 0 ? $P : null]);
     }
 
     /** A request as the admin ($Admin) or its own customer sees it. The customer never gets file paths. */
@@ -457,6 +539,7 @@ class Organizations
             'id' => $R->id,
             'status' => $R->status,
             'company_name' => $R->company_name,
+            'official_invoice' => $R->official_invoice === null ? null : (bool)$R->official_invoice,
             'note' => $R->admin_note,
             'answers' => $Answers,
             'created_at' => optional($R->created_at)->toIso8601String(),

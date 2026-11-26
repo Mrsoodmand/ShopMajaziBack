@@ -30,6 +30,28 @@ export function discountSummary(d: Discounts, families: Family[]): string {
     return parts.length ? parts.join(' · ') : 'بدون تخفیف';
 }
 
+/** "12.5" / "۱۲٫۵" → 12.5; empty → null. */
+export function vatNumber(raw: string): number | null {
+    const t = raw.replace(/[۰-۹٫،]/g, (c) => FA[c]).trim();
+    if (t === '') return null;
+    const n = Number(t);
+    return Number.isNaN(n) ? null : n;
+}
+
+/** A company's (or the default) VAT percent for official invoices. */
+export function VatInput({ label, hint, value, onChange, error }: { label: string; hint?: string; value: string; onChange: (v: string) => void; error?: string }) {
+    const id = useId();
+    return (
+        <div>
+            <label htmlFor={id} className="mb-1 block font-medium">{label}</label>
+            <input id={id} inputMode="decimal" dir="ltr" placeholder="—" aria-invalid={error ? true : undefined} aria-describedby={hint ? `${id}-h` : undefined}
+                className={`field num h-9 max-w-28 text-end ${error ? 'border-error' : ''}`} value={value} onChange={(e) => onChange(e.target.value)} />
+            {error && <span className="mt-1 block text-[12px] font-bold text-error">{error}</span>}
+            {hint && <p id={`${id}-h`} className="mt-1 text-[13px] text-muted">{hint}</p>}
+        </div>
+    );
+}
+
 export function DiscountTable({ families, value, onChange, errors = {}, max }: { families: Family[]; value: DiscountDraft; onChange: (d: DiscountDraft) => void; errors?: Record<string, string>; max: number }) {
     const id = useId();
     return (

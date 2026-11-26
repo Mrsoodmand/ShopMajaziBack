@@ -120,6 +120,16 @@ class OrderCharges
                     'order_id' => $Order->id, 'user_id' => $User->id, 'kind' => 'order',
                     'title' => 'مبلغ سفارش', 'price' => $Total, 'admin_id' => $AdminId,
                 ]);
+                // Official-invoice companies (Organizations::vatOf): their VAT is due with the order. An order already
+                // paid outside the site gets none here; support adds it as an extra charge if it is owed.
+                $Percent = Organizations::vatOf($User);
+                $Vat = Organizations::vat($Total, $Percent);
+                if ($Vat > 0) {
+                    OrderCharge::create([
+                        'order_id' => $Order->id, 'user_id' => $User->id, 'kind' => 'extra',
+                        'title' => 'ارزش افزوده (' . Organizations::percentText($Percent) . '٪)', 'price' => $Vat, 'admin_id' => $AdminId,
+                    ]);
+                }
             }
             $this->history($Order, null, $Order->status, trim('ثبت سفارش توسط پشتیبانی' . ($Note !== '' ? " — $Note" : '')), $AdminId);
             return $Order;

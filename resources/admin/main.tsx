@@ -32,6 +32,7 @@ import CachePage from './pages/cache/CachePage';
 import CaptchaPage from './pages/captcha/CaptchaPage';
 import SmsPage from './pages/sms/SmsPage';
 import GatewaysPage from './pages/gateways/GatewaysPage';
+import ExternalCardsPage from './pages/cards/ExternalCardsPage';
 import IpLocations from './pages/ip/IpLocations';
 import IpLocationPage from './pages/ip/IpLocationPage';
 import TicketsPage from './pages/tickets/TicketsPage';
@@ -116,6 +117,7 @@ if (root) {
                     { path: 'captcha', element: <CaptchaPage /> },
                     { path: 'sms', element: <SmsPage /> },
                     { path: 'payment-gateways', element: <GatewaysPage /> },
+                    { path: 'external-cards', element: <ExternalCardsPage /> },
                     { path: 'ip', element: <IpLocations /> },
                     { path: 'ip/:id', element: <IpLocationPage /> },
                     { path: 'tickets', element: <TicketsPage /> },

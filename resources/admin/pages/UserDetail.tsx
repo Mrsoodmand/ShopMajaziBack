@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { ArrowRight, Eye, EyeOff, ExternalLink, LogIn, MessageSquare } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, MessageSquare } from 'lucide-react';
 import { postForm, useQuery } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { parseAmount, toman } from '../lib/format';
@@ -8,6 +8,7 @@ import { OrderStatus, PayStatus } from '../components/Status';
 import { CopyButton, ErrorState, FieldError, Notice, Panel, Row, gateLabel } from '../components/ui';
 import { TabbedSections } from '../components/PageTabs';
 import { BlockedPill, type UserFlags } from './UsersList';
+import { UserActions } from './UserActions';
 
 export type User = {
     id: number;
@@ -21,7 +22,7 @@ export type User = {
     organization: { active: boolean; discounts: Record<string, number>; requestId: number | null; requestStatus: string | null; company: string | null } | null;
     createdAt: string | null;
     stats: { orders: number; completed: number; spent: number };
-    links: { legacy: string; panel: string };
+    links: { panel: string };
     orders: { id: number; type: string; service: string | null; price: number; status: string; createdAt: string | null }[];
     payments: { id: number; orderId: number | null; type: string; status: string; gate: string | null; price: number; note: string | null; at: string | null }[];
     tickets: { id: number; subject: string | null; status: string; statusLabel: string; unread: boolean; url: string; at: string | null }[];
@@ -102,16 +103,6 @@ export default function UserDetail() {
                                 </span>
                             </p>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                            <a href={user.links.panel} target="_blank" rel="noreferrer" className="btn btn-ghost text-[13px] font-medium">
-                                <LogIn aria-hidden size={15} className="rtl:-scale-x-100" />
-                                ورود به پنل کاربر
-                            </a>
-                            <a href={user.links.legacy} className="btn btn-ghost text-[13px] font-medium">
-                                <ExternalLink aria-hidden size={15} />
-                                صفحه قدیمی کاربر
-                            </a>
-                        </div>
                     </header>
 
                     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -119,6 +110,7 @@ export default function UserDetail() {
                             <Activity user={user} onChanged={reload} />
                         </div>
                         <aside className="space-y-6 lg:sticky lg:top-20" aria-label="حساب و اقدام‌ها">
+                            <UserActions user={user} onChanged={reload} />
                             <Panel title="حساب">
                                 <dl className="m-0">
                                     <Row label="موجودی کیف پول" num>
@@ -513,7 +505,6 @@ function SettingsForm({ user, onChanged }: { user: User; onChanged: () => void }
     const dirty =
         name.trim() !== (user.name ?? '') ||
         password !== '' ||
-        flags.loginBlocked !== user.flags.loginBlocked ||
         flags.walletBlocked !== user.flags.walletBlocked ||
         flags.bankBlocked !== user.flags.bankBlocked;
 
@@ -530,7 +521,7 @@ function SettingsForm({ user, onChanged }: { user: User; onChanged: () => void }
             const msg = await postForm(actions.saveUser, csrfToken, {
                 ...baseFields(user),
                 user_name: name.trim(),
-                status: flags.loginBlocked ? 1 : '',
+                status: user.flags.loginBlocked ? 1 : '', // changed only by «غیرفعال کردن حساب» (UserActions)
                 wallet_blocked: flags.walletBlocked ? 1 : '',
                 bank_blocked: flags.bankBlocked ? 1 : '',
                 ...(password ? { password } : {}),
@@ -545,8 +536,7 @@ function SettingsForm({ user, onChanged }: { user: User; onChanged: () => void }
         }
     }
 
-    const switches: { key: keyof Omit<UserFlags, 'accountBlocked'>; label: string; hint: string }[] = [
-        { key: 'loginBlocked', label: 'مسدود کردن ورود', hint: 'کاربر نمی‌تواند وارد حسابش شود.' },
+    const switches: { key: keyof Omit<UserFlags, 'accountBlocked' | 'loginBlocked'>; label: string; hint: string }[] = [
         { key: 'walletBlocked', label: 'مسدود کردن خرید با کیف پول', hint: 'پرداخت از موجودی کیف پول بسته می‌شود.' },
         { key: 'bankBlocked', label: 'مسدود کردن خرید با درگاه', hint: 'پرداخت با کارت بانکی بسته می‌شود.' },
     ];

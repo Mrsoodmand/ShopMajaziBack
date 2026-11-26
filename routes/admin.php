@@ -1,248 +1,22 @@
 <?php
-/**
- * Orders
- * Virtual Numbers
- * Category
+/*
+ * The old Blade admin pages are gone: the React panel (/admin/app, below) covers every section.
+ * What stays from them: the old page URLs as redirects (links in earlier Telegram/SMS alerts and bookmarks, and the
+ * route names the alerts still build: admin.order single / user single / ticket single), and the four form posts the
+ * React screens still send (ReactAppController boot › actions).
  */
 
+Route::redirect('/home', '/admin/app')->name('home');
+Route::get('orders/{id}', fn ($id) => redirect('/admin/app/orders/' . $id))->whereNumber('id')->name('order single');
+Route::get('users/{id}', fn ($id) => redirect('/admin/app/users/' . $id))->whereNumber('id')->name('user single');
+Route::get('tickets/{id}', fn ($id) => redirect('/admin/app/tickets/' . $id))->whereNumber('id')->name('ticket single');
 
-Route::get('/home', 'Admin\PanelController@index')->name('home');
-
-/* همکاران */
-Route::group(['prefix' => 'partner'], function () {
-    Route::get('/', 'Admin\PartnerController@index')->name('partner list')->middleware('role_or_permission:super-admin|partner-list');
-    Route::get('create', 'Admin\PartnerController@create')->name('create partner')->middleware('role_or_permission:super-admin|partner-list');
-    Route::post('store', 'Admin\PartnerController@store')->name('store partner')->middleware('role_or_permission:super-admin|partner-list');
-    Route::get('edit/{id}', 'Admin\PartnerController@edit')->name('edit partner')->middleware('role_or_permission:super-admin|partner-list');
-    Route::post('update', 'Admin\PartnerController@update')->name('update partner')->middleware('role_or_permission:super-admin|partner-list');
-    Route::get('delete/{id}', 'Admin\PartnerController@delete')->name('delete partner')->middleware('role_or_permission:super-admin|partner-list');
-});
-
-/* اکانت های خارجی */
-Route::group(['prefix' => 'accounts'], function () {
-    Route::get('/', 'Admin\AccountsController@index')->name('accounts list')->middleware('role_or_permission:super-admin|accounts-list');
-    Route::get('create/', 'Admin\AccountsController@create')->name('create accounts')->middleware('role_or_permission:super-admin|accounts-create-edit');
-    Route::post('store', 'Admin\AccountsController@store')->name('store accounts')->middleware('role_or_permission:super-admin|accounts-create-edit');
-    Route::get('edit/{id}', 'Admin\AccountsController@edit')->name('edit accounts')->middleware('role_or_permission:super-admin|accounts-create-edit');
-    Route::post('update', 'Admin\AccountsController@update')->name('update accounts')->middleware('role_or_permission:super-admin|accounts-create-edit');
-    Route::get('delete/{id}', 'Admin\AccountsController@delete')->name('delete accounts')->middleware('role_or_permission:super-admin|accounts-create-edit');
-});
-
-/* صفحات */
-Route::group(['prefix' => 'page'], function () {
-    Route::get('/', 'Admin\PagesController@index')->name('page list')->middleware('role_or_permission:super-admin|page-list');
-    Route::get('edit/{id}', 'Admin\PagesController@edit')->name('edit page')->middleware('role_or_permission:super-admin|edit-page');
-    Route::post('update', 'Admin\PagesController@update')->name('update update')->middleware('role_or_permission:super-admin|edit-page');
-});
-
-/* بلاگ ها*/
-Route::group(['prefix' => 'news'], function () {
-    Route::get('/', 'Admin\NewController@index')->name('news list')->middleware('role_or_permission:super-admin|news-list');
-    Route::get('create/', 'Admin\NewController@create')->name('create news')->middleware('role_or_permission:super-admin|create-edit-news');
-    Route::post('store', 'Admin\NewController@store')->name('store news')->middleware('role_or_permission:super-admin|create-edit-news');
-    Route::get('edit/{id}', 'Admin\NewController@edit')->name('edit news')->middleware('role_or_permission:super-admin|create-edit-news');
-    Route::post('update', 'Admin\NewController@update')->name('update news')->middleware('role_or_permission:super-admin|create-edit-news');
-    Route::get('delete/{id}', 'Admin\NewController@delete')->name('delete news')->middleware('role_or_permission:super-admin|create-edit-news');
-});
-
-/* مدیر ها */
-Route::group(['prefix' => 'admins'], function () {
-    Route::get('/', 'Admin\AdminController@index')->name('admin list')->middleware('role_or_permission:super-admin|');
-    Route::get('create/', 'Admin\AdminController@create')->name('create admin')->middleware('role_or_permission:super-admin');
-    Route::post('store', 'Admin\AdminController@store')->name('store admin')->middleware('role_or_permission:super-admin');
-    Route::get('edit/{id}', 'Admin\AdminController@edit')->name('edit admin')->middleware('role_or_permission:super-admin');
-    Route::post('update', 'Admin\AdminController@update')->name('update admin')->middleware('role_or_permission:super-admin');
-    Route::get('delete/{id}', 'Admin\AdminController@delete')->name('delete admin')->middleware('role_or_permission:super-admin');
-
-    Route::get('change-role', 'Admin\AdminController@changeRole')->name('change role')->middleware('role_or_permission:super-admin');
-
-});
-
-/* دسترسی ها */
-Route::group(['prefix' => 'permission'], function () {
-    Route::get('/', 'Admin\PermissionController@index')->name('permission list')->middleware('role_or_permission:super-admin');
-    Route::get('create/', 'Admin\PermissionController@create')->name('create permission')->middleware('role_or_permission:super-admin');
-    Route::post('store', 'Admin\PermissionController@store')->name('store permission')->middleware('role_or_permission:super-admin');
-    Route::get('edit', 'Admin\PermissionController@edit')->name('edit permission')->middleware('role_or_permission:super-admin');
-    Route::post('update', 'Admin\PermissionController@update')->name('update permission')->middleware('role_or_permission:super-admin');
-    Route::get('delete/{id}', 'Admin\PermissionController@delete')->name('delete permission')->middleware('role_or_permission:super-admin');
-});
-
-/* دسترسی ها */
-Route::group(['prefix' => 'role'], function () {
-    Route::get('/', 'Admin\RoleController@index')->name('role list')->middleware('role_or_permission:super-admin');
-    Route::get('create/', 'Admin\RoleController@create')->name('create role')->middleware('role_or_permission:super-admin');
-    Route::post('store', 'Admin\RoleController@store')->name('store role')->middleware('role_or_permission:super-admin');
-    Route::get('edit/{id}', 'Admin\RoleController@edit')->name('edit role')->middleware('role_or_permission:super-admin');
-    Route::post('update', 'Admin\RoleController@update')->name('update role')->middleware('role_or_permission:super-admin');
-    Route::get('delete/{id}', 'Admin\RoleController@delete')->name('delete role')->middleware('role_or_permission:super-admin');
-});
-
-/* بلاگ ها*/
-Route::group(['prefix' => 'blog'], function () {
-    Route::get('/', 'Admin\BlogController@index')->name('blog list')->middleware('role_or_permission:super-admin|blog-list');
-    Route::get('create/', 'Admin\BlogController@create')->name('create blog')->middleware('role_or_permission:super-admin|create-edit-blog');
-    Route::post('store', 'Admin\BlogController@store')->name('store blog')->middleware('role_or_permission:super-admin|create-edit-blog');
-    Route::get('edit/{id}', 'Admin\BlogController@edit')->name('edit blog')->middleware('role_or_permission:super-admin|create-edit-blog');
-    Route::post('update', 'Admin\BlogController@update')->name('update blog')->middleware('role_or_permission:super-admin|create-edit-blog');
-    Route::get('delete/{id}', 'Admin\BlogController@delete')->name('delete blog')->middleware('role_or_permission:super-admin|create-edit-blog');
-});
-
-/* دسته بندی ها */
-Route::group(['prefix' => 'category'], function () {
-    Route::get('/{type}', 'Admin\CategoryController@index')->name('category list')->middleware('role_or_permission:super-admin|category-list');
-    Route::get('/create/{type}', 'Admin\CategoryController@create')->name('create category')->middleware('role_or_permission:super-admin|create-edit-category');
-    Route::post('/store', 'Admin\CategoryController@store')->name('store category')->middleware('role_or_permission:super-admin|create-edit-category');
-    Route::get('/edit/{id}', 'Admin\CategoryController@edit')->name('edit category')->middleware('role_or_permission:super-admin|create-edit-category');
-    Route::post('/update', 'Admin\CategoryController@update')->name('update category')->middleware('role_or_permission:super-admin|create-edit-category');
-    Route::post('/delete', 'Admin\CategoryController@delete')->name('delete category')->middleware('role_or_permission:super-admin|create-edit-category');
-});
-
-/* کامنت ها */
-Route::group(['prefix' => 'comment'], function () {
-    Route::get('/', 'Admin\CommentController@Comments')->name('comment-index')->middleware('role_or_permission:super-admin|comments-list');
-    Route::get('/status', 'Admin\CommentController@ChangeCommentStatus')->name('change-comment-status')->middleware('role_or_permission:super-admin|accept-comment');
-    Route::get('/comment-data', 'Admin\CommentController@comment_data')->name('comment-data')->middleware('role_or_permission:super-admin|accept-comment');
-    Route::post('/submit-comment-answer', 'Admin\CommentController@AnswerComment')->name('submit-comment-answer')->middleware('role_or_permission:super-admin|accept-comment');
-});
-
-/* اپل آیدی */
-Route::group(['prefix' => 'google-voice'], function () {
-    Route::get('/', 'Admin\GoogleVoiceController@index')->name('google-voice-list')->middleware('role_or_permission:super-admin|google-voice-list');
-    Route::get('/create', 'Admin\GoogleVoiceController@create')->name('google-voice-create')->middleware('role_or_permission:super-admin|google-voice-orders');
-    Route::post('/submit', 'Admin\GoogleVoiceController@submit')->name('google-voice-submit')->middleware('role_or_permission:super-admin|google-voice-orders');
-});
-
-/* آی پی ثابت ها*/
-Route::group(['prefix' => 'ip-sabet'], function () {
-    Route::get('/setting', 'Admin\IpSabetController@Setting')->name('ip-sabet-setting')->middleware('role_or_permission:super-admin|ip-sabet-list');
-    Route::post('/setting/update', 'Admin\IpSabetController@submit')->name('ip-sabet-setting-update')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-
-    Route::get('/{type}', 'Admin\IpSabetController@index')->name('ip-sabet-list')->middleware('role_or_permission:super-admin|ip-sabet-list');
-    Route::get('/create/{type}', 'Admin\IpSabetController@create')->name('ip-sabet-create')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-    Route::post('/store/{type}/form', 'Admin\IpSabetController@store')->name('ip-sabet-store')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-    Route::get('/edit/{id}', 'Admin\IpSabetController@edit')->name('ip-sabet-edit')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-    Route::post('/update/ip-sabet/update', 'Admin\IpSabetController@update')->name('ip-sabet-update')->middleware('role_or_permission:super-admin|create-edit-ip-sabet');
-});
-
-/* شماره های مجازی */
-Route::group(['prefix' => 'virtual-number'], function () {
-
-    /*Country Routes*/
-    Route::get('countries', 'Admin\VirtualCountryController@CountriesList')->name('Virtual-Countries')->middleware('role_or_permission:super-admin|');
-    Route::get('countries/create', 'Admin\VirtualCountryController@create')->name('Create-Virtual-Countries')->middleware('role_or_permission:super-admin|');
-    Route::post('countries', 'Admin\VirtualCountryController@StoreCreate')->name('store-Virtual-Countries')->middleware('role_or_permission:super-admin|');
-    Route::get('edit/{id}', 'Admin\VirtualCountryController@Single')->name('Single-Virtual-Countries')->middleware('role_or_permission:super-admin|');
-    Route::post('update', 'Admin\VirtualCountryController@update')->name('update-Virtual-Countries')->middleware('role_or_permission:super-admin|');
-    Route::get('FastUpdate', 'Admin\VirtualCountryController@FastUpdate')->name('FastUpdate')->middleware('role_or_permission:super-admin|');
-    Route::get('GenerateCountry/{id}', 'Admin\VirtualCountryController@GenerateProduct')->name('GenerateProduct');
-
-    /* Service List */
-    Route::get('service', 'Admin\VirtualServiceController@CountriesList')->name('Virtual-Services')->middleware('role_or_permission:super-admin|');
-    Route::get('create-service', 'Admin\VirtualServiceController@Create')->name('create-Virtual-Services')->middleware('role_or_permission:super-admin|');
-    Route::post('store-service', 'Admin\VirtualServiceController@store')->name('store-Virtual-Services')->middleware('role_or_permission:super-admin|');
-    Route::get('service/{id}', 'Admin\VirtualServiceController@Edit')->name('edit-Virtual-Services')->middleware('role_or_permission:super-admin|');
-    Route::post('service/', 'Admin\VirtualServiceController@update')->name('Single-Virtual-Services')->middleware('role_or_permission:super-admin|');
-    Route::get('GenerateService/{id}', 'Admin\VirtualServiceController@GenerateProduct')->name('GenerateService');
-
-    /* Products */
-    Route::get('products', 'Admin\ProductController@index')->name('Virtual-Products')->middleware('role_or_permission:super-admin|');
-    Route::get('create-products', 'Admin\ProductController@Create')->name('create-Virtual-Products')->middleware('role_or_permission:super-admin|');
-    Route::post('store-products', 'Admin\ProductController@store')->name('store-Virtual-Products')->middleware('role_or_permission:super-admin|');
-    Route::get('products/{id}', 'Admin\ProductController@Edit')->name('edit-Virtual-Products')->middleware('role_or_permission:super-admin|');
-    Route::post('products/', 'Admin\ProductController@update')->name('Single-Virtual-Products')->middleware('role_or_permission:super-admin|');
-
-    /* Setting */
-    Route::get('/setting', 'Admin\SettingController@VirtualNumber')->name('virtualNumber-setting-page')->middleware('role_or_permission:super-admin|');
-    Route::post('/setting', 'Admin\SettingController@SubmitVirtualNumberSetting')->name('virtualNumber-setting-submit')->middleware('role_or_permission:super-admin|');
-
-});
-
-/* سرویس های مجازی */
-Route::group(['prefix' => 'virtual-service'], function () {
-    Route::get('/', 'Admin\ServiceController@index')->name('service-list')->middleware('role_or_permission:super-admin|');
-    Route::get('/create', 'Admin\ServiceController@create')->name('service-create')->middleware('role_or_permission:super-admin|');
-    Route::get('edit/{id}', 'Admin\ServiceController@edit')->name('service-edit')->middleware('role_or_permission:super-admin|');
-    Route::post('/store', 'Admin\ServiceController@store')->name('service-store')->middleware('role_or_permission:super-admin|');
-    Route::post('/update', 'Admin\ServiceController@update')->name('service-update')->middleware('role_or_permission:super-admin|');
-
-    /* Setting */
-    Route::get('/setting', 'Admin\SettingController@VirtualService')->name('virtualService-setting-page')->middleware('role_or_permission:super-admin|virtual-service-setting');
-    Route::post('/setting', 'Admin\SettingController@VirtualServiceSubmit')->name('virtual-service-setting-submit')->middleware('role_or_permission:super-admin|virtual-service-setting');
-});
-
-/* اپل آیدی */
-Route::group(['prefix' => 'apple-id'], function () {
-    Route::get('/', 'Admin\AppleIdController@index')->name('apple-id-list')->middleware('role_or_permission:super-admin|');
-    Route::get('/create', 'Admin\AppleIdController@create')->name('apple-id-create')->middleware('role_or_permission:super-admin|');
-    Route::post('/submit', 'Admin\AppleIdController@submit')->name('apple-id-submit')->middleware('role_or_permission:super-admin|');
-    Route::post('/submit_custom_apple_id', 'Admin\AppleIdController@submit_custom_apple_id')->name('submit-custom-apple-id')->middleware('role_or_permission:super-admin|');
-});
-
-/* تیکت ها */
-Route::group(['prefix' => 'tickets'], function () {
-    Route::get('/', 'Admin\TicketController@index')->name('tickets list')->middleware('role_or_permission:super-admin|');
-    Route::get('/{id}', 'Admin\TicketController@single')->name('ticket single')->middleware('role_or_permission:super-admin|');
-    Route::post('submit/ticket', 'Admin\TicketController@SendTicket')->name('send ticket')->middleware('role_or_permission:super-admin|');
-});
-
-/* کاربران */
-Route::group(['prefix' => 'users'], function () {
-    Route::get('/', 'Admin\UserController@index')->name('user list');
-    Route::get('/{id}', 'Admin\UserController@single')->name('user single');
-    Route::post('edit/submio', 'Admin\UserController@SubmitUserChange')->name('user submit');
-    Route::get('edit/{id}', 'Admin\UserController@editUser')->name('user edit');
-    Route::get('panel/{id}', 'Admin\UserController@UserPanel')->name('user panel');
-});
-
-/* پرداختی ها */
-Route::group(['prefix' => 'payment'], function () {
-    Route::get('/transaction', 'Admin\PaymentController@Transactions')->name('transaction list');
-    Route::get('/bank-payments', 'Admin\PaymentController@BankPayment')->name('bank payments list');
-    Route::get('/contradiction', 'Admin\PaymentController@Contradiction')->name('contradiction payments list');
-    Route::get('single', 'Admin\PaymentController@Single')->name('Single-Payment');
-});
-
-/* سفارشات */
-Route::group(['prefix' => 'orders'], function () {
-    Route::get('/', 'Admin\OrderController@index')->name('order list');
-    Route::post('submit-apple-id', 'Admin\OrderController@completeCustomAppleIdOrder')->name('submit-apple-id');
-    Route::post('single/change-status', 'Admin\OrderController@ChangeOrderStatus')->name('change order status');
-    Route::post('charge-wallet', 'Admin\OrderController@ChangeStatusWallet')->name('return back order money to user');
-    Route::post('order-chat', 'Admin\OrderController@SendOrderChat')->name('send order chat');
-    Route::get('/{id}', 'Admin\OrderController@single')->name('order single');
-
-
-});
-
-
-Route::group(['prefix' => 'v2'], function () {
-    Route::group(['prefix' => 'product'], function () {
-        Route::get('/', 'Admin\ProductController@services')->name('product list');
-        Route::get('/create/', 'Admin\ProductController@create')->name('create product');
-        Route::post('/store', 'Admin\ProductController@store')->name('store product');
-        Route::get('/edit/{id}', 'Admin\ProductController@edit')->name('edit product');
-        Route::post('/update', 'Admin\ProductController@update')->name('update product');
-        Route::get('/delete/{id}', 'Admin\ProductController@single')->name('delete product');
-    });
-//Category
-
-// Virtual Numbers
-    Route::group(['prefix' => 'virtual'], function () {
-
-        /* Products */
-        Route::get('products', 'Admin\ProductController@index')->name('Virtual-Products');
-        Route::get('create-products', 'Admin\ProductController@Create')->name('create-Virtual-Products');
-        Route::post('store-products', 'Admin\ProductController@store')->name('store-Virtual-Products');
-        Route::get('products/{id}', 'Admin\ProductController@Edit')->name('edit-Virtual-Products');
-        Route::post('products/', 'Admin\ProductController@update')->name('Single-Virtual-Products');
-
-    });
-
-// Orders
-
-
-});
+Route::post('orders/single/change-status', 'Admin\OrderController@ChangeOrderStatus')->name('change order status');
+Route::post('orders/charge-wallet', 'Admin\OrderController@ChangeStatusWallet')->name('return back order money to user');
+Route::post('orders/order-chat', 'Admin\OrderController@SendOrderChat')->name('send order chat');
+Route::post('users/edit/submio', 'Admin\UserController@SubmitUserChange')->name('user submit');
+// «ورود به پنل کاربر» on admin › user: signs in as that customer and opens the storefront's /account.
+Route::get('users/panel/{id}', 'Admin\UserController@UserPanel')->whereNumber('id')->name('user panel');
 
 /* پنل جدید React (Vite) — JSON reads for the React screens, then the app itself (React handles every path below /admin/app) */
 Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
@@ -260,6 +34,12 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
     Route::post('orders/charges/{id}/drop', 'Admin\OrderMakeApiController@drop')->whereNumber('id')->name('order-charge-drop');
     Route::get('users', 'Admin\UserApiController@index')->name('users');
     Route::get('users/{id}', 'Admin\UserApiController@show')->whereNumber('id')->name('user');
+    // admin › user actions and custom Apple ID delivery (Admin\UserActionApiController).
+    Route::post('users/{id}/status', 'Admin\UserActionApiController@status')->whereNumber('id')->name('user-status');
+    Route::post('users/{id}/ticket', 'Admin\UserActionApiController@ticket')->whereNumber('id')->name('user-ticket');
+    Route::post('orders/{id}/apple-id', 'Admin\UserActionApiController@completeAppleId')->whereNumber('id')->name('order-apple-id');
+    // Account orders: which shop card (admin › کارت‌های خارجی) paid the outside service.
+    Route::post('orders/{id}/external-card', 'Admin\OrderApiController@setExternalCard')->whereNumber('id')->name('order-external-card');
     Route::middleware('role_or_permission:super-admin|transaction-list|bank-transaction|moghayerat')->group(function () {
         Route::get('transactions', 'Admin\TransactionApiController@index')->name('transactions');
         Route::get('transactions/{id}', 'Admin\TransactionApiController@show')->whereNumber('id')->name('transaction');
@@ -399,6 +179,11 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::get('payment-gateways', 'Admin\PaymentGatewayApiController@index')->name('payment-gateways');
         Route::post('payment-gateways', 'Admin\PaymentGatewayApiController@save');
         Route::post('payment-gateways/{key}/test', 'Admin\PaymentGatewayApiController@test')->where('key', '[a-z]+');
+        // کارت‌های خارجی: the shop's own cards for paying outside services (App\Models\ExternalCard).
+        Route::get('external-cards', 'Admin\ExternalCardApiController@index')->name('external-cards');
+        Route::post('external-cards', 'Admin\ExternalCardApiController@save');
+        Route::post('external-cards/{id}', 'Admin\ExternalCardApiController@save')->whereNumber('id');
+        Route::post('external-cards/{id}/delete', 'Admin\ExternalCardApiController@delete')->whereNumber('id');
         // پیامک: SMS.ir credit, automatic patterns, bulk sends (App\Services\Sms).
         Route::get('sms', 'Admin\SmsApiController@index')->name('sms');
         Route::post('sms', 'Admin\SmsApiController@save');
@@ -441,6 +226,7 @@ Route::group(['prefix' => 'api', 'as' => 'api.'], function () {
         Route::post('organizations/requests/{id}/reject', 'Admin\OrganizationApiController@reject')->whereNumber('id');
         Route::post('organizations/{userId}/discount', 'Admin\OrganizationApiController@discount')->whereNumber('userId');
         Route::post('organizations/{userId}/cancel', 'Admin\OrganizationApiController@cancel')->whereNumber('userId');
+        Route::post('organizations/{userId}/note', 'Admin\OrganizationApiController@note')->whereNumber('userId');
         Route::post('organizations/settings', 'Admin\OrganizationApiController@saveSettings');
     });
 

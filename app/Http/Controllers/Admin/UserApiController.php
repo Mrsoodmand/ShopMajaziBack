@@ -140,7 +140,6 @@ class UserApiController extends Controller
                 'spent' => (int) Order::where('user_id', $user->id)->where('status', 'complete')->sum('price'),
             ],
             'links' => [
-                'legacy' => route('admin.user single', $user->id),
                 'panel' => route('admin.user panel', $user->id),
             ],
             'orders' => $orders->map(fn ($o) => [
@@ -167,7 +166,7 @@ class UserApiController extends Controller
                 'status' => $t->status,
                 'statusLabel' => __('all.tickets.' . $t->status) === 'all.tickets.' . $t->status ? $t->status : __('all.tickets.' . $t->status),
                 'unread' => (bool) $t->new_for_admin,
-                'url' => route('admin.ticket single', $t->id),
+                'url' => route('admin.react-app', 'tickets/' . $t->id),
                 'at' => $this->date($jdf, $t->created_at),
             ])->values(),
             'referrals' => User::where('parent_id', $user->id)->orderByDesc('id')->take(50)->get(['id', 'name', 'mobile', 'created_at'])
@@ -204,6 +203,9 @@ class UserApiController extends Controller
         if (isset($d['blocked wallet increment'])) $lines[] = ['kind' => 'credit', 'text' => 'افزایش موجودی مسدود: ' . $money($d['blocked wallet increment'])];
         if (isset($d['blocked wallet decrement'])) $lines[] = ['kind' => 'debit', 'text' => 'کسر از موجودی مسدود: ' . $money($d['blocked wallet decrement'])];
         if (isset($d['password'])) $lines[] = ['kind' => 'info', 'text' => 'رمز عبور تغییر کرد'];
+        // Admin\UserActionApiController::status
+        if (($d['account'] ?? null) === 'disabled') $lines[] = ['kind' => 'debit', 'text' => 'حساب غیرفعال شد'];
+        if (($d['account'] ?? null) === 'enabled') $lines[] = ['kind' => 'credit', 'text' => 'حساب فعال شد'];
         $blocks = array_filter([
             !empty($d['status']) ? 'ورود' : null,
             !empty($d['wallet_blocked']) ? 'خرید با کیف پول' : null,

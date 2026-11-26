@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
-import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, ExternalLink, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot, BadgeCheck, Building2, MessageSquareMore } from 'lucide-react';
+import { AppWindow, ArrowLeftRight, CalendarDays, ChevronDown, Monitor, UserRound, Moon, Sun, FileText, Globe, Handshake, House, Landmark, LogOut, Menu, MessageSquareText, Mic, Newspaper, PanelsTopLeft, Phone, ReceiptText, Images, Scale, SearchCheck, ShieldCheck, Smartphone, Sparkles, Ticket, UserCog, Users, X, type LucideIcon, BadgePercent, DatabaseZap, Bot, BadgeCheck, Building2, MessageSquareMore, CreditCard } from 'lucide-react';
 import { useBoot, type MenuLink } from '../lib/boot';
 import { getJson } from '../lib/api';
 import { useTheme, type ThemeChoice } from '../lib/theme';
@@ -34,6 +34,7 @@ const icons: Record<string, LucideIcon> = {
     cache: DatabaseZap,
     captcha: Bot,
     sms: MessageSquareMore,
+    card: CreditCard,
 };
 
 // One easing for the rail: quick to start, soft to land.
@@ -445,10 +446,6 @@ export default function Shell() {
                     </button>
                     <HeaderClock />
                     <div className="flex-1" />
-                    <a href={links.legacyHome} className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted hover:bg-surface-2 hover:text-ink sm:inline-flex">
-                        <ExternalLink aria-hidden size={16} />
-                        پنل قدیمی
-                    </a>
                     <ThemeSwitch />
                     <div className="flex items-center gap-1 border-s border-stroke ps-3">
                         <span className="flex items-center gap-2 px-1">

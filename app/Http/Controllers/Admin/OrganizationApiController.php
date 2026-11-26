@@ -65,10 +65,13 @@ class OrganizationApiController extends Controller
         $data['user'] = $r->user ? [
             'id' => $r->user->id, 'name' => $r->user->name, 'mobile' => $r->user->mobile, 'email' => $r->user->email,
             'organization' => Organizations::isOrganization($r->user), 'discounts' => (object) Organizations::discountsOf($r->user),
+            'vat' => Organizations::vatOf($r->user),
+            'note' => $r->user->org_note, // support's own note, never shown to the customer
         ] : null;
         $data['others'] = OrganizationRequest::where('user_id', $r->user_id)->where('id', '!=', $r->id)->orderByDesc('id')
             ->get(['id', 'status', 'created_at'])->map(fn ($o) => ['id' => $o->id, 'status' => $o->status, 'createdAt' => $this->jdate($o->created_at)]);
         $data['defaults'] = (object) Organizations::settings()['defaults'];
+        $data['defaultVat'] = Organizations::settings()['vat'];
         $data['families'] = $this->families();
         $data['maxDiscount'] = (int) config('organization.max_discount', 50);
         return response()->json(['request' => $data]);
@@ -81,7 +84,9 @@ class OrganizationApiController extends Controller
             return $this->refuse('فقط درخواست‌های در انتظار بررسی را می‌توان تایید کرد.');
         }
         $this->validateDiscounts($request);
-        $orgs->approve($r, (array) $request->input('discounts', []), (int) Auth::guard('admin')->id());
+        $this->validateVat($request);
+        $vat = $request->filled('vat') ? (float) $request->input('vat') : null;
+        $orgs->approve($r, (array) $request->input('discounts', []), (int) Auth::guard('admin')->id(), $vat);
         return response()->json(['success' => 'حساب سازمانی تایید شد.']);
     }
 
@@ -138,6 +143,8 @@ class OrganizationApiController extends Controller
                 'taxCode' => optional($profiles[$u->id] ?? null)->tax_code,
                 'requestId' => optional($profiles[$u->id] ?? null)->id,
                 'discounts' => (object) Organizations::discountsOf($u),
+                'vat' => Organizations::vatOf($u),
+                'note' => $u->org_note,
                 'discountedOrders' => (int) ($saved[$u->id]->orders ?? 0),
                 'discountGiven' => (int) ($saved[$u->id]->total ?? 0),
                 'since' => $this->jdate(optional($profiles[$u->id] ?? null)->reviewed_at),
@@ -153,8 +160,25 @@ class OrganizationApiController extends Controller
             return $this->missing('این حساب سازمانی پیدا نشد.');
         }
         $this->validateDiscounts($request);
+        $this->validateVat($request);
         $orgs->setDiscounts($user, (array) $request->input('discounts', []));
-        return response()->json(['success' => 'تخفیف ذخیره شد.']);
+        if ($request->has('vat')) {
+            $orgs->setVat($user, $request->input('vat'));
+        }
+        return response()->json(['success' => 'تخفیف و ارزش افزوده ذخیره شد.']);
+    }
+
+    /** Support's own note about a company (users.org_note); the customer never sees it. */
+    public function note(Request $request, $userId)
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return $this->missing('این کاربر پیدا نشد.');
+        }
+        $request->validate(['note' => 'nullable|string|max:5000'], ['note.*' => 'یادداشت حداکثر ۵۰۰۰ حرف است.']);
+        $user->org_note = trim((string) $request->input('note', '')) ?: null;
+        $user->save();
+        return response()->json(['success' => 'یادداشت ذخیره شد.']);
     }
 
     public function cancel(Request $request, $userId, Organizations $orgs)
@@ -173,7 +197,7 @@ class OrganizationApiController extends Controller
     {
         $settings = Organizations::settings();
         return response()->json([
-            'settings' => ['open' => $settings['open'], 'defaults' => (object) $settings['defaults']],
+            'settings' => ['open' => $settings['open'], 'defaults' => (object) $settings['defaults'], 'vat' => $settings['vat']],
             'families' => $this->families(),
             'fields' => Organizations::fields(false)->map(fn ($f) => Organizations::fieldData($f, true))->values(),
             'types' => Organizations::FIELD_TYPES,
@@ -185,6 +209,7 @@ class OrganizationApiController extends Controller
     public function saveSettings(Request $request)
     {
         $this->validateDiscounts($request, 'settings.defaults');
+        $this->validateVat($request, 'settings.vat');
         [$ok, $error] = Organizations::saveFields((array) $request->input('fields', []));
         if (!$ok) {
             return $this->refuse($error);
@@ -197,6 +222,18 @@ class OrganizationApiController extends Controller
     private function families(): array
     {
         return collect(Organizations::FAMILIES)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values()->all();
+    }
+
+    /** A VAT percent (empty allowed): 0–100, Persian digits accepted. */
+    private function validateVat(Request $request, string $field = 'vat'): void
+    {
+        $given = data_get($request->all(), $field);
+        if (is_scalar($given)) {
+            $all = $request->all();
+            data_set($all, $field, str_replace(['٫', '،'], '.', convertPersianNumbersToEnglish(trim((string) $given))));
+            $request->replace($all);
+        }
+        $request->validate([$field => 'nullable|numeric|min:0|max:100'], ["$field.*" => 'درصد ارزش افزوده باید عددی بین ۰ و ۱۰۰ باشد.']);
     }
 
     /** {family: percent}: each percent between 0 and the cap. Errors come back under discounts.{family}. */

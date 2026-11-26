@@ -31,12 +31,18 @@ use Illuminate\Support\Str;
  * (services/buy, subscriptions/buy, apple-id/buy, google-voice/buy) and prices are always quoted again here with
  * the same code. Checking out pays each line from the wallet through those endpoints, one after another, so every
  * line becomes an ordinary order (admin, /account, invoices and notices unchanged), tagged with orders.checkout_id.
- * Paying by card first tops the wallet up with the total (a type-3 payment); whatever can't be delivered stays in
- * the wallet. Virtual numbers are not sold through the cart: their SMS window starts when they're bought.
+ *
+ * Paying by card is one bank payment for the total (type 9 = CARD_TYPE, «پرداخت آنلاین سبد خرید»). Once the bank
+ * confirms it, the lines are bought through the same endpoints (the total is lent to the wallet for that run) and
+ * settleCard() then marks each order's payment as paid by that card (gate Bank, its card and ref) — so orders, the
+ * statement and invoices show «درگاه بانک», not the wallet. Only what couldn't be delivered stays in the wallet, as
+ * one refund (type 2, `error` = the bank payment's id). Checkouts started before this (type-3 top-ups) finish the
+ * old way. Virtual numbers are not sold through the cart: their SMS window starts when they're bought.
  */
 class StorefrontCartController extends Controller
 {
     private const KINDS = ['service', 'subscription', 'apple_id', 'google_voice'];
+    public const CARD_TYPE = '9';
     private const MAX_LINES = 20;
 
     /* The cart, priced now. */
@@ -159,11 +165,12 @@ class StorefrontCartController extends Controller
                     return $this->ok(['checkout' => $this->checkoutData($Checkout->fresh()), 'wallet' => $this->wallet($User->fresh())]);
                 }
 
-                // Card: a wallet top-up for the total, then the same checkout once the bank confirms.
+                // Card: one bank payment for the total; the lines are bought once the bank confirms (bankBack).
                 $Payment = new Payment();
                 $Payment->user_id = $User->id;
                 $Payment->price = $Total;
-                $Payment->type = '3';
+                $Payment->type = self::CARD_TYPE;
+                $Payment->help = 'پرداخت آنلاین سبد خرید';
                 $Payment->status = 'waiting to pay';
                 $Payment->gate = 'Bank';
                 $Payment->creator = 'Cart';
@@ -214,7 +221,8 @@ class StorefrontCartController extends Controller
         $Gateways = app(\App\Services\Payments\GatewayManager::class);
         [$Payment, $Key] = $Gateways->fromCallback($request) ?? [null, null];
         $Checkout = $Payment ? CartCheckout::where('payment_id', $Payment->id)->first() : null;
-        if (is_null($Payment) || (int)$Payment->type !== 3 || is_null($Checkout)) {
+        $Direct = (string)$Payment?->type === self::CARD_TYPE;
+        if (is_null($Payment) || (!$Direct && (int)$Payment->type !== 3) || is_null($Checkout)) {
             return $this->back('failed', null);
         }
         $Label = \App\Services\Payments\GatewayManager::GATEWAYS[$Key]['label'] ?? $Key;
@@ -229,7 +237,7 @@ class StorefrontCartController extends Controller
         }
 
         try {
-            return Cache::lock('wallet-topup:' . $Payment->id, 60)->block(20, function () use ($Gateways, $Payment, $Checkout, $Label) {
+            return Cache::lock('wallet-topup:' . $Payment->id, 60)->block(20, function () use ($Gateways, $Payment, $Checkout, $Label, $Direct) {
                 $Payment = Payment::find($Payment->id);
                 $Checkout = $Checkout->fresh();
                 if ($Payment->status !== 'Complete') {
@@ -250,20 +258,26 @@ class StorefrontCartController extends Controller
                     $Payment->status = 'Complete';
                     $Payment->paid_at = $Payment->paid_at ?? Carbon::now();
                     $Payment->save();
-                    if ($Verify->ok) { // verified now, not by an earlier callback: credit once
+                    if ($Verify->ok && !$Direct) { // old top-up checkouts: verified now, not by an earlier callback: credit once
                         $Owner = User::find($Payment->user_id);
                         $Owner->wallet = $Payment->price + $Owner->wallet;
                         $Owner->save();
                     }
                 }
                 if ($Checkout->status === 'waiting_to_pay') {
-                    // The lines are bought as the payment's owner, even if the session ran out at the bank.
-                    $Owner = User::find($Payment->user_id);
-                    if (Auth::guard('user')->id() !== $Owner->id) {
-                        Auth::guard('user')->setUser($Owner);
-                    }
                     $Checkout->update(['status' => 'paying']);
+                    if ($Direct) {
+                        // The buy endpoints take the money from the wallet: lend it the total for this run only;
+                        // settleCard() turns each order's payment into this card payment.
+                        User::where('id', $Payment->user_id)->increment('wallet', (int)round((float)$Payment->price));
+                    }
+                    // The lines are bought as the payment's owner (fresh, so the buy endpoints see the lent
+                    // balance), even if the session ran out at the bank.
+                    Auth::guard('user')->setUser(User::find($Payment->user_id));
                     $this->run($Checkout);
+                    if ($Direct) {
+                        $this->settleCard($Checkout->fresh(), $Payment->fresh());
+                    }
                 }
                 $Checkout = $Checkout->fresh();
                 return $this->back($Checkout->status === 'done' ? 'ok' : ($Checkout->status === 'partial' ? 'partial' : 'failed'), $Checkout->id);
@@ -330,6 +344,46 @@ class StorefrontCartController extends Controller
         $Checkout->save();
         // Bought lines leave the cart; the rest stay, so the buyer can see what didn't go through and try again.
         CartItem::whereIn('id', $Paid)->delete();
+    }
+
+    /*
+     * After a card checkout's run: every order it made was paid from the money lent to the wallet; mark those
+     * payments as paid by the card (gate Bank, the bank payment's card, ref and gateway) so nothing reads «کیف پول».
+     * What no order took (lines that couldn't be bought) stays in the wallet, recorded as one refund of the bank
+     * payment. Refunds a line's own code made (e.g. a Google Voice number that couldn't be delivered) stay as they are.
+     */
+    private function settleCard(CartCheckout $Checkout, Payment $Bank): void
+    {
+        $OrderIds = collect($Checkout->items)->pluck('order_id')->filter()->map(fn($v) => (int)$v)->values();
+        $Paid = 0;
+        foreach (Payment::whereIn('order_id', $OrderIds)->where('user_id', $Bank->user_id)->where('type', 1)
+                     ->where('gate', 'Wallet')->where('status', 'Complete')->get() as $P) {
+            $P->gate = 'Bank';
+            $P->creator = 'Cart';
+            $P->card = $Bank->card;
+            $P->card_id = $Bank->card_id;
+            $P->refid = $Bank->refid; // column is "refid": a fresh model has no refId key
+            $P->gateway = $Bank->gateway;
+            $P->details = $Bank->details;
+            $P->fee = 0;
+            $P->help = 'پرداخت آنلاین سبد خرید #C-' . $Checkout->id . ' (تراکنش بانکی ' . $Bank->id . ')';
+            $P->save();
+            $Paid += (int)round((float)$P->price);
+        }
+        $Left = (int)round((float)$Bank->price) - $Paid;
+        if ($Left > 0 && !Payment::where('type', 2)->where('error', (string)$Bank->id)->exists()) {
+            $Refund = new Payment();
+            $Refund->user_id = $Bank->user_id;
+            $Refund->type = 2;
+            $Refund->status = 'Complete';
+            $Refund->gate = 'Wallet';
+            $Refund->creator = 'Cart';
+            $Refund->price = $Left;
+            $Refund->error = (string)$Bank->id;
+            $Refund->help = 'مانده پرداخت آنلاین سبد خرید #C-' . $Checkout->id . ' به کیف پول (موردهایی که خریده نشد)';
+            $Refund->paid_at = Carbon::now();
+            $Refund->save();
+        }
     }
 
     /* ---------- Quoting ---------- */

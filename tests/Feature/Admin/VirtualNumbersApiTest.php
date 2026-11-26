@@ -268,23 +268,6 @@ class VirtualNumbersApiTest extends AdminTestCase
 
         $this->postJson('/admin/api/virtual-numbers/countries/999999/rebuild')->assertNotFound();
     }
-
-    public function test_old_admin_update_buttons_use_the_same_rebuild(): void
-    {
-        $this->actingAsAdmin();
-        $service = $this->service(['pva' => 'opt1', 'man' => 'empty', 'active' => 'empty']);
-        $country = $this->country(['pva' => 'empty', 'man' => '7', 'active' => 'empty']);
-
-        $this->get(route('admin.GenerateProduct', $country))->assertRedirect(route('admin.Single-Virtual-Countries', $country));
-        $this->assertSame(0, DB::table('virtual__products')->where('country_id', $country)->where('service_id', $service)->count());
-
-        DB::table('virtual__countries')->where('id', $country)->update(['pva' => 'RU']);
-        $this->get(route('admin.GenerateService', $service))->assertRedirect(route('admin.edit-Virtual-Services', $service));
-        $this->assertSame(1, DB::table('virtual__products')->where('country_id', $country)->where('service_id', $service)->where('type', 'pva')->count());
-    }
-
-    /* ---------- Offers ---------- */
-
     public function test_offers_of_a_service_show_price_and_sale_state(): void
     {
         $this->actingAsAdmin();
@@ -345,23 +328,6 @@ class VirtualNumbersApiTest extends AdminTestCase
         $this->assertSame([['question' => 'سؤال', 'answer' => 'پاسخ']], json_decode($page->faq, true));
         $this->assertSame(['meta_title' => 'عنوان', 'meta_desc' => 'توضیح', 'meta_image' => '/upload/seo/share.png', 'meta' => null], json_decode($page->seo, true));
     }
-
-    public function test_old_settings_form_no_longer_wipes_the_faq_or_share_image(): void
-    {
-        $this->actingAsAdmin();
-        DB::table('settings')->insert(['id' => 3, 'name' => 'virtual number', 'key' => '{}']);
-        DB::table('pages')->insert(['id' => 1, 'title' => 'شماره مجازی', 'slug' => 'virtual-number', 'long_detail' => '', 'related_blogs' => '',
-            'seo' => json_encode(['meta_image' => '/upload/seo/share.png']), 'faq' => json_encode([['question' => 'س', 'answer' => 'پ']])]);
-
-        $this->post(route('admin.virtualNumber-setting-submit'), ['h1' => 'H1', 'detail' => '<p>x</p>', 'meta_title' => 'عنوان', 'meta_desc' => 'توضیح', 'seo' => '', 'pva_status' => '1'], $this->ajax())->assertOk();
-        $page = DB::table('pages')->find(1);
-        $this->assertSame([['question' => 'س', 'answer' => 'پ']], json_decode($page->faq, true));
-        $this->assertSame('/upload/seo/share.png', json_decode($page->seo, true)['meta_image']);
-        $this->assertSame('عنوان', json_decode($page->seo, true)['meta_title']);
-    }
-
-    /* ---------- Images and orders ---------- */
-
     public function test_image_upload_returns_a_public_path(): void
     {
         $this->actingAsAdmin();

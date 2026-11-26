@@ -9,7 +9,7 @@ import { Field, RowsEditor, Switch } from '../../components/form';
 import { PageHeader, useListParams } from '../../components/list';
 import { PageTabs, useUrlTab } from '../../components/PageTabs';
 import { DataTable, ListEmpty, ListPager, type Column } from '../../components/DataList';
-import { DiscountTable, discountSummary, fromDraft, toDraft, type DiscountDraft, type Discounts, type Family } from './DiscountTable';
+import { DiscountTable, VatInput, vatNumber, discountSummary, fromDraft, toDraft, type DiscountDraft, type Discounts, type Family } from './DiscountTable';
 
 /*
  * حساب‌های سازمانی (App\Services\Organizations, Admin\OrganizationApiController): requests customers sent from
@@ -114,15 +114,16 @@ function Requests() {
 
 /* ---------- Organisations ---------- */
 
-type OrgRow = { userId: number; name: string | null; mobile: string; company: string | null; taxCode: string | null; requestId: number | null; discounts: Discounts; discountedOrders: number; discountGiven: number; since: string | null };
+type OrgRow = { userId: number; name: string | null; mobile: string; company: string | null; taxCode: string | null; requestId: number | null; discounts: Discounts; vat: number; note: string | null; discountedOrders: number; discountGiven: number; since: string | null };
 
 function Organizations() {
     const list = useListParams({ q: '', per: '' });
     const { data, error, loading, reload } = useQuery<{ organizations: OrgRow[]; meta: Meta }>(`/admin/api/organizations?${list.query}`);
     const families = useQuery<SettingsData>('/admin/api/organizations/settings').data?.families ?? [];
     const columns: Column<OrgRow>[] = [
-        { key: 'company', header: 'شرکت', primary: true, cell: (o) => <span><span className="block font-bold">{o.company || '—'}</span><span className="block text-[12px] text-muted">{o.name || '—'} · <span dir="ltr" className="num">{o.mobile}</span></span></span> },
+        { key: 'company', header: 'شرکت', primary: true, cell: (o) => <span><span className="block font-bold">{o.company || '—'}</span><span className="block text-[12px] text-muted">{o.name || '—'} · <span dir="ltr" className="num">{o.mobile}</span></span>{o.note && <span className="mt-0.5 block max-w-[320px] truncate text-[12px] text-body" title={o.note}>یادداشت: {o.note}</span>}</span> },
         { key: 'discount', header: 'تخفیف‌ها', cell: (o) => <span className="text-[13px] font-medium">{discountSummary(o.discounts, families)}</span> },
+        { key: 'vat', header: 'فاکتور رسمی', from: 'lg', cell: (o) => <span className="num text-[13px]">{o.vat > 0 ? `ارزش افزوده ${o.vat.toLocaleString('fa-IR')}٪` : 'ندارد'}</span> },
         { key: 'orders', header: 'خرید با تخفیف', from: 'lg', cell: (o) => <span className="num text-[13px]">{count(o.discountedOrders)} سفارش · {toman(o.discountGiven)}</span> },
         { key: 'since', header: 'از', from: 'lg', cell: (o) => <span dir="ltr" className="num text-[13px] text-muted">{o.since ?? '—'}</span> },
     ];
@@ -160,7 +161,7 @@ function Organizations() {
 
 type FieldType = 'text' | 'email' | 'phone' | 'textarea' | 'number' | 'select' | 'yesno' | 'date' | 'file';
 type FormField = { id?: number; key: string; title: string; title_en: string | null; type: FieldType; required: boolean; enabled: boolean; builtin: boolean; hint: string | null; hint_en: string | null; options: string[]; accept: string[]; max_mb: number | null };
-type Settings = { open: boolean; defaults: Discounts };
+type Settings = { open: boolean; defaults: Discounts; vat: number };
 type SettingsData = { settings: Settings; families: Family[]; fields: FormField[]; maxDiscount: number; maxMb: number };
 
 const TYPE_LABELS: Record<FieldType, string> = {
@@ -173,11 +174,13 @@ function FormSettings() {
     const [settings, setSettings] = useState<Settings | null>(null);
     const [fields, setFields] = useState<FormField[]>([]);
     const [defaults, setDefaults] = useState<DiscountDraft>({});
+    const [vat, setVat] = useState('');
 
     useEffect(() => {
         if (data) {
             setSettings(data.settings);
             setDefaults(toDraft(data.settings.defaults));
+            setVat(String(data.settings.vat ?? 12));
             setFields(data.fields);
         }
     }, [data]);
@@ -202,10 +205,13 @@ function FormSettings() {
                 <div className="max-w-md">
                     <DiscountTable families={data.families} value={defaults} onChange={setDefaults} errors={Object.fromEntries(Object.entries(save.errors).filter(([k]) => k.startsWith('settings.defaults.')).map(([k, v]) => [k.slice(18), v]))} max={data.maxDiscount} />
                 </div>
+                <div className="mt-5 max-w-xs">
+                    <VatInput label="ارزش افزوده پیشنهادی (٪)" hint="برای شرکت‌هایی که فاکتور رسمی می‌خواهند؛ هنگام تایید هر شرکت قابل تغییر است. همین عدد در فرم به مشتری نشان داده می‌شود." value={vat} onChange={setVat} error={save.errors['settings.vat']} />
+                </div>
             </Panel>
 
             <Panel title="فرم درخواست">
-                <p className="mb-3 text-[13px] text-muted">پنج فیلد اصلی شرکت را می‌توان خاموش یا اختیاری کرد ولی حذف نمی‌شوند. تغییر فرم، درخواست‌های قبلی را عوض نمی‌کند.</p>
+                <p className="mb-3 text-[13px] text-muted">فیلدهای اصلی شرکت را می‌توان خاموش یا اختیاری کرد ولی حذف نمی‌شوند. «فاکتور رسمی» اگر روشن باشد، اجباری بودن کد اقتصادی را خودش تعیین می‌کند: بله = اجباری، خیر = اختیاری. تغییر فرم، درخواست‌های قبلی را عوض نمی‌کند.</p>
                 <RowsEditor
                     rows={fields}
                     onChange={(rows) => {
@@ -268,7 +274,7 @@ function FormSettings() {
             </Panel>
 
             <div className="flex flex-wrap items-center gap-3">
-                <button type="button" className="btn btn-primary" disabled={save.saving} onClick={async () => { if (await save.run('/admin/api/organizations/settings', { settings: { ...settings, defaults: fromDraft(defaults) }, fields })) reload(); }}>
+                <button type="button" className="btn btn-primary" disabled={save.saving} onClick={async () => { if (await save.run('/admin/api/organizations/settings', { settings: { ...settings, defaults: fromDraft(defaults), vat: vatNumber(vat) ?? 0 }, fields })) reload(); }}>
                     <Save aria-hidden size={16} />
                     {save.saving ? 'در حال ذخیره…' : 'ذخیره فرم و تنظیمات'}
                 </button>

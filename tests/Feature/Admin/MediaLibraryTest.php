@@ -128,22 +128,6 @@ class MediaLibraryTest extends AdminTestCase
         $this->assertStringContainsString('CKEDITOR.tools.callFunction("7",', $res->getContent());
         $this->assertStringContainsString('/upload/' . $this->folder . '/cover.png', stripslashes($res->getContent()));
     }
-
-    public function test_old_admin_pages_pick_images_from_the_library(): void
-    {
-        $this->actingAsAdmin();
-
-        $this->get('/admin/blog/create')->assertOk()
-            ->assertSee('data-ckfinder-field="gallery_image_input_1"', false)
-            ->assertSee('/js/admin-image-picker.js', false)
-            ->assertSee("filebrowserUploadUrl: '/admin/ckfinder/connector?command=QuickUpload&type=Images'", false)
-            ->assertDontSee('filemanager', false)
-            ->assertDontSee('api_access', false);
-
-        // The old file manager (no login, hard-coded key) is gone from the site.
-        $this->assertDirectoryDoesNotExist(public_path('js/filemanager'));
-    }
-
     public function test_regular_admins_cannot_delete(): void
     {
         $this->actingAsAdmin($this->admin(false));

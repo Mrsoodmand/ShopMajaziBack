@@ -77,7 +77,7 @@ class OrderApiController extends Controller
             'all' => $counts->sum(),
         ];
 
-        $list = (clone $base)->with(['User:id,name,mobile', 'OrderItem:id,order_id,detail']);
+        $list = (clone $base)->with(['User:id,name,mobile', 'OrderItem:id,order_id,product_id,detail', 'OrderItem.Product:id,faName,detail']);
         match ($view) {
             'action' => $list->whereIn('status', self::NEEDS_ACTION),
             'waiting' => $list->where('status', 'waiting to pay'),
@@ -171,7 +171,9 @@ class OrderApiController extends Controller
                 'id' => (int) $order->checkout_id,
                 'orders' => Order::where('checkout_id', $order->checkout_id)->orderBy('id')->pluck('id')->map(fn ($v) => (int) $v)->values(),
             ] : null,
-            'legacyUrl' => route('admin.order single', $order->id),
+            'delivery' => \App\Services\OrderDelivery::for($order), // Apple ID / static IP / Google Voice handed over
+            // Account orders: which of the shop's own cards paid the outside service (optional; labels only here).
+            'externalCard' => $this->externalCard($order),
             'nightCall' => $order->night_call === null ? null : (bool) $order->night_call,
             'madeBy' => $order->admin_id ? (Admin::where('id', $order->admin_id)->value('full_name') ?: 'پشتیبانی') : null,
             // What the order asks the customer for (Admin\OrderMakeApiController): its own price or extra amounts.
@@ -193,7 +195,7 @@ class OrderApiController extends Controller
                 'mobile' => $user->mobile,
                 'email' => $user->email,
                 'wallet' => (int) $user->wallet,
-                'url' => route('admin.user single', $user->id),
+                'url' => route('admin.react-app', 'users/' . $user->id),
             ] : null,
             'payment' => $mainPayment ? $this->payment($jdf, $mainPayment, $refundedIds) : null,
             'payments' => $payments->map(fn ($p) => $this->payment($jdf, $p, $refundedIds))->values(),
@@ -228,8 +230,20 @@ class OrderApiController extends Controller
         if ($service !== '') {
             return $service;
         }
-        $detail = json_decode((string) optional($order->OrderItem->first())->detail, true);
-        return is_array($detail) ? ($detail['plan']['plan_name'] ?? null) : null;
+        $item = $order->OrderItem->first();
+        // Only these order types point product_id at products (a virtual number points at its own table).
+        return $item && in_array((string) $order->type, ['2', '7', '10'], true) ? $this->fullTitle($item) : null;
+    }
+
+    /** «ChatGPT subscription - Plus»: the product bought, then its plan (either may be missing). */
+    private function fullTitle(OrderItem $item): ?string
+    {
+        $detail = json_decode((string) $item->detail, true);
+        $plan = is_array($detail) ? trim((string) ($detail['plan']['plan_name'] ?? '')) : '';
+        $product = $item->Product;
+        $info = $product ? (json_decode((string) $product->detail, true) ?: []) : [];
+        $name = trim((string) preg_replace('/^\s*خرید\s+/u', '', (string) ($info['name'] ?? optional($product)->faName)));
+        return implode(' - ', array_filter([$name, $plan])) ?: null;
     }
 
     private function payment(Jdf $jdf, Payment $p, array $refundedIds): array
@@ -271,7 +285,7 @@ class OrderApiController extends Controller
                 break;
             case '2': // virtual services
             case '7': // foreign accounts
-                $title = $detail['plan']['plan_name'] ?? null;
+                $title = $this->fullTitle($item);
                 foreach ((array) $detail as $key => $field) {
                     if ($key === 'plan' || !is_array($field)) {
                         continue;
@@ -282,7 +296,7 @@ class OrderApiController extends Controller
                 }
                 break;
             case '10': // verification (App\Services\VerificationOrders): answers, and files opened from the private disk
-                $title = $detail['plan']['plan_name'] ?? null;
+                $title = $this->fullTitle($item);
                 foreach ((array) $detail as $key => $field) {
                     if ($key === 'plan' || !is_array($field)) {
                         continue;
@@ -344,5 +358,42 @@ class OrderApiController extends Controller
             return null;
         }
         return $jdf->jdate('Y/m/d H:i', strtotime((string) $value));
+    }
+
+    /** {selected, options} for an account order (type 7); null for other types. */
+    private function externalCard(Order $order): ?array
+    {
+        if ((int) $order->type !== \App\Services\AccountOrders::TYPE) {
+            return null;
+        }
+        $cards = \App\Models\ExternalCard::where('active', true)->orWhere('id', $order->external_card_id)->orderBy('title')->get();
+        return [
+            'selected' => $order->external_card_id ? (int) $order->external_card_id : null,
+            'options' => $cards->map(fn ($c) => ['id' => $c->id, 'label' => $c->label(), 'active' => $c->active])->values(),
+        ];
+    }
+
+    /** {card_id: id | null}: the shop card that paid for this account order (admin › order). */
+    public function setExternalCard(\Illuminate\Http\Request $request, $id)
+    {
+        $order = Order::find($id);
+        if (!$order || (int) $order->type !== \App\Services\AccountOrders::TYPE) {
+            return response()->json(['error' => ['این گزینه فقط برای سفارش اکانت است.']], 422);
+        }
+        $cardId = $request->input('card_id');
+        $card = $cardId ? \App\Models\ExternalCard::find((int) $cardId) : null;
+        if ($cardId && (!$card || (!$card->active && (int) $order->external_card_id !== $card->id))) {
+            return response()->json(['error' => ['این کارت پیدا نشد یا غیرفعال است.']], 422);
+        }
+        $order->external_card_id = $card?->id;
+        $order->save();
+        $h = new History();
+        $h->type = 'order';
+        $h->post_id = $order->id;
+        $adminId = (int) \Illuminate\Support\Facades\Auth::guard('admin')->id();
+        $h->detail = json_encode(['old_status' => $order->status, 'new_status' => $order->status, 'detail' => $card ? 'پرداخت با کارت: ' . $card->label() : 'کارت پرداخت برداشته شد', 'changed_by' => $adminId, 'changed_date' => now()], JSON_UNESCAPED_UNICODE);
+        $h->admin_id = $adminId;
+        $h->save();
+        return response()->json(['success' => $card ? 'کارت پرداخت ثبت شد.' : 'کارت پرداخت برداشته شد.']);
     }
 }

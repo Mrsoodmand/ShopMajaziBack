@@ -70,7 +70,23 @@ class StorefrontPanelController extends Controller
             'orders' => $Orders->map(fn($o) => $this->summary($o, $Lookup, $Refunds->get($o->id), $Pays->get($o->pay_id)))->values(),
             'tickets' => $this->tickets($User),
             'top_up' => ['min' => self::TOP_UP_MIN, 'max' => self::TOP_UP_MAX],
+            'referral' => $this->referral($User),
         ]);
+    }
+
+    /* The dashboard's referral tile: the link that records you as the referrer (CheckRefCode keeps ?ref in the
+       session, /user/login then opens the storefront's /login), who joined with it, and the commission it earned. */
+    private function referral($User): ?array
+    {
+        if (!$User->token) {
+            return null;
+        }
+        return [
+            'code' => (string)$User->token,
+            'link' => StorefrontUrl('/user/login?ref=' . rawurlencode((string)$User->token)),
+            'invited' => \App\User::where('parent_id', $User->id)->count(),
+            'earned' => (int)Payment::where('user_id', $User->id)->where('type', '5')->where('status', 'Complete')->sum('price'),
+        ];
     }
 
     /* One order with what it hands over (logins are decrypted here only, never in the list). */
@@ -582,6 +598,8 @@ class StorefrontPanelController extends Controller
             'price' => (int)$Order->price,
             // Toman an organisation account's discount took off (App\Services\Organizations); the invoice shows it.
             'discount' => $Order->discount_code === \App\Services\Organizations::CODE ? (int)$Order->discount_price : 0,
+            // VAT an official-invoice company paid on it (already inside price), for the invoice's own line.
+            'vat' => (int)$Order->vat_price > 0 ? ['percent' => (float)$Order->vat_percent, 'price' => (int)$Order->vat_price] : null,
             'paid_with' => $Pay && $Pay->gate === 'Bank' ? 'card' : 'wallet',
             'card' => $Pay && $Pay->gate === 'Bank' ? $this->maskedCard($Pay->card, $Pay->card_id) : null,
             'at' => $this->iso($Order->created_at),
@@ -631,7 +649,8 @@ class StorefrontPanelController extends Controller
             $Product = $Item ? $L['products']->get($Item->product_id) : null;
             $Info = $Product ? (json_decode((string)$Product->detail, true) ?: []) : [];
             $Platform = $Product && $Type === 2 ? $L['platforms']->get($Product->country_id) : null;
-            $Fa = $Info['name'] ?? $Product?->faName;
+            // «خرید اکانت کلاد» → «اکانت کلاد»: the order names what was bought, not the shop's "buy" heading.
+            $Fa = preg_replace('/^\s*خرید\s+/u', '', (string)($Info['name'] ?? $Product?->faName));
             $En = $Info['enName'] ?? $Info['en_name'] ?? null;
             $Data['name'] = $Product ? ['fa' => (string)$Fa, 'en' => (string)($En ?: $Fa)] : null;
             $Data['sub'] = $Platform ? ['fa' => (string)$Platform->name, 'en' => (string)($Platform->enName ?: $Platform->name), 'slug' => $Platform->slug] : null;
@@ -640,7 +659,7 @@ class StorefrontPanelController extends Controller
             // An account bought with paid add-ons: the plan and each add-on as invoice lines (AccountOrders::spec).
             $Addons = collect($Detail)->filter(fn($f) => is_array($f) && isset($f['addon']) && (int)($f['extra'] ?? 0) > 0);
             if ($Type === 7 && $Addons->isNotEmpty() && isset($Detail['plan']['price'])) {
-                $Data['bill'] = collect([['title' => (string)($Detail['plan']['plan_name'] ?? ''), 'note' => '', 'price' => (int)$Detail['plan']['price']]])
+                $Data['bill'] = collect([['title' => implode(' - ', array_filter([(string)$Fa, (string)($Detail['plan']['plan_name'] ?? '')])), 'note' => '', 'price' => (int)$Detail['plan']['price']]])
                     ->concat($Addons->map(fn($f) => ['title' => (string)$f['filed_type'], 'note' => (string)($f['label'] ?? ''), 'price' => (int)$f['extra']]))
                     ->values()->all();
             }

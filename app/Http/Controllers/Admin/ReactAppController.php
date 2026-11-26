@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * Serves the React admin panel (resources/admin). React handles every path under /admin/app.
- * Sections not yet rebuilt in React link to their old Blade pages from the sidebar.
  */
 class ReactAppController extends Controller
 {
@@ -21,7 +20,6 @@ class ReactAppController extends Controller
                 'basePath' => '/admin/app',
                 'csrfToken' => csrf_token(),
                 'links' => [
-                    'legacyHome' => route('admin.home'),
                     'logout' => url('/admin-url-login-with-secure-path/logout'),
                 ],
                 'actions' => [
@@ -165,6 +163,7 @@ class ReactAppController extends Controller
             'items' => array_values(array_filter([
                 $isSuper ? ['label' => 'ارزها و سود', 'icon' => 'pricing', 'to' => '/pricing'] : null,
                 $isSuper ? ['label' => 'درگاه‌های پرداخت', 'icon' => 'bank', 'to' => '/payment-gateways'] : null,
+                $isSuper ? ['label' => 'کارت‌های خارجی', 'icon' => 'card', 'to' => '/external-cards'] : null,
                 $isSuper ? ['label' => 'مدیریت کش', 'icon' => 'cache', 'to' => '/cache'] : null,
                 $isSuper ? ['label' => 'کپچا', 'icon' => 'captcha', 'to' => '/captcha'] : null,
                 $isSuper ? ['label' => 'پیامک', 'icon' => 'sms', 'to' => '/sms'] : null,

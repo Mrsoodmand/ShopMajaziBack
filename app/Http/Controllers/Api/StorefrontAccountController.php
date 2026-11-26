@@ -92,6 +92,9 @@ class StorefrontAccountController extends Controller
         } elseif (!$this->useCode($Mobile, $request->input('code'), true)) {
             return $this->fail('کد وارد شده صحیح نیست یا منقضی شده است.', 'wrong_code', 422);
         }
+        if ((int)$User->status === 1) { // disabled in admin › user
+            return $this->fail(\App\Http\Middleware\SignOutDisabledUser::MESSAGE, 'account_disabled', 403);
+        }
         Auth::guard('user')->login($User, true);
         $request->session()->regenerate();
         return $this->me();

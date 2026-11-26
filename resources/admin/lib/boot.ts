@@ -9,7 +9,7 @@ export type AdminBoot = {
     admin: { id: number; name: string | null };
     basePath: string;
     csrfToken: string;
-    links: { legacyHome: string; logout: string };
+    links: { logout: string };
     actions: { changeStatus: string; refund: string; sendMessage: string; saveUser: string };
     labels: {
         orderStatus: Record<string, string>;

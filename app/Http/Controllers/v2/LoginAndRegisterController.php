@@ -203,6 +203,9 @@ class LoginAndRegisterController extends Controller
                 $CheckUser = User::where('mobile', $request->input('login_mobile'))->first();
                 if (!is_null($CheckUser)) {
                     if (Hash::check($request->input('login_password'), $CheckUser->password)) {
+                        if ((int) $CheckUser->status === 1) { // disabled in admin › user
+                            return response()->json(['error' => ['login_mobile' => \App\Http\Middleware\SignOutDisabledUser::MESSAGE]], 400);
+                        }
                         Auth::guard('user')->loginUsingId($CheckUser->id);
                         if ($request->has('product_id') && $request->input('product_id') != ' ' && $request->input('product_id') != null) {
                             Session::put('Product_id_Selected', $request->input('product_id'));
@@ -468,6 +471,9 @@ class LoginAndRegisterController extends Controller
                     $CheckCode = MobileVerfiy::where('mobile', $CheckUser->mobile)->where('status', 0)->where('type', 2)->orderBy('id', 'DESC')->first();
                     if (!is_null($CheckCode)) {
                         if ($CheckCode->code == $request->input('fast_login_password')) {
+                            if ((int) $CheckUser->status === 1) { // disabled in admin › user
+                                return response()->json(['error' => ['fast_login_mobile' => \App\Http\Middleware\SignOutDisabledUser::MESSAGE]], 400);
+                            }
                             Auth::guard('user')->loginUsingId($CheckUser->id);
                             if ($request->has('product_id') && $request->input('product_id') != ' ' && $request->input('product_id') != null) {
                                 Session::put('Product_id_Selected', $request->input('product_id'));

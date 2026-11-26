@@ -49,6 +49,7 @@ class Kernel extends HttpKernel
 //            \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\HttpsProtocol::class,
             \App\Http\Middleware\CheckRefCode::class,
+            \App\Http\Middleware\SignOutDisabledUser::class, // admin › user › غیرفعال کردن حساب
 
 
         ],

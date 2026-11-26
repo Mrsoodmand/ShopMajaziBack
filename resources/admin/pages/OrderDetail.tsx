@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ArrowRight, ExternalLink, Send, Trash2 } from 'lucide-react';
 import { NightCall } from './OrdersList';
+import { DeliveryBlock, type Delivery } from './OrderDelivery';
 import { postForm, postJson, useQuery, type ApiError } from '../lib/api';
 import { useBoot } from '../lib/boot';
 import { toman } from '../lib/format';
@@ -33,7 +34,10 @@ export type Order = {
     payStatus: string | null;
     walletRefunded: boolean;
     createdAt: string | null;
-    legacyUrl: string;
+    /** Apple ID / static IP / Google Voice handed over (App\Services\OrderDelivery); null for other types. */
+    delivery: Delivery | null;
+    /** Account orders: the shop card (admin › کارت‌های خارجی) that paid the outside service; null for other types. */
+    externalCard: { selected: number | null; options: { id: number; label: string; active: boolean }[] } | null;
     /** Bought together from the storefront cart: its number (C-…) and every order in it, this one included. */
     cart: { id: number; orders: number[] } | null;
     customer: { id: number; name: string | null; mobile: string | null; email: string | null; wallet: number; url: string } | null;
@@ -59,8 +63,6 @@ export type Order = {
     } | null;
 };
 
-/** Order types whose full detail (credentials, IP config) still lives on the old page. */
-const LEGACY_DETAIL_TYPES = ['3', '4', '5', '6'];
 
 /**
  * One line of an order item. Verification orders (type 10) add files the buyer sent: `file` opens it from the private
@@ -129,10 +131,6 @@ export default function OrderDetail() {
                                 </p>
                             )}
                         </div>
-                        <a href={order.legacyUrl} className="btn btn-ghost text-[13px] font-medium">
-                            <ExternalLink aria-hidden size={15} />
-                            صفحه قدیمی سفارش
-                        </a>
                     </header>
 
                     <OrderFacts order={order} />
@@ -151,7 +149,7 @@ export default function OrderDetail() {
 
 
 
-function ItemsList({ order }: { order: Order }) {
+function ItemsList({ order, onChanged }: { order: Order; onChanged: () => void }) {
     return (
         <div className="space-y-4">
             {order.items.length === 0 && <p className="text-muted">این سفارش قلمی ثبت نکرده است.</p>}
@@ -183,15 +181,7 @@ function ItemsList({ order }: { order: Order }) {
                     )}
                 </div>
             ))}
-            {LEGACY_DETAIL_TYPES.includes(order.type) && (
-                <p className="rounded-xl bg-surface-2 px-4 py-3 text-body">
-                    جزئیات کامل این نوع سفارش (اطلاعات تحویل و تکمیل آن) هنوز در{' '}
-                    <a href={order.legacyUrl} className="font-medium text-indigo underline underline-offset-4">
-                        صفحه قدیمی سفارش
-                    </a>{' '}
-                    است.
-                </p>
-            )}
+            {order.delivery && <DeliveryBlock order={order} delivery={order.delivery} onChanged={onChanged} />}
             {order.discountCode && (
                 <dl className="m-0 border-t border-stroke pt-2">
                     <Row label="کد تخفیف">{order.discountCode}</Row>
@@ -235,7 +225,7 @@ function OrderTabs({ order, onChanged }: { order: Order; onChanged: () => void }
             <TabPanel id="order" tab={tab}>
                 {tab === 'items' ? (
                     <Panel title="اقلام سفارش">
-                        <ItemsList order={order} />
+                        <ItemsList order={order} onChanged={onChanged} />
                     </Panel>
                 ) : tab === 'customer' ? (
                     <CustomerPanel order={order} />
@@ -645,10 +635,53 @@ function ActionsPanel({ order, onChanged }: { order: Order; onChanged: () => voi
                     <div className="my-5 border-t border-stroke" />
                 </>
             )}
+            {order.externalCard && (
+                <>
+                    <ExternalCardForm order={order} onChanged={onChanged} />
+                    <div className="my-5 border-t border-stroke" />
+                </>
+            )}
             <StatusForm order={order} onChanged={onChanged} />
             <div className="my-5 border-t border-stroke" />
             <RefundForm order={order} onChanged={onChanged} />
         </Panel>
+    );
+}
+
+/** Account order: which shop card paid for it (optional). Saves on change. */
+function ExternalCardForm({ order, onChanged }: { order: Order; onChanged: () => void }) {
+    const { csrfToken } = useBoot();
+    const id = useId();
+    const ec = order.externalCard!;
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    async function pick(value: string) {
+        setBusy(true);
+        setMsg(null);
+        try {
+            const res = await postJson<{ success?: string }>(`/admin/api/orders/${order.id}/external-card`, csrfToken, { card_id: value ? Number(value) : null });
+            setMsg({ ok: true, text: res.success ?? 'ذخیره شد.' });
+            onChanged();
+        } catch (e) {
+            setMsg({ ok: false, text: (e as Error).message });
+        } finally {
+            setBusy(false);
+        }
+    }
+    return (
+        <div>
+            <label htmlFor={id} className="mb-1 block font-medium">
+                پرداخت با کارت <span className="font-normal text-muted">(اختیاری)</span>
+            </label>
+            <select id={id} className="field" value={ec.selected ?? ''} disabled={busy} onChange={(e) => pick(e.target.value)}>
+                <option value="">— انتخاب نشده —</option>
+                {ec.options.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}{c.active ? '' : ' (غیرفعال)'}</option>
+                ))}
+            </select>
+            {ec.options.length === 0 && <p className="mt-1.5 text-[13px] text-muted">هنوز کارتی در «کارت‌های خارجی» ثبت نشده است.</p>}
+            {msg && <p role={msg.ok ? 'status' : 'alert'} className={`mt-1.5 text-[13px] font-medium ${msg.ok ? 'text-success' : 'text-error'}`}>{msg.text}</p>}
+        </div>
     );
 }
 
