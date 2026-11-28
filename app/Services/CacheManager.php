@@ -33,7 +33,8 @@ class CacheManager
         'apple-id' => ['اپل آیدی', 0, null],
         'accounts' => ['اکانت‌ها و تلگرام پریمیوم', 60, null],
         'telegram-stars' => ['استارز تلگرام', 60, null],
-        'prices' => ['قیمت‌ها (هدر و صفحه اصلی)', 600, null],
+        'prices' => ['قیمت‌ها (صفحه اصلی و صفحه‌ها)', 600, null],
+        'picks' => ['آیتم‌های منو و صفحه اصلی', 3600, 'با ذخیره اکانت، خدمت، پلتفرم یا محصول وریفای در ادمین فوراً تازه می‌شود.'],
         'blog' => ['بلاگ', 3600, null],
         'comments' => ['نظرات', 120, null],
         'testimonials' => ['نظرات صفحه اصلی', 600, null],
@@ -41,6 +42,9 @@ class CacheManager
     ];
 
     public const KINDS = ['app', 'config', 'route', 'view', 'gv', 'storefront'];
+
+    /* Laravel's copy of the menu and home items (Api\StorefrontController::picks). */
+    public const PICKS_KEY = 'storefront-picks';
 
     private const MAX_SECONDS = 86400;
 
@@ -109,6 +113,9 @@ class CacheManager
                     if ($Section !== null && !isset(self::SECTIONS[$Section])) {
                         return [false, 'این بخش وجود ندارد.'];
                     }
+                    if ($Section === null || $Section === 'picks') {
+                        Cache::forget(self::PICKS_KEY); // the storefront would refetch Laravel's own cached copy
+                    }
                     [$Ok, $Message] = $this->revalidate($Section ? "storefront:$Section" : 'storefront');
                     if (!$Ok) {
                         return [false, $Message];
@@ -138,6 +145,19 @@ class CacheManager
         if (!$Ok) {
             Log::warning('Storefront cache not refreshed', ['section' => $Section, 'reason' => $Message]);
         }
+    }
+
+    /*
+     * An account, service, social platform or verification product was saved in admin: the header menu and the home
+     * page's items may have changed (a name, logo, menu/home switch, or the product going live or off). Rebuilds
+     * Laravel's copy and drops the storefront's, so the next visit shows the change. The "prices" section too, so
+     * a newly added item gets its price at once.
+     */
+    public function refreshPicks(): void
+    {
+        Cache::forget(self::PICKS_KEY);
+        $this->refreshStorefront('picks');
+        $this->refreshStorefront('prices');
     }
 
     /* Asks the storefront (Next.js) to drop its cached data with this tag: [ok, message]. */

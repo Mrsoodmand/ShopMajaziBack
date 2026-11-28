@@ -66,7 +66,7 @@ class ServiceApiController extends Controller
             'metaDesc' => 'nullable|string',
         ], $this->messages());
 
-        // The header menu holds at most MENU_LIMIT social platforms (Api\StorefrontController::prices).
+        // The header menu holds at most MENU_LIMIT social platforms (Api\StorefrontController::picks).
         if (!empty($data['inMenu'])) {
             $others = Category::where('type', 'product')->where('in_menu', 1)->when($category->id, fn ($q) => $q->where('id', '!=', $category->id))->pluck('name');
             if ($others->count() >= self::MENU_LIMIT) {
@@ -76,7 +76,6 @@ class ServiceApiController extends Controller
             }
         }
 
-        $menuBefore = [(bool) $category->in_menu, (bool) $category->on_home];
         $category->forceFill([
             'type' => 'product',
             'name' => $data['name'],
@@ -97,10 +96,9 @@ class ServiceApiController extends Controller
             'meta_title' => $data['metaTitle'] ?? null,
             'meta_desc' => $data['metaDesc'] ?? null,
         ])->save();
-        // The header menu and home window read these (storefront "prices" section): show the change now.
-        if ($menuBefore !== [(bool) $category->in_menu, (bool) $category->on_home]) {
-            app(\App\Services\CacheManager::class)->refreshStorefront('prices');
-        }
+        // The header menu and home window show the platform's name, logo and description (storefront "picks"
+        // section, cached until a save like this one): show the change now.
+        app(\App\Services\CacheManager::class)->refreshPicks();
 
         return response()->json(['success' => $id ? 'پلتفرم ذخیره شد.' : 'پلتفرم ساخته شد.', 'category' => $this->category($category)]);
     }
@@ -293,6 +291,9 @@ class ServiceApiController extends Controller
             }
             Plan::where('product_id', $p->id)->whereNotIn('id', $keep)->delete();
         });
+        // A platform is in the menu / on the home page only while it has a live service; its home price is the
+        // cheapest one: show the change now.
+        app(\App\Services\CacheManager::class)->refreshPicks();
 
         return response()->json(['success' => $id ? 'سرویس ذخیره شد.' : 'سرویس ساخته شد.', 'id' => $p->id]);
     }

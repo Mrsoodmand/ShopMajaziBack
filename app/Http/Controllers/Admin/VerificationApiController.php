@@ -27,7 +27,7 @@ class VerificationApiController extends Controller
     use AdminApi;
 
     private const TYPE = VerificationOrders::PRODUCT_TYPE;
-    // Products in the header menu's «وریفای» group (Api\StorefrontController::prices › picks.menu.verify).
+    // Products in the header menu's «وریفای» group (Api\StorefrontController::picks › menu.verify).
     public const MENU_LIMIT = 6;
     // Products in the home page shop window's «وریفای» tab (picks.home.verify).
     public const HOME_LIMIT = 8;
@@ -288,8 +288,9 @@ class VerificationApiController extends Controller
             Plan::where('product_id', $p->id)->where('type', self::TYPE)->whereNotIn('id', $keep)->delete();
         });
 
-        // The home page's Verification tab and its "from" prices read the storefront "prices" section: show the change now.
-        app(\App\Services\CacheManager::class)->refreshStorefront('prices');
+        // The header menu and the home page's Verification tab (storefront "picks" section, cached until a save like
+        // this one) and their "from" prices: show the change now.
+        app(\App\Services\CacheManager::class)->refreshPicks();
 
         return response()->json(['success' => $id ? 'تغییرات ذخیره شد.' : 'محصول ساخته شد.', 'id' => $p->id]);
     }

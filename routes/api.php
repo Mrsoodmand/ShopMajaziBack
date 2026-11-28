@@ -38,6 +38,7 @@ Route::group(['prefix' => 'v1/storefront'], function () {
     Route::get('telegram-stars', 'Api\StorefrontController@telegramStars');
     Route::get('apple-id', 'Api\StorefrontController@appleId');
     Route::get('prices', 'Api\StorefrontController@prices');
+    Route::get('picks', 'Api\StorefrontController@picks'); // header menu + home items, cached until the admin saves one
     Route::get('seo', 'Api\StorefrontController@seo');
     // Customer comments (StorefrontCommentController): approved ones to read, new ones wait for the admin.
     Route::get('comments', 'Api\StorefrontCommentController@index');

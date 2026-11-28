@@ -354,33 +354,18 @@ class StorefrontController extends Controller
     /*
      * For the Persian site, which shows every price in Toman: the dollar rate (currencies #1, sell) to convert
      * prices that are still in dollars, and the real lowest price (Toman) of each live service, keyed by its page.
-     * Also `picks`: the accounts and social platforms the admin put in the header menu and on the home page.
+     * Computed on every call (the storefront keeps it 10 minutes): prices follow the dollar rate and plan prices.
+     * The admin's menu and home items are picks() below.
      */
     public function prices(AppleIds $Apple, AccountOrders $Accounts): JsonResponse
     {
         $From = [];
-        $Picks = ['menu' => ['subs' => [], 'social' => [], 'verify' => []], 'home' => ['subs' => [], 'social' => [], 'verify' => []]];
         // Subscriptions: each one's cheapest plan (its own profit included), keyed by its page.
-        $Products = Product::where('type', 'accounts')->where('status', 1)
-            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        $Products = Product::where('type', 'accounts')->where('status', 1)->get();
         $Plans = $Accounts->plansFor($Products);
         foreach ($Products as $Product) {
             $Row = $Accounts->product($Product, $Plans->get($Product->id, collect()), 0);
             $Min = $Row ? collect($Row['plans'] ?? [])->pluck('price')->filter()->min() : null;
-            // Admin-chosen accounts for the header menu (at most 6) and the home page's shop window.
-            if ($Row && ($Product->in_menu || $Product->on_home)) {
-                $Item = [
-                    'href' => '/accounts/' . $Product->slug, 'name' => $Row['name'], 'name_en' => $Row['en_name'],
-                    'desc' => $Row['tagline'], 'desc_en' => $Row['tagline_en'], 'image' => $Row['image'], 'color' => $Row['color'],
-                    'from' => $Min ? (int)$Min : null,
-                ];
-                if ($Product->in_menu && count($Picks['menu']['subs']) < \App\Http\Controllers\Admin\AccountApiController::MENU_LIMIT) {
-                    $Picks['menu']['subs'][] = $Item;
-                }
-                if ($Product->on_home) {
-                    $Picks['home']['subs'][] = $Item;
-                }
-            }
             if ($Min) {
                 $From['/accounts/' . $Product->slug] = (int) $Min;
                 $From['/accounts'] = min($From['/accounts'] ?? PHP_INT_MAX, (int) $Min);
@@ -389,34 +374,18 @@ class StorefrontController extends Controller
                 }
             }
         }
-        // Verification (/verify): the home page's shop window tab shows the products the admin put on the home page
-        // (admin › وریفای › نمایش در صفحه اول); with none chosen, every live product (up to 8).
-        $Verification = app(\App\Services\VerificationOrders::class);
-        $VProducts = Product::where('type', \App\Services\VerificationOrders::PRODUCT_TYPE)->where('status', 1)
-            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        // Verification (/verify): each live product's cheapest plan.
+        $Verification = app(VerificationOrders::class);
+        $VProducts = Product::where('type', VerificationOrders::PRODUCT_TYPE)->where('status', 1)->get();
         $VPlans = $Verification->plansFor($VProducts);
-        $Home = [];
         foreach ($VProducts as $Product) {
             $Row = $Verification->product($Product, $VPlans->get($Product->id, collect()));
             $Min = $Row ? collect($Row['plans'])->pluck('price')->filter()->min() : null;
-            if (!$Row || !$Min) {
-                continue;
-            }
-            $From['/verify/' . $Product->slug] = (int)$Min;
-            $From['/verify'] = min($From['/verify'] ?? PHP_INT_MAX, (int)$Min);
-            $Item = [
-                'href' => '/verify/' . $Product->slug, 'name' => $Row['name'], 'name_en' => $Row['en_name'],
-                'desc' => $Row['tagline'], 'desc_en' => $Row['tagline_en'], 'image' => $Row['image'], 'color' => $Row['color'],
-                'from' => (int)$Min,
-            ];
-            $Home[] = [$Item, (bool)$Product->on_home];
-            // The header menu: only the ones the admin switched on (admin › وریفای › نمایش در منو).
-            if ($Product->in_menu && count($Picks['menu']['verify']) < \App\Http\Controllers\Admin\VerificationApiController::MENU_LIMIT) {
-                $Picks['menu']['verify'][] = $Item;
+            if ($Min) {
+                $From['/verify/' . $Product->slug] = (int)$Min;
+                $From['/verify'] = min($From['/verify'] ?? PHP_INT_MAX, (int)$Min);
             }
         }
-        $Chosen = array_filter($Home, fn($h) => $h[1]);
-        $Picks['home']['verify'] = array_slice(array_column($Chosen ?: $Home, 0), 0, \App\Http\Controllers\Admin\VerificationApiController::HOME_LIMIT);
         $Prices = $Apple->prices();
         if ($Prices['ready'] > 0) {
             $From['/apple-id/usa'] = $From['/apple-id'] = $Prices['ready'];
@@ -436,27 +405,14 @@ class StorefrontController extends Controller
                 $From['/google-voice'] = (int)min($Gv);
             }
         } catch (\Throwable $e) {
-            report($e); // Numberland down: the menu falls back to the converted dollar price
+            report($e); // Numberland down: the storefront falls back to the converted dollar price
         }
-
-        // Admin-chosen social platforms for the menu (at most 4) and the home page, with their cheapest Toman per 1,000.
-        if (Category::where('type', 'product')->where(fn($q) => $q->where('in_menu', 1)->orWhere('on_home', 1))->exists()) {
-            $Chosen = Category::where('type', 'product')->where(fn($q) => $q->where('in_menu', 1)->orWhere('on_home', 1))->get()->keyBy('id');
+        // Social platforms on the home page: the cheapest Toman per 1,000, keyed by the platform's page. Only worked
+        // out while some platform is on the home page (the built-in cards keep their own prices otherwise).
+        if (Category::where('type', 'product')->where('on_home', 1)->exists()) {
             foreach ($this->serviceCategories() as $Category) {
-                $Flags = $Chosen->get($Category['id']);
-                if (!$Flags) {
-                    continue;
-                }
-                $Item = [
-                    'href' => '/virtual-service/' . $Category['slug'], 'name' => $Category['name'], 'name_en' => $Category['en_name'],
-                    'desc' => $Category['tagline'], 'desc_en' => $Category['tagline_en'], 'image' => $Category['logo'], 'color' => $Category['color'],
-                    'from' => $Category['from_per_1000'] ? (int)$Category['from_per_1000'] : null,
-                ];
-                if ($Flags->in_menu && count($Picks['menu']['social']) < \App\Http\Controllers\Admin\ServiceApiController::MENU_LIMIT) {
-                    $Picks['menu']['social'][] = $Item;
-                }
-                if ($Flags->on_home) {
-                    $Picks['home']['social'][] = $Item;
+                if ($Category['from_per_1000']) {
+                    $From['/virtual-service/' . $Category['slug']] = (int)$Category['from_per_1000'];
                 }
             }
         }
@@ -464,9 +420,91 @@ class StorefrontController extends Controller
         return $this->success([
             'usd' => (int)round(\App\Services\Pricing::servicesRate()), // dollar + profit, for prices still in dollars
             'from' => $From,
-            // Empty lists = the storefront keeps its built-in menu and home items.
-            'picks' => $Picks,
         ]);
+    }
+
+    /*
+     * The accounts, social platforms and verification products the admin put in the header menu and on the home
+     * page's shop window. No prices (those are prices() › from, by href), so this stays cached until the admin
+     * saves one of them (CacheManager::refreshPicks drops it here and in the storefront); a day at most.
+     * Empty lists = the storefront keeps its built-in menu and home items.
+     */
+    public function picks(): JsonResponse
+    {
+        return $this->success(\Illuminate\Support\Facades\Cache::remember(
+            \App\Services\CacheManager::PICKS_KEY, 86400, fn() => $this->buildPicks()
+        ));
+    }
+
+    private function buildPicks(): array
+    {
+        $Picks = ['menu' => ['subs' => [], 'social' => [], 'verify' => []], 'home' => ['subs' => [], 'social' => [], 'verify' => []]];
+        $Item = fn(string $Href, array $Row, ?string $Image) => [
+            'href' => $Href, 'name' => $Row['name'], 'name_en' => $Row['en_name'],
+            'desc' => $Row['tagline'], 'desc_en' => $Row['tagline_en'], 'image' => $Image, 'color' => $Row['color'],
+        ];
+
+        // Subscriptions: the admin-chosen accounts for the header menu (at most 6) and the home page's shop window.
+        $Accounts = app(AccountOrders::class);
+        $Products = Product::where('type', 'accounts')->where('status', 1)
+            ->where(fn($q) => $q->where('in_menu', 1)->orWhere('on_home', 1))
+            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        $Plans = $Accounts->plansFor($Products);
+        foreach ($Products as $Product) {
+            $Row = $Accounts->product($Product, $Plans->get($Product->id, collect()), 0);
+            if (!$Row) {
+                continue;
+            }
+            $One = $Item('/accounts/' . $Product->slug, $Row, $Row['image']);
+            if ($Product->in_menu && count($Picks['menu']['subs']) < \App\Http\Controllers\Admin\AccountApiController::MENU_LIMIT) {
+                $Picks['menu']['subs'][] = $One;
+            }
+            if ($Product->on_home) {
+                $Picks['home']['subs'][] = $One;
+            }
+        }
+
+        // Verification (/verify): live products (with a priced plan). The home page's tab shows the ones the admin put
+        // on the home page (admin › وریفای › نمایش در صفحه اول), or with none chosen every live product (up to 8);
+        // the header menu only the ones switched on (admin › وریفای › نمایش در منو).
+        $Verification = app(VerificationOrders::class);
+        $VProducts = Product::where('type', VerificationOrders::PRODUCT_TYPE)->where('status', 1)
+            ->orderByRaw('sort IS NULL')->orderBy('sort')->orderByDesc('id')->get();
+        $VPlans = $Verification->plansFor($VProducts);
+        $Home = [];
+        foreach ($VProducts as $Product) {
+            $Row = $Verification->product($Product, $VPlans->get($Product->id, collect()));
+            if (!$Row || !collect($Row['plans'])->pluck('price')->filter()->min()) {
+                continue;
+            }
+            $One = $Item('/verify/' . $Product->slug, $Row, $Row['image']);
+            $Home[] = [$One, (bool)$Product->on_home];
+            if ($Product->in_menu && count($Picks['menu']['verify']) < \App\Http\Controllers\Admin\VerificationApiController::MENU_LIMIT) {
+                $Picks['menu']['verify'][] = $One;
+            }
+        }
+        $Chosen = array_filter($Home, fn($h) => $h[1]);
+        $Picks['home']['verify'] = array_slice(array_column($Chosen ?: $Home, 0), 0, \App\Http\Controllers\Admin\VerificationApiController::HOME_LIMIT);
+
+        // Social platforms (with at least one live service) chosen for the menu (at most 4) and the home page.
+        $Flags = Category::where('type', 'product')->where(fn($q) => $q->where('in_menu', 1)->orWhere('on_home', 1))->get()->keyBy('id');
+        if ($Flags->isNotEmpty()) {
+            foreach ($this->serviceCategories() as $Category) {
+                $Flag = $Flags->get($Category['id']);
+                if (!$Flag) {
+                    continue;
+                }
+                $One = $Item('/virtual-service/' . $Category['slug'], $Category, $Category['logo']);
+                if ($Flag->in_menu && count($Picks['menu']['social']) < \App\Http\Controllers\Admin\ServiceApiController::MENU_LIMIT) {
+                    $Picks['menu']['social'][] = $One;
+                }
+                if ($Flag->on_home) {
+                    $Picks['home']['social'][] = $One;
+                }
+            }
+        }
+
+        return $Picks;
     }
 
     /*

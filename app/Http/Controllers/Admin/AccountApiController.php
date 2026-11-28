@@ -209,7 +209,7 @@ class AccountApiController extends Controller
             }
         }
 
-        // The header menu holds at most MENU_LIMIT accounts (Api\StorefrontController::prices).
+        // The header menu holds at most MENU_LIMIT accounts (Api\StorefrontController::picks).
         if (!empty($data['inMenu'])) {
             $others = Product::where('type', 'accounts')->where('in_menu', 1)->when($p->id, fn ($q) => $q->where('id', '!=', $p->id))->pluck('faName');
             if ($others->count() >= self::MENU_LIMIT) {
@@ -219,7 +219,6 @@ class AccountApiController extends Controller
             }
         }
 
-        $menuBefore = [(bool) $p->in_menu, (bool) $p->on_home];
         DB::transaction(function () use ($p, $data) {
             $detail = array_merge($this->decode($p->detail), [
                 'name' => $data['name'],
@@ -299,10 +298,9 @@ class AccountApiController extends Controller
             }
             Plan::where('product_id', $p->id)->where('type', 'accounts')->whereNotIn('id', $keep)->delete();
         });
-        // The header menu and home window read these (storefront "prices" section): show the change now.
-        if ($menuBefore !== [(bool) $p->in_menu, (bool) $p->on_home]) {
-            app(\App\Services\CacheManager::class)->refreshStorefront('prices');
-        }
+        // The header menu and home window show the account's name, logo and description (storefront "picks"
+        // section, cached until a save like this one) and its cheapest plan: show the change now.
+        app(\App\Services\CacheManager::class)->refreshPicks();
 
         return response()->json(['success' => $id ? 'تغییرات ذخیره شد.' : 'اکانت ساخته شد.', 'id' => $p->id]);
     }
